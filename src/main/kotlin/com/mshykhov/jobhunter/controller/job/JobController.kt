@@ -1,7 +1,7 @@
-package com.mshykhov.jobhunter.controller
+package com.mshykhov.jobhunter.controller.job
 
-import com.mshykhov.jobhunter.model.dto.JobIngestRequest
-import com.mshykhov.jobhunter.model.dto.JobResponse
+import com.mshykhov.jobhunter.controller.job.dto.JobIngestRequest
+import com.mshykhov.jobhunter.controller.job.dto.JobResponse
 import com.mshykhov.jobhunter.service.JobService
 import jakarta.validation.Valid
 import org.springframework.security.access.prepost.PreAuthorize

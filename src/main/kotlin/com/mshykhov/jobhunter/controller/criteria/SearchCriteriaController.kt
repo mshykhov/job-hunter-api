@@ -1,6 +1,7 @@
-package com.mshykhov.jobhunter.controller
+package com.mshykhov.jobhunter.controller.criteria
 
-import com.mshykhov.jobhunter.model.dto.SearchCriteriaResponse
+import com.mshykhov.jobhunter.controller.criteria.dto.SearchCriteriaResponse
+import com.mshykhov.jobhunter.persistence.model.JobSource
 import com.mshykhov.jobhunter.service.SearchCriteriaService
 import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.GetMapping
@@ -16,6 +17,6 @@ class SearchCriteriaController(
     @GetMapping
     @PreAuthorize("hasAuthority('SCOPE_read:criteria')")
     fun get(
-        @RequestParam source: String,
+        @RequestParam source: JobSource,
     ): SearchCriteriaResponse = searchCriteriaService.getAggregated(source)
 }

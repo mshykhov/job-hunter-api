@@ -1,8 +1,7 @@
-package com.mshykhov.jobhunter.model.dto
+package com.mshykhov.jobhunter.controller.job.dto
 
 import com.mshykhov.jobhunter.persistence.model.JobSource
 import jakarta.validation.constraints.NotBlank
-import java.time.Instant
 
 data class JobIngestRequest(
     @field:NotBlank
@@ -17,5 +16,5 @@ data class JobIngestRequest(
     val salary: String? = null,
     val location: String? = null,
     val remote: Boolean = false,
-    val publishedAt: Instant? = null,
+    val publishedAt: String? = null,
 )

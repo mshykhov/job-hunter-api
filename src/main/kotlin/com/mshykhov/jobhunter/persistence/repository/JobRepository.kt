@@ -11,5 +11,7 @@ interface JobRepository : JpaRepository<JobEntity, UUID> {
 
     fun findBySource(source: JobSource): List<JobEntity>
 
+    fun findByUrl(url: String): JobEntity?
+
     fun existsByUrl(url: String): Boolean
 }
