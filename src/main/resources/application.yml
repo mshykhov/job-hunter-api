@@ -3,9 +3,9 @@ spring:
     name: job-hunter-api
 
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:jobhunter}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5440}/${DB_NAME:jobhunter}
     username: ${DB_USERNAME:jobhunter}
-    password: ${DB_PASSWORD:}
+    password: ${DB_PASSWORD:jobhunter}
     hikari:
       maximum-pool-size: ${DB_POOL_SIZE:10}
 
