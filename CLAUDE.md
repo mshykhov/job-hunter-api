@@ -57,15 +57,15 @@
 ```
 com.mshykhov.jobhunter/
 ├── config/              # Spring @Configuration beans
-├── controller/          # REST controllers
+├── controller/          # GlobalExceptionHandler, ErrorResponse
+│   ├── job/             # JobController + DTOs (JobIngestRequest, JobResponse)
+│   └── criteria/        # SearchCriteriaController + DTOs (SearchCriteriaResponse)
 ├── service/             # Business logic
 ├── persistence/
 │   ├── model/           # @Entity classes, enums
 │   ├── repository/      # Spring Data JPA interfaces
 │   └── facade/          # @Transactional facades
-├── model/
-│   └── dto/             # Request/Response DTOs
-└── exception/           # Custom exceptions
+└── exception/           # Business exceptions (NotFoundException)
 ```
 
 ---

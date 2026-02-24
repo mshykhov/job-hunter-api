@@ -24,7 +24,6 @@ import org.springframework.security.web.SecurityFilterChain
 
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity
 @EnableConfigurationProperties(Auth0Properties::class)
 class SecurityConfig(
     private val auth0Properties: Auth0Properties,
@@ -103,6 +102,16 @@ class SecurityConfig(
         return jwtDecoder
     }
 }
+
+@Configuration
+@ConditionalOnProperty(
+    prefix = "jobhunter.auth0",
+    name = ["enabled"],
+    havingValue = "true",
+    matchIfMissing = true,
+)
+@EnableMethodSecurity
+class MethodSecurityConfig
 
 class AudienceValidator(
     private val audience: String,

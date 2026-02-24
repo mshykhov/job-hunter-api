@@ -4,7 +4,7 @@ Kotlin Spring Boot backend for job vacancy monitoring and tracking. Part of the 
 
 ## Overview
 
-REST API that receives scraped job listings from n8n workflows, stores them in PostgreSQL, and provides endpoints for managing vacancies. Includes a Telegram bot for push notifications.
+REST API that receives scraped job listings from n8n workflows, stores them in PostgreSQL, and provides aggregated search criteria for scraping configuration.
 
 ## Tech Stack
 
@@ -15,10 +15,9 @@ REST API that receives scraped job listings from n8n workflows, stores them in P
 | Spring Data JPA | - | Database access |
 | PostgreSQL | 16 | Database |
 | Flyway | - | Schema migrations |
+| Auth0 / OAuth2 | - | Authorization |
 | SpringDoc OpenAPI | 2.8 | API documentation |
 | Testcontainers | - | Integration testing |
-| Docker | - | Containerization |
-| Helm | - | Kubernetes deployment |
 
 ## Quick Start
 
@@ -31,33 +30,34 @@ docker compose up -d
 ./gradlew bootRun --args='--spring.profiles.active=local'
 ```
 
-Open [http://localhost:8080/swagger-ui](http://localhost:8080/swagger-ui) for API docs.
+## API Documentation
+
+Swagger UI: [http://localhost:8095/swagger-ui](http://localhost:8095/swagger-ui)
+
+OpenAPI spec: [http://localhost:8095/api-docs](http://localhost:8095/api-docs)
 
 ## Project Structure
 
 ```
 src/main/kotlin/com/mshykhov/jobhunter/
 ├── config/              # Spring configuration
-├── domain/
+├── controller/
+│   ├── job/             # Job endpoints + DTOs
+│   └── criteria/        # Search criteria endpoints + DTOs
+├── service/             # Business logic
+├── persistence/
 │   ├── model/           # JPA entities, enums
-│   └── repository/      # Spring Data repositories
-├── application/
-│   └── service/         # Business logic
-├── infrastructure/
-│   ├── persistence/     # JPA-specific implementations
-│   └── telegram/        # Telegram bot integration
-└── web/
-    ├── controller/      # REST controllers
-    └── dto/             # Request/Response objects
+│   ├── repository/      # Spring Data JPA interfaces
+│   └── facade/          # Transactional facades
+└── exception/           # Error handling, exceptions
 ```
 
 ## API Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/api/jobs/ingest` | Receive jobs from n8n |
-| `GET` | `/api/jobs` | List jobs with filters |
-| `PATCH` | `/api/jobs/{id}/status` | Update job status |
+| `POST` | `/jobs/ingest` | Batch ingest jobs from n8n |
+| `GET` | `/criteria?source={SOURCE}` | Aggregated search criteria for n8n |
 | `GET` | `/actuator/health` | Health check |
 
 ## Environment Variables
@@ -65,11 +65,14 @@ src/main/kotlin/com/mshykhov/jobhunter/
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `DB_HOST` | `localhost` | PostgreSQL host |
-| `DB_PORT` | `5433` | PostgreSQL port |
+| `DB_PORT` | `5440` | PostgreSQL port |
 | `DB_NAME` | `jobhunter` | Database name |
 | `DB_USERNAME` | `jobhunter` | Database user |
-| `DB_PASSWORD` | - | Database password |
+| `DB_PASSWORD` | `jobhunter` | Database password |
 | `SERVER_PORT` | `8080` | Application port |
+| `AUTH0_ENABLED` | `true` | Enable/disable Auth0 |
+| `AUTH0_ISSUER` | - | Auth0 issuer URL |
+| `AUTH0_AUDIENCE` | - | Auth0 audience |
 
 ## License
 

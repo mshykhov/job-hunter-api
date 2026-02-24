@@ -3,6 +3,8 @@ package com.mshykhov.jobhunter.exception
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.http.converter.HttpMessageNotReadableException
+import org.springframework.security.authorization.AuthorizationDeniedException
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
@@ -20,6 +22,14 @@ class GlobalExceptionHandler {
         val errors = ex.bindingResult.fieldErrors.joinToString("; ") { "${it.field}: ${it.defaultMessage}" }
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ErrorResponse(errors, "VALIDATION_ERROR"))
     }
+
+    @ExceptionHandler(HttpMessageNotReadableException::class)
+    fun handleBadRequest(ex: HttpMessageNotReadableException): ResponseEntity<ErrorResponse> =
+        ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ErrorResponse("Malformed request body", "BAD_REQUEST"))
+
+    @ExceptionHandler(AuthorizationDeniedException::class)
+    fun handleForbidden(ex: AuthorizationDeniedException): ResponseEntity<ErrorResponse> =
+        ResponseEntity.status(HttpStatus.FORBIDDEN).body(ErrorResponse("Access denied", "FORBIDDEN"))
 
     @ExceptionHandler(Exception::class)
     fun handleUnexpected(ex: Exception): ResponseEntity<ErrorResponse> {
