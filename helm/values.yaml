@@ -1,0 +1,77 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/mshykhov/job-hunter-api
+  pullPolicy: IfNotPresent
+  tag: ""
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+service:
+  type: ClusterIP
+  port: 8080
+
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+  hosts:
+    - host: api.jobhunter.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+livenessProbe:
+  httpGet:
+    path: /actuator/health/liveness
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /actuator/health/readiness
+    port: http
+  initialDelaySeconds: 15
+  periodSeconds: 5
+
+startupProbe:
+  httpGet:
+    path: /actuator/health
+    port: http
+  failureThreshold: 30
+  periodSeconds: 10
+
+env:
+  - name: JAVA_OPTS
+    value: "-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
+  - name: DB_HOST
+    value: ""
+  - name: DB_PORT
+    value: "5432"
+  - name: DB_NAME
+    value: "jobhunter"
+  - name: DB_USERNAME
+    value: ""
+  - name: SERVER_PORT
+    value: "8080"
+  - name: AUTH0_ENABLED
+    value: "true"
+
+secrets:
+  enabled: false
+  data:
+    - DB_PASSWORD
+    - AUTH0_ISSUER
+    - AUTH0_AUDIENCE
