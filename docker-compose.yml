@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: job-hunter-api-db
+    restart: unless-stopped
+    ports:
+      - "${DB_PORT:-5433}:5432"
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-jobhunter}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-jobhunter}
+      POSTGRES_DB: ${DB_NAME:-jobhunter}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h localhost -U ${DB_USERNAME:-jobhunter} -d ${DB_NAME:-jobhunter}"]
+      interval: 5s
+      timeout: 1s
+      retries: 10
+
+volumes:
+  db_data:
