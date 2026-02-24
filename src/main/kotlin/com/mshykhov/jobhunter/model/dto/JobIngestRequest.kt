@@ -1,5 +1,6 @@
 package com.mshykhov.jobhunter.model.dto
 
+import com.mshykhov.jobhunter.persistence.model.JobSource
 import jakarta.validation.constraints.NotBlank
 import java.time.Instant
 
@@ -12,8 +13,7 @@ data class JobIngestRequest(
     val url: String,
     @field:NotBlank
     val description: String,
-    @field:NotBlank
-    val source: String,
+    val source: JobSource,
     val salary: String? = null,
     val location: String? = null,
     val remote: Boolean = false,

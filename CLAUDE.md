@@ -98,10 +98,13 @@ com.mshykhov.jobhunter/
 - **UUID primary keys** — `gen_random_uuid()` in PostgreSQL
 
 ### REST API
-- Base path: `/api/jobs`
-- Ingest endpoint: `POST /api/jobs/ingest` (called by n8n workflows)
+- No `/api` prefix — endpoints at root path
 - Validation via `@Valid` + Bean Validation annotations
-- Error responses: structured JSON with status, message, timestamp
+- **Enums in DTOs** — use enum types directly (e.g., `JobSource`, `JobStatus`), Jackson auto-converts
+- **Auth0 OAuth2** — scope-based `@PreAuthorize` (`SCOPE_write:jobs`, `SCOPE_read:criteria`)
+- Auth0 toggleable via `jobhunter.auth0.enabled` property
+- **Persistable\<UUID\>** pattern — non-nullable IDs, `@PostPersist`/`@PostLoad` for isNew tracking
+- **JPA Auditing** — `@CreatedDate`/`@LastModifiedDate` with custom `Clock` bean for testability
 
 ### Testing
 - **Unit tests** — MockK for mocking, JUnit 5
@@ -125,12 +128,11 @@ Controller → Service → Facade → Repository
 
 ## Key Endpoints
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/api/jobs/ingest` | Receive jobs from n8n |
-| `GET` | `/api/jobs` | List jobs with filters |
-| `PATCH` | `/api/jobs/{id}/status` | Update job status |
-| `GET` | `/actuator/health` | Health check |
+| Method | Path | Scope | Description |
+|--------|------|-------|-------------|
+| `POST` | `/jobs/ingest` | `write:jobs` | Batch ingest jobs from n8n |
+| `GET` | `/criteria?source={SOURCE}` | `read:criteria` | Aggregated search criteria for n8n |
+| `GET` | `/actuator/health` | public | Health check |
 
 ---
 
