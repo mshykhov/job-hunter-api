@@ -2,41 +2,64 @@ package com.mshykhov.jobhunter.persistence.model
 
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
+import jakarta.persistence.EntityListeners
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
-import jakarta.persistence.GeneratedValue
-import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
+import jakarta.persistence.PostLoad
+import jakarta.persistence.PostPersist
 import jakarta.persistence.Table
+import jakarta.persistence.Transient
+import org.springframework.data.annotation.CreatedDate
+import org.springframework.data.annotation.LastModifiedDate
+import org.springframework.data.domain.Persistable
+import org.springframework.data.jpa.domain.support.AuditingEntityListener
 import java.time.Instant
 import java.util.UUID
 
 @Entity
 @Table(name = "jobs")
+@EntityListeners(AuditingEntityListener::class)
 class JobEntity(
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    val id: UUID? = null,
+    private val id: UUID = UUID.randomUUID(),
     @Column(nullable = false)
-    val title: String,
+    var title: String,
     @Column(nullable = false)
     val company: String,
     @Column(nullable = false, unique = true)
     val url: String,
-    @Column(columnDefinition = "TEXT")
-    val description: String? = null,
+    @Column(nullable = false, columnDefinition = "TEXT")
+    var description: String,
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     val source: JobSource,
-    val salary: String? = null,
-    val location: String? = null,
+    var salary: String? = null,
+    var location: String? = null,
     @Column(nullable = false)
-    val remote: Boolean = false,
+    var remote: Boolean = false,
+    @Column(name = "published_at")
+    var publishedAt: Instant? = null,
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     var status: JobStatus = JobStatus.NEW,
-    @Column(nullable = false, updatable = false)
-    val createdAt: Instant = Instant.now(),
-    @Column(nullable = false)
-    var updatedAt: Instant = Instant.now(),
-)
+    @CreatedDate
+    @Column(name = "created_at", insertable = false, updatable = false)
+    val createdAt: Instant? = null,
+    @LastModifiedDate
+    @Column(name = "updated_at", insertable = false)
+    var updatedAt: Instant? = null,
+) : Persistable<UUID> {
+    @Transient
+    private var isNew: Boolean = true
+
+    override fun getId(): UUID = id
+
+    override fun isNew(): Boolean = isNew
+
+    @PostPersist
+    @PostLoad
+    private fun markNotNew() {
+        isNew = false
+    }
+}

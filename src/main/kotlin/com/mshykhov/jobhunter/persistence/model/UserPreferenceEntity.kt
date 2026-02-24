@@ -2,29 +2,34 @@ package com.mshykhov.jobhunter.persistence.model
 
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
-import jakarta.persistence.GeneratedValue
-import jakarta.persistence.GenerationType
+import jakarta.persistence.EntityListeners
 import jakarta.persistence.Id
+import jakarta.persistence.PostLoad
+import jakarta.persistence.PostPersist
 import jakarta.persistence.Table
-import org.hibernate.annotations.CreationTimestamp
+import jakarta.persistence.Transient
 import org.hibernate.annotations.JdbcTypeCode
-import org.hibernate.annotations.UpdateTimestamp
 import org.hibernate.type.SqlTypes
+import org.springframework.data.annotation.CreatedDate
+import org.springframework.data.annotation.LastModifiedDate
+import org.springframework.data.domain.Persistable
+import org.springframework.data.jpa.domain.support.AuditingEntityListener
 import java.time.Instant
+import java.util.UUID
 
 @Entity
 @Table(name = "user_preferences")
+@EntityListeners(AuditingEntityListener::class)
 class UserPreferenceEntity(
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    val id: Long? = null,
+    private val id: UUID = UUID.randomUUID(),
     @Column(name = "user_sub", unique = true, nullable = false)
     val userSub: String,
     @Column(name = "notifications_enabled", nullable = false)
     var notificationsEnabled: Boolean = true,
     @JdbcTypeCode(SqlTypes.ARRAY)
-    @Column(name = "languages", columnDefinition = "text[]")
-    var languages: List<String> = emptyList(),
+    @Column(name = "categories", columnDefinition = "text[]")
+    var categories: List<String> = emptyList(),
     @JdbcTypeCode(SqlTypes.ARRAY)
     @Column(name = "excluded_keywords", columnDefinition = "text[]")
     var excludedKeywords: List<String> = emptyList(),
@@ -33,10 +38,23 @@ class UserPreferenceEntity(
     @JdbcTypeCode(SqlTypes.ARRAY)
     @Column(name = "enabled_sources", columnDefinition = "text[]")
     var enabledSources: List<String> = emptyList(),
-    @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @CreatedDate
+    @Column(name = "created_at", insertable = false, updatable = false)
     val createdAt: Instant? = null,
-    @UpdateTimestamp
-    @Column(name = "updated_at", nullable = false)
+    @LastModifiedDate
+    @Column(name = "updated_at", insertable = false)
     var updatedAt: Instant? = null,
-)
+) : Persistable<UUID> {
+    @Transient
+    private var isNew: Boolean = true
+
+    override fun getId(): UUID = id
+
+    override fun isNew(): Boolean = isNew
+
+    @PostPersist
+    @PostLoad
+    private fun markNotNew() {
+        isNew = false
+    }
+}
