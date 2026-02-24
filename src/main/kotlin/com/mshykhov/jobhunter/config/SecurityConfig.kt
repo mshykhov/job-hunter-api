@@ -40,7 +40,7 @@ class SecurityConfig(
                     .permitAll()
                     .requestMatchers("/swagger-ui/**", "/api-docs/**")
                     .permitAll()
-                    .requestMatchers("/api/**")
+                    .requestMatchers("/jobs/**", "/criteria/**")
                     .authenticated()
                     .anyRequest()
                     .permitAll()
