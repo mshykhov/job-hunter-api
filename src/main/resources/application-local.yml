@@ -1,6 +1,9 @@
+server:
+  port: 8095
+
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5433/jobhunter
+    url: jdbc:postgresql://localhost:5440/jobhunter
     username: jobhunter
     password: jobhunter
 

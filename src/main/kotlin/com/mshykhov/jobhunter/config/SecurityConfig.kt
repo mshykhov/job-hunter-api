@@ -1,9 +1,13 @@
 package com.mshykhov.jobhunter.config
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.mshykhov.jobhunter.exception.ErrorResponse
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.http.HttpStatus
+import org.springframework.http.MediaType
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
@@ -24,6 +28,7 @@ import org.springframework.security.web.SecurityFilterChain
 @EnableConfigurationProperties(Auth0Properties::class)
 class SecurityConfig(
     private val auth0Properties: Auth0Properties,
+    private val objectMapper: ObjectMapper,
 ) {
     @Bean
     @ConditionalOnProperty(
@@ -47,6 +52,16 @@ class SecurityConfig(
             }.oauth2ResourceServer { oauth2 ->
                 oauth2.jwt { jwt ->
                     jwt.decoder(jwtDecoder())
+                }
+                oauth2.authenticationEntryPoint { _, response, _ ->
+                    response.status = HttpStatus.UNAUTHORIZED.value()
+                    response.contentType = MediaType.APPLICATION_JSON_VALUE
+                    objectMapper.writeValue(response.outputStream, ErrorResponse("Unauthorized", "UNAUTHORIZED"))
+                }
+                oauth2.accessDeniedHandler { _, response, _ ->
+                    response.status = HttpStatus.FORBIDDEN.value()
+                    response.contentType = MediaType.APPLICATION_JSON_VALUE
+                    objectMapper.writeValue(response.outputStream, ErrorResponse("Access denied", "FORBIDDEN"))
                 }
             }.csrf { it.disable() }
 
