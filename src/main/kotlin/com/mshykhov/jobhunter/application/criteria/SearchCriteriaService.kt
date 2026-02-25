@@ -10,7 +10,6 @@ class SearchCriteriaService(
     private val userPreferenceFacade: UserPreferenceFacade,
 ) {
     fun getAggregated(source: JobSource): SearchCriteriaResponse {
-        return SearchCriteriaResponse(categories = listOf("kotlin", "java"))
         val preferences = userPreferenceFacade.findByEnabledSource(source.name)
         val categories = preferences.flatMap { it.categories }.distinct()
         return SearchCriteriaResponse(categories = categories)

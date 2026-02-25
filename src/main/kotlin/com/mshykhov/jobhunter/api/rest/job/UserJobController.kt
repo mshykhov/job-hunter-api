@@ -1,6 +1,7 @@
 package com.mshykhov.jobhunter.api.rest.job
 
 import com.mshykhov.jobhunter.api.rest.job.dto.UpdateJobStatusRequest
+import com.mshykhov.jobhunter.api.rest.job.dto.UserJobDetailResponse
 import com.mshykhov.jobhunter.api.rest.job.dto.UserJobResponse
 import com.mshykhov.jobhunter.application.userjob.UserJobService
 import com.mshykhov.jobhunter.application.userjob.UserJobStatus
@@ -28,6 +29,13 @@ class UserJobController(
         @AuthenticationPrincipal jwt: Jwt,
         @RequestParam(required = false) status: UserJobStatus?,
     ): List<UserJobResponse> = userJobService.list(jwt.subject, status)
+
+    @GetMapping("/{jobId}")
+    @PreAuthorize("hasAuthority('SCOPE_read:jobs')")
+    fun getDetail(
+        @AuthenticationPrincipal jwt: Jwt,
+        @PathVariable jobId: UUID,
+    ): UserJobDetailResponse = userJobService.getDetail(jwt.subject, jobId)
 
     @PatchMapping("/{jobId}/status")
     @PreAuthorize("hasAuthority('SCOPE_write:jobs')")

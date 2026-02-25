@@ -3,8 +3,6 @@ package com.mshykhov.jobhunter.application.job
 import com.mshykhov.jobhunter.api.rest.job.dto.JobIngestRequest
 import com.mshykhov.jobhunter.api.rest.job.dto.JobResponse
 import com.mshykhov.jobhunter.application.common.DateTimeParser
-import com.mshykhov.jobhunter.application.job.JobEntity
-import com.mshykhov.jobhunter.application.job.JobFacade
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -60,10 +58,11 @@ class JobService(
         return entity
     }
 
-    private fun parsePublishedAt(raw: String?): Instant? =
-        DateTimeParser.toInstant(raw)
-            ?: raw?.let {
-                logger.warn { "Failed to parse publishedAt: $it" }
-                null
-            }
+    private fun parsePublishedAt(raw: String?): Instant? {
+        val parsed = DateTimeParser.toInstant(raw)
+        if (parsed == null && !raw.isNullOrBlank()) {
+            logger.warn { "Failed to parse publishedAt: $raw" }
+        }
+        return parsed
+    }
 }

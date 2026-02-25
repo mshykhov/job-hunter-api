@@ -1,7 +1,5 @@
 package com.mshykhov.jobhunter.application.preference
 
-import com.mshykhov.jobhunter.application.preference.UserPreferenceEntity
-import com.mshykhov.jobhunter.application.preference.UserPreferenceRepository
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import java.util.UUID

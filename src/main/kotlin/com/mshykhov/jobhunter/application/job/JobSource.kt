@@ -9,6 +9,7 @@ enum class JobSource(
     DOU("dou"),
     DJINNI("djinni"),
     INDEED("indeed"),
+    LINKEDIN("linkedin"),
     ;
 
     override fun toString(): String = value

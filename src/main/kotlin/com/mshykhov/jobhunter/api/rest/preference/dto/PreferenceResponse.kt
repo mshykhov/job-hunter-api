@@ -1,5 +1,6 @@
 package com.mshykhov.jobhunter.api.rest.preference.dto
 
+import com.mshykhov.jobhunter.application.job.JobSource
 import com.mshykhov.jobhunter.application.preference.UserPreferenceEntity
 
 data class PreferenceResponse(
@@ -8,9 +9,8 @@ data class PreferenceResponse(
     val seniorityLevels: List<String>,
     val keywords: List<String>,
     val excludedKeywords: List<String>,
-    val minSalary: Int?,
     val remoteOnly: Boolean,
-    val enabledSources: List<String>,
+    val enabledSources: List<JobSource>,
     val notificationsEnabled: Boolean,
 ) {
     companion object {
@@ -21,7 +21,6 @@ data class PreferenceResponse(
                 seniorityLevels = entity.seniorityLevels,
                 keywords = entity.keywords,
                 excludedKeywords = entity.excludedKeywords,
-                minSalary = entity.minSalary,
                 remoteOnly = entity.remoteOnly,
                 enabledSources = entity.enabledSources,
                 notificationsEnabled = entity.notificationsEnabled,

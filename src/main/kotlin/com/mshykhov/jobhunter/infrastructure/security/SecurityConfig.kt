@@ -39,13 +39,14 @@ class SecurityConfig(
     )
     fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
         http
+            .cors { }
             .authorizeHttpRequests { auth ->
                 auth
                     .requestMatchers("/actuator/**")
                     .permitAll()
                     .requestMatchers("/swagger-ui/**", "/api-docs/**")
                     .permitAll()
-                    .requestMatchers("/jobs/**", "/criteria/**")
+                    .requestMatchers("/jobs/**", "/criteria/**", "/preferences/**")
                     .authenticated()
                     .anyRequest()
                     .permitAll()
@@ -76,6 +77,7 @@ class SecurityConfig(
     )
     fun disabledSecurityFilterChain(http: HttpSecurity): SecurityFilterChain {
         http
+            .cors { }
             .addFilterBefore(DevAuthenticationFilter(), UsernamePasswordAuthenticationFilter::class.java)
             .authorizeHttpRequests { auth ->
                 auth.anyRequest().permitAll()

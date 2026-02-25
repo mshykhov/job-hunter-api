@@ -4,7 +4,6 @@ import com.anthropic.client.AnthropicClient
 import com.anthropic.models.messages.MessageCreateParams
 import com.anthropic.models.messages.Model
 import com.anthropic.models.messages.TextBlock
-import com.mshykhov.jobhunter.infrastructure.ai.AiProperties
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.stereotype.Service
@@ -38,5 +37,14 @@ class ClaudeClient(
             .filterIsInstance<TextBlock>()
             .firstOrNull()
             ?.text()
+    }
+
+    companion object {
+        fun extractJson(text: String): String? {
+            val start = text.indexOf('{')
+            val end = text.lastIndexOf('}')
+            if (start < 0 || end < 0 || end <= start) return null
+            return text.substring(start, end + 1)
+        }
     }
 }

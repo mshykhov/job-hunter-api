@@ -1,9 +1,12 @@
 package com.mshykhov.jobhunter.application.preference
 
+import com.mshykhov.jobhunter.application.job.JobSource
 import com.mshykhov.jobhunter.application.user.UserEntity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EntityListeners
+import jakarta.persistence.EnumType
+import jakarta.persistence.Enumerated
 import jakarta.persistence.FetchType
 import jakarta.persistence.Id
 import jakarta.persistence.JoinColumn
@@ -44,13 +47,12 @@ class UserPreferenceEntity(
     @JdbcTypeCode(SqlTypes.ARRAY)
     @Column(name = "excluded_keywords", columnDefinition = "text[]")
     var excludedKeywords: List<String> = emptyList(),
-    @Column(name = "min_salary")
-    var minSalary: Int? = null,
     @Column(name = "remote_only", nullable = false)
     var remoteOnly: Boolean = false,
     @JdbcTypeCode(SqlTypes.ARRAY)
+    @Enumerated(EnumType.STRING)
     @Column(name = "enabled_sources", columnDefinition = "text[]")
-    var enabledSources: List<String> = emptyList(),
+    var enabledSources: List<JobSource> = emptyList(),
     @Column(name = "notifications_enabled", nullable = false)
     var notificationsEnabled: Boolean = true,
     @CreatedDate
