@@ -22,6 +22,16 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
 
+  ai:
+    model:
+      chat: ${AI_CHAT_PROVIDER:none}
+    anthropic:
+      api-key: ${ANTHROPIC_API_KEY:}
+      chat:
+        options:
+          model: ${AI_MODEL:claude-haiku-4-5-latest}
+          max-tokens: ${AI_MAX_TOKENS:1024}
+
 server:
   port: ${SERVER_PORT:8080}
 
@@ -40,16 +50,20 @@ jobhunter:
     issuer: ${AUTH0_ISSUER:}
     audience: ${AUTH0_AUDIENCE:}
   ai:
-    enabled: ${AI_ENABLED:false}
-    api-key: ${ANTHROPIC_API_KEY:}
-    auth-token: ${ANTHROPIC_AUTH_TOKEN:}
-    base-url: ${ANTHROPIC_BASE_URL:https://api.anthropic.com}
-    model: ${AI_MODEL:claude-haiku-4-5-20251001}
     filter:
       min-score: ${AI_FILTER_MIN_SCORE:50}
-      max-tokens: ${AI_FILTER_MAX_TOKENS:512}
-    normalize:
-      max-tokens: ${AI_NORMALIZE_MAX_TOKENS:1024}
+  proxy:
+    enabled: ${PROXY_ENABLED:false}
+    api-key: ${WEBSHARE_API_KEY:}
+    base-url: ${WEBSHARE_BASE_URL:https://proxy.webshare.io/api/v2}
+    cache-ttl-minutes: ${PROXY_CACHE_TTL_MINUTES:60}
+
+logging:
+  level:
+    root: ${LOG_LEVEL_ROOT:INFO}
+    com.mshykhov.jobhunter: ${LOG_LEVEL_APP:INFO}
+    org.springframework.web: ${LOG_LEVEL_WEB:WARN}
+    org.hibernate.SQL: ${LOG_LEVEL_SQL:WARN}
 
 springdoc:
   api-docs:

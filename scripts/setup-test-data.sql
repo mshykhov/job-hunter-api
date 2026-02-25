@@ -1,40 +1,10 @@
--- Seed test data for local development
--- Dev user sub matches DevAuthenticationFilter.DEV_USER_SUB
--- Run: psql -h localhost -p 5440 -U jobhunter -d jobhunter -f scripts/seed-test-data.sql
+-- Setup test jobs + user-job relationships (requires user from setup-user.sql)
+-- Run: psql -h localhost -p 5440 -U jobhunter -d jobhunter -f scripts/setup-test-data.sql
 
 BEGIN;
 
--- ============================================================
--- User
--- ============================================================
-INSERT INTO users (id, auth0_sub, email, name)
-VALUES ('a0000000-0000-0000-0000-000000000001', 'local-dev-user', 'dev@jobhunter.local', 'Dev User')
-ON CONFLICT (auth0_sub) DO NOTHING;
-
--- ============================================================
--- User preferences
--- ============================================================
-INSERT INTO user_preferences (id, user_id, raw_input, categories, seniority_levels, keywords,
-                              excluded_keywords, remote_only, enabled_sources,
-                              notifications_enabled)
-VALUES ('b0000000-0000-0000-0000-000000000001',
-        'a0000000-0000-0000-0000-000000000001',
-        'Senior Kotlin/Java backend developer, remote',
-        ARRAY ['kotlin', 'java'],
-        ARRAY ['senior', 'lead'],
-        ARRAY ['spring', 'microservices', 'postgresql', 'kubernetes'],
-        ARRAY ['php', 'wordpress', 'drupal'],
-        true,
-        ARRAY ['DOU', 'DJINNI'],
-        true)
-ON CONFLICT (user_id) DO NOTHING;
-
--- ============================================================
--- Jobs
--- ============================================================
 INSERT INTO jobs (id, title, company, url, description, source, salary, location, remote, published_at, matched_at)
 VALUES
-    -- Matched jobs (matched_at IS NOT NULL)
     ('c0000000-0000-0000-0000-000000000001',
      'Senior Kotlin Backend Developer',
      'TechCorp',
@@ -91,7 +61,6 @@ VALUES
      'DJINNI', '$800-1200', 'Lviv, Ukraine', false,
      now() - interval '6 days', now() - interval '5 days'),
 
-    -- Unmatched jobs (matched_at IS NULL) — will be picked up by scheduler
     ('c0000000-0000-0000-0000-000000000008',
      'Senior Kotlin Backend Developer',
      'NeoBank',
@@ -110,12 +79,8 @@ VALUES
 
 ON CONFLICT (url) DO NOTHING;
 
--- ============================================================
--- User-job relationships (only for matched jobs)
--- ============================================================
 INSERT INTO user_jobs (id, user_id, job_id, status, ai_relevance_score, ai_reasoning)
 VALUES
-    -- NEW jobs
     ('d0000000-0000-0000-0000-000000000001',
      'a0000000-0000-0000-0000-000000000001',
      'c0000000-0000-0000-0000-000000000001',
@@ -131,7 +96,6 @@ VALUES
      'c0000000-0000-0000-0000-000000000005',
      'NEW', 88, 'Strong match: Kotlin + Spring + PostgreSQL + Kafka, senior level, remote OK'),
 
-    -- APPLIED jobs
     ('d0000000-0000-0000-0000-000000000004',
      'a0000000-0000-0000-0000-000000000001',
      'c0000000-0000-0000-0000-000000000002',
@@ -142,7 +106,6 @@ VALUES
      'c0000000-0000-0000-0000-000000000004',
      'APPLIED', 72, 'Decent match: Kotlin + Spring Boot, startup'),
 
-    -- IRRELEVANT jobs
     ('d0000000-0000-0000-0000-000000000006',
      'a0000000-0000-0000-0000-000000000001',
      'c0000000-0000-0000-0000-000000000006',
@@ -152,10 +115,5 @@ ON CONFLICT (user_id, job_id) DO NOTHING;
 
 COMMIT;
 
--- ============================================================
--- Verify
--- ============================================================
-SELECT 'users' AS entity, count(*) FROM users
-UNION ALL SELECT 'user_preferences', count(*) FROM user_preferences
-UNION ALL SELECT 'jobs', count(*) FROM jobs
+SELECT 'jobs' AS entity, count(*) FROM jobs
 UNION ALL SELECT 'user_jobs', count(*) FROM user_jobs;

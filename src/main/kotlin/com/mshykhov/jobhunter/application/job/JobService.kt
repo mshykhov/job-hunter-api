@@ -16,11 +16,12 @@ class JobService(
 ) {
     @Transactional
     fun ingest(requests: List<JobIngestRequest>): List<JobResponse> {
-        val urls = requests.map { it.url }
+        val uniqueRequests = requests.associateBy { it.url }.values
+        val urls = uniqueRequests.map { it.url }
         val existingByUrl = jobFacade.findByUrls(urls).associateBy { it.url }
 
         val entities =
-            requests.map { request ->
+            uniqueRequests.map { request ->
                 val existing = existingByUrl[request.url]
                 if (existing != null) {
                     updateExisting(existing, request)
@@ -28,6 +29,11 @@ class JobService(
                     createNew(request)
                 }
             }
+
+        val newCount = entities.count { it.isNew }
+        val updatedCount = entities.size - newCount
+        val sources = entities.groupingBy { it.source }.eachCount()
+        logger.info { "Ingest: ${entities.size} jobs ($newCount new, $updatedCount updated), sources: $sources" }
 
         return jobFacade.saveAll(entities).map { JobResponse.from(it) }
     }
