@@ -53,7 +53,7 @@ class PreferenceService(
             keywords = result.keywords,
             excludedKeywords = result.excludedKeywords,
             remoteOnly = result.remoteOnly,
-            enabledSources = emptyList(),
+            enabledSources = result.enabledSources,
             notificationsEnabled = true,
         )
     }

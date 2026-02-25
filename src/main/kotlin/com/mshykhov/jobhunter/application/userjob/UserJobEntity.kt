@@ -41,10 +41,10 @@ class UserJobEntity(
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     var status: UserJobStatus = UserJobStatus.NEW,
-    @Column(name = "ai_relevance_score")
-    val aiRelevanceScore: Int? = null,
-    @Column(name = "ai_reasoning", columnDefinition = "TEXT")
-    val aiReasoning: String? = null,
+    @Column(name = "ai_relevance_score", nullable = false)
+    val aiRelevanceScore: Int,
+    @Column(name = "ai_reasoning", columnDefinition = "TEXT", nullable = false)
+    val aiReasoning: String,
     @CreatedDate
     @Column(name = "created_at", insertable = false, updatable = false)
     val createdAt: Instant? = null,

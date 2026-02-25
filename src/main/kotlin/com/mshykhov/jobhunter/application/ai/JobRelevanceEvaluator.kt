@@ -3,34 +3,23 @@ package com.mshykhov.jobhunter.application.ai
 import com.mshykhov.jobhunter.application.ai.dto.JobRelevanceResult
 import com.mshykhov.jobhunter.application.job.JobEntity
 import com.mshykhov.jobhunter.application.preference.UserPreferenceEntity
-import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.ai.chat.client.ChatClient
-import org.springframework.beans.factory.ObjectProvider
 import org.springframework.stereotype.Service
-
-private val logger = KotlinLogging.logger {}
 
 @Service
 class JobRelevanceEvaluator(
-    private val chatClientProvider: ObjectProvider<ChatClient>,
+    private val chatClient: ChatClient,
 ) {
     fun evaluate(
         job: JobEntity,
         preference: UserPreferenceEntity,
-    ): JobRelevanceResult? {
-        val chatClient = chatClientProvider.ifAvailable ?: return null
-        return try {
-            chatClient
-                .prompt()
-                .system(SYSTEM_PROMPT)
-                .user(buildUserPrompt(job, preference))
-                .call()
-                .entity(JobRelevanceResult::class.java)
-        } catch (e: Exception) {
-            logger.error(e) { "AI evaluation failed for job '${job.title}'" }
-            null
-        }
-    }
+    ): JobRelevanceResult =
+        chatClient
+            .prompt()
+            .system(SYSTEM_PROMPT)
+            .user(buildUserPrompt(job, preference))
+            .call()
+            .entity(JobRelevanceResult::class.java)!!
 
     private fun buildUserPrompt(
         job: JobEntity,
