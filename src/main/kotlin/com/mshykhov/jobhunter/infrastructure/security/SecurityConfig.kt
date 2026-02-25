@@ -21,6 +21,7 @@ import org.springframework.security.oauth2.jwt.JwtDecoders
 import org.springframework.security.oauth2.jwt.JwtValidators
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder
 import org.springframework.security.web.SecurityFilterChain
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
 
 @Configuration
 @EnableWebSecurity
@@ -75,6 +76,7 @@ class SecurityConfig(
     )
     fun disabledSecurityFilterChain(http: HttpSecurity): SecurityFilterChain {
         http
+            .addFilterBefore(DevAuthenticationFilter(), UsernamePasswordAuthenticationFilter::class.java)
             .authorizeHttpRequests { auth ->
                 auth.anyRequest().permitAll()
             }.csrf { it.disable() }
