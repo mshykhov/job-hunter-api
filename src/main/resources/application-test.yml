@@ -1,4 +1,7 @@
 spring:
+  ai:
+    model:
+      chat: none
   flyway:
     enabled: false
   jpa:

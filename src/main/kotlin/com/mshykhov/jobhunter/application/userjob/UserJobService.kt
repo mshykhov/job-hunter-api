@@ -18,7 +18,7 @@ class UserJobService(
         auth0Sub: String,
         status: UserJobStatus?,
     ): List<UserJobResponse> {
-        val user = findUser(auth0Sub)
+        val user = userFacade.findByAuth0Sub(auth0Sub) ?: return emptyList()
         val userJobs =
             if (status != null) {
                 userJobFacade.findByUserIdAndStatus(user.id, status)
