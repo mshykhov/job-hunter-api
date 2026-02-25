@@ -1,8 +1,8 @@
 # job-hunter-api
 
-**TL;DR:** Kotlin Spring Boot backend for [Job Hunter](https://github.com/mshykhov/job-hunter). REST API for job vacancy management + Telegram bot notifications.
+**TL;DR:** Kotlin Spring Boot backend for [Job Hunter](https://github.com/mshykhov/job-hunter). REST API for job vacancy management, AI-powered matching, user preferences.
 
-> **Stack**: Kotlin 2.1, Spring Boot 3.5, PostgreSQL 16, Flyway, Testcontainers
+> **Stack**: Kotlin 2.1, Spring Boot 3.5, PostgreSQL 16, Flyway, Anthropic SDK, Testcontainers
 
 ---
 
@@ -20,53 +20,59 @@
 
 ## Architecture
 
-### Layer Diagram
+### Three-Layer Structure
 
 ```
-┌─────────────────────────────────────────────────┐
-│ CONTROLLER (REST API)                           │
-│ - @RestController                               │
-│ - Request validation, DTO mapping               │
-│ - Knows only Service layer                      │
-└────────────┬────────────────────────────────────┘
-             │
-┌────────────▼────────────────────────────────────┐
-│ SERVICE (Business logic)                        │
-│ - @Service                                      │
-│ - Orchestrates facades & external integrations  │
-│ - Depends on Facade, never on Repository        │
-└────────────┬────────────────────────────────────┘
-             │
-┌────────────▼────────────────────────────────────┐
-│ FACADE (Transactional wrapper)                  │
-│ - @Component + @Transactional                   │
-│ - Thin layer: DB operations with tx boundaries  │
-│ - One facade per aggregate                      │
-└────────────┬────────────────────────────────────┘
-             │
-┌────────────▼────────────────────────────────────┐
-│ REPOSITORY (Spring Data JPA)                    │
-│ - Interface extends JpaRepository               │
-│ - Custom @Query when needed                     │
-│ - Never called directly from Service            │
-└─────────────────────────────────────────────────┘
+api/rest/            → HTTP layer (inbound)
+application/         → Business domain (grouped by feature)
+infrastructure/      → Technical concerns (outbound + config)
+```
+
+### Dependency Flow
+
+```
+api/rest  →  application  ←  infrastructure
+(inbound)     (domain)       (outbound + config)
+```
+
+**Rules:**
+- `api/` depends on `application/` — controllers call services
+- `application/` may use beans from `infrastructure/` — services use clients, properties
+- `infrastructure/` provides beans only — never calls business logic
+- **No circular dependencies** — within `application/`, dependencies flow one-way
+
+### Feature Dependency Graph (application/)
+
+```
+matching → job, userjob, preference
+criteria → preference
+userjob  → user, job
+preference → user
+job      → (standalone)
+user     → (standalone)
 ```
 
 ### Package Structure
 
 ```
 com.mshykhov.jobhunter/
-├── config/              # Spring @Configuration beans
-├── controller/          # GlobalExceptionHandler, ErrorResponse
-│   ├── job/             # JobController + DTOs (JobIngestRequest, JobResponse)
-│   └── criteria/        # SearchCriteriaController + DTOs (SearchCriteriaResponse)
-├── service/             # Business logic
-├── persistence/
-│   ├── model/           # @Entity classes, enums
-│   ├── repository/      # Spring Data JPA interfaces
-│   └── facade/          # @Transactional facades
-└── exception/           # Business exceptions (NotFoundException)
+├── api/rest/                      # HTTP layer
+│   ├── {feature}/                 # Controller + dto/ per feature
+│   └── exception/                 # GlobalExceptionHandler, ErrorResponse
+├── application/                   # Business domain
+│   ├── {feature}/                 # Service + Entity + Repository + Facade together
+│   └── common/                    # Shared: NotFoundException, ValueMappedEnum, utils
+└── infrastructure/                # Technical concerns
+    ├── ai/                        # ClaudeClient, AiProperties, AiConfig
+    ├── security/                  # SecurityConfig, Auth0Properties
+    └── config/                    # OpenApi, Clock, JpaAuditing, Scheduling, Web
 ```
+
+### Adding a New Feature
+
+1. Create `application/{feature}/` — Entity, Repository, Facade, Service
+2. Create `api/rest/{feature}/` — Controller + `dto/` subfolder
+3. Ensure dependencies only point downward in the graph (no cycles)
 
 ---
 
@@ -78,8 +84,6 @@ com.mshykhov.jobhunter/
 - **val over var** — mutable only for JPA fields that genuinely change
 - **data class** for DTOs — immutable, auto equals/hashCode
 - **class** for entities — JPA entities are NOT data classes
-- **Sealed interfaces** for operation results when multiple outcomes exist
-- **Extension functions** for mapping (entity ↔ DTO)
 
 ### Naming
 - Entity: `{Name}Entity` (e.g., `JobEntity`)
@@ -89,7 +93,15 @@ com.mshykhov.jobhunter/
 - Controller: `{Name}Controller`
 - DTO request: `{Name}Request` (e.g., `JobIngestRequest`)
 - DTO response: `{Name}Response` (e.g., `JobResponse`)
-- Exception: `{Name}Exception` (e.g., `JobNotFoundException`)
+
+### Internal Layering (within each feature)
+```
+Controller → Service → Facade → Repository
+```
+
+- Controller NEVER accesses Repository or Facade directly
+- Service NEVER accesses Repository directly (only via Facade)
+- Facade is thin: only @Transactional + repository calls
 
 ### Database
 - **Flyway only** — all schema changes via `V{N}__{description}.sql`
@@ -100,29 +112,14 @@ com.mshykhov.jobhunter/
 ### REST API
 - No `/api` prefix — endpoints at root path
 - Validation via `@Valid` + Bean Validation annotations
-- **Enums in DTOs** — use enum types directly (e.g., `JobSource`, `JobStatus`), Jackson auto-converts
-- **Auth0 OAuth2** — scope-based `@PreAuthorize` (`SCOPE_write:jobs`, `SCOPE_read:criteria`)
-- Auth0 toggleable via `jobhunter.auth0.enabled` property
+- **Auth0 OAuth2** — scope-based `@PreAuthorize`, toggleable via `jobhunter.auth0.enabled`
 - **Persistable\<UUID\>** pattern — non-nullable IDs, `@PostPersist`/`@PostLoad` for isNew tracking
-- **JPA Auditing** — `@CreatedDate`/`@LastModifiedDate` with custom `Clock` bean for testability
+- **JPA Auditing** — `@CreatedDate`/`@LastModifiedDate` with custom `Clock` bean
 
 ### Testing
 - **Unit tests** — MockK for mocking, JUnit 5
 - **Integration tests** — Testcontainers with real PostgreSQL
 - **Test profile** — `application-test.yml` disables Flyway, uses `ddl-auto: create-drop`
-
-### Dependencies Flow
-```
-Controller → Service → Facade → Repository
-                ↓
-          External APIs (Telegram, etc.)
-```
-
-**Rules:**
-- Controller NEVER accesses Repository or Facade directly
-- Service NEVER accesses Repository directly (only via Facade)
-- Facade is thin: only @Transactional + repository calls
-- No circular dependencies
 
 ---
 
@@ -131,8 +128,12 @@ Controller → Service → Facade → Repository
 | Method | Path | Scope | Description |
 |--------|------|-------|-------------|
 | `POST` | `/jobs/ingest` | `write:jobs` | Batch ingest jobs from n8n |
+| `GET` | `/jobs` | `read:jobs` | User's matched jobs |
+| `PATCH` | `/jobs/{id}/status` | `write:jobs` | Update job status (NEW/APPLIED/IRRELEVANT) |
 | `GET` | `/criteria?source={SOURCE}` | `read:criteria` | Aggregated search criteria for n8n |
-| `GET` | `/actuator/health` | public | Health check |
+| `GET` | `/preferences` | `read:preferences` | User preferences |
+| `PUT` | `/preferences` | `write:preferences` | Save preferences |
+| `POST` | `/preferences/normalize` | `write:preferences` | AI-normalize raw text |
 
 ---
 
@@ -144,7 +145,7 @@ docker compose up -d
 ./gradlew bootRun --args='--spring.profiles.active=local'
 ```
 
-## Testing
+## Quality Checks
 
 ```bash
 ./gradlew test
