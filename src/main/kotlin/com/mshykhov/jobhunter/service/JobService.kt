@@ -8,10 +8,19 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
+import java.time.LocalDateTime
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 
+
 private val logger = KotlinLogging.logger {}
+
+private val INSTANT_PARSERS: List<(String) -> Instant?> = listOf(
+    { raw -> try { Instant.parse(raw) } catch (_: DateTimeParseException) { null } },
+    { raw -> try { DateTimeFormatter.RFC_1123_DATE_TIME.parse(raw, Instant::from) } catch (_: DateTimeParseException) { null } },
+    { raw -> try { LocalDateTime.parse(raw).toInstant(ZoneOffset.UTC) } catch (_: DateTimeParseException) { null } },
+)
 
 @Service
 class JobService(
@@ -63,15 +72,7 @@ class JobService(
 
     private fun parsePublishedAt(raw: String?): Instant? {
         if (raw.isNullOrBlank()) return null
-        return try {
-            Instant.parse(raw)
-        } catch (_: DateTimeParseException) {
-            try {
-                DateTimeFormatter.RFC_1123_DATE_TIME.parse(raw, Instant::from)
-            } catch (_: DateTimeParseException) {
-                logger.warn { "Failed to parse publishedAt: $raw" }
-                null
-            }
-        }
+        return INSTANT_PARSERS.firstNotNullOfOrNull { it(raw) }
+            .also { if (it == null) logger.warn { "Failed to parse publishedAt: $raw" } }
     }
 }

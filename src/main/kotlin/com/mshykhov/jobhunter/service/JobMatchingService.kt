@@ -1,5 +1,6 @@
 package com.mshykhov.jobhunter.service
 
+import com.mshykhov.jobhunter.config.AiProperties
 import com.mshykhov.jobhunter.persistence.facade.JobFacade
 import com.mshykhov.jobhunter.persistence.facade.UserJobFacade
 import com.mshykhov.jobhunter.persistence.facade.UserPreferenceFacade
@@ -21,6 +22,8 @@ class JobMatchingService(
     private val userPreferenceFacade: UserPreferenceFacade,
     private val userJobFacade: UserJobFacade,
     private val coldFilterService: ColdFilterService,
+    private val aiFilterService: AiFilterService,
+    private val aiProperties: AiProperties,
     private val clock: Clock,
 ) {
     @Scheduled(fixedDelayString = "\${jobhunter.matching.interval-ms:60000}")
@@ -49,19 +52,38 @@ class JobMatchingService(
         job: JobEntity,
         preferences: List<UserPreferenceEntity>,
     ) {
-        val matches = preferences.filter { coldFilterService.matches(job, it) }
+        val coldMatches = preferences.filter { coldFilterService.matches(job, it) }
+        if (coldMatches.isEmpty()) return
 
-        if (matches.isNotEmpty()) {
-            val userJobs =
-                matches.map { preference ->
-                    UserJobEntity(
-                        user = preference.user,
-                        job = job,
-                    )
+        val userJobs =
+            coldMatches.mapNotNull { preference ->
+                val aiResult = evaluateWithAi(job, preference)
+                if (aiResult != null && aiResult.score < aiProperties.filter.minScore) {
+                    logger.debug {
+                        "Job '${job.title}' filtered out by AI for user ${preference.user.id} (score: ${aiResult.score})"
+                    }
+                    return@mapNotNull null
                 }
+                UserJobEntity(
+                    user = preference.user,
+                    job = job,
+                    aiRelevanceScore = aiResult?.score,
+                    aiReasoning = aiResult?.reasoning,
+                )
+            }
+
+        if (userJobs.isNotEmpty()) {
             userJobFacade.saveAll(userJobs)
-            logger.debug { "Job '${job.title}' matched ${matches.size} users" }
+            logger.debug { "Job '${job.title}' matched ${userJobs.size} users" }
         }
+    }
+
+    private fun evaluateWithAi(
+        job: JobEntity,
+        preference: UserPreferenceEntity,
+    ): AiFilterResult? {
+        if (!aiProperties.enabled) return null
+        return aiFilterService.evaluate(job, preference)
     }
 
     @Transactional

@@ -39,6 +39,17 @@ jobhunter:
     enabled: ${AUTH0_ENABLED:true}
     issuer: ${AUTH0_ISSUER:}
     audience: ${AUTH0_AUDIENCE:}
+  ai:
+    enabled: ${AI_ENABLED:false}
+    api-key: ${ANTHROPIC_API_KEY:}
+    auth-token: ${ANTHROPIC_AUTH_TOKEN:}
+    base-url: ${ANTHROPIC_BASE_URL:https://api.anthropic.com}
+    model: ${AI_MODEL:claude-haiku-4-5-20251001}
+    filter:
+      min-score: ${AI_FILTER_MIN_SCORE:50}
+      max-tokens: ${AI_FILTER_MAX_TOKENS:512}
+    normalize:
+      max-tokens: ${AI_NORMALIZE_MAX_TOKENS:1024}
 
 springdoc:
   api-docs:
