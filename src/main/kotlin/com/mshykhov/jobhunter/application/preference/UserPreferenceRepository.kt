@@ -1,6 +1,5 @@
 package com.mshykhov.jobhunter.application.preference
 
-import com.mshykhov.jobhunter.application.preference.UserPreferenceEntity
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import java.util.UUID

@@ -12,7 +12,6 @@ import com.mshykhov.jobhunter.infrastructure.ai.ClaudeClient
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
 import java.time.Instant
 
@@ -54,8 +53,7 @@ class JobMatchingService(
         logger.info { "Matching complete for ${jobs.size} jobs" }
     }
 
-    @Transactional
-    fun matchJobToUsers(
+    private fun matchJobToUsers(
         job: JobEntity,
         preferences: List<UserPreferenceEntity>,
     ) {
@@ -85,8 +83,7 @@ class JobMatchingService(
         }
     }
 
-    @Transactional
-    fun markAllMatched(jobs: List<JobEntity>) {
+    private fun markAllMatched(jobs: List<JobEntity>) {
         val now = Instant.now(clock)
         jobs.forEach { it.matchedAt = now }
         jobFacade.saveAll(jobs)
@@ -108,7 +105,7 @@ class JobMatchingService(
         preference: UserPreferenceEntity,
     ): Boolean {
         if (preference.enabledSources.isEmpty()) return true
-        return job.source.name in preference.enabledSources
+        return job.source in preference.enabledSources
     }
 
     private fun isRemoteMatch(
@@ -177,28 +174,20 @@ class JobMatchingService(
         |Categories: ${preference.categories.joinToString(", ").ifEmpty { "Any" }}
         |Seniority Levels: ${preference.seniorityLevels.joinToString(", ").ifEmpty { "Any" }}
         |Keywords: ${preference.keywords.joinToString(", ").ifEmpty { "Any" }}
-        |Min Salary: ${preference.minSalary ?: "Not specified"}
         |Remote Only: ${preference.remoteOnly}
         |
         |Evaluate how relevant this job is to the user's preferences.
-        |Consider: seniority level match, category/domain match, keyword relevance, salary fit, remote preference.
+        |Consider: seniority level match, technology/category match, keyword relevance, remote preference.
         |
         |Return ONLY a valid JSON object with no additional text:
         |{"score": <0-100>, "reasoning": "<brief explanation in 1-2 sentences>"}
         """.trimMargin()
 
     private fun parseAiResponse(response: String): AiFilterResult? {
-        val json = extractJson(response) ?: return null
+        val json = ClaudeClient.extractJson(response) ?: return null
         val tree = objectMapper.readTree(json)
         val score = tree.get("score")?.asInt() ?: return null
         val reasoning = tree.get("reasoning")?.asText() ?: return null
         return AiFilterResult(score = score, reasoning = reasoning)
-    }
-
-    private fun extractJson(text: String): String? {
-        val start = text.indexOf('{')
-        val end = text.lastIndexOf('}')
-        if (start < 0 || end < 0 || end <= start) return null
-        return text.substring(start, end + 1)
     }
 }

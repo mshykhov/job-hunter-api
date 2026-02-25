@@ -1,6 +1,5 @@
 package com.mshykhov.jobhunter.application.user
 
-import com.mshykhov.jobhunter.application.user.UserEntity
 import org.springframework.data.jpa.repository.JpaRepository
 import java.util.UUID
 

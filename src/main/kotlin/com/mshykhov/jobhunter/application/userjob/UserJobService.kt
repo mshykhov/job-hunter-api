@@ -1,10 +1,9 @@
 package com.mshykhov.jobhunter.application.userjob
 
+import com.mshykhov.jobhunter.api.rest.job.dto.UserJobDetailResponse
 import com.mshykhov.jobhunter.api.rest.job.dto.UserJobResponse
-import com.mshykhov.jobhunter.application.common.NotFoundException
+import com.mshykhov.jobhunter.api.rest.exception.custom.NotFoundException
 import com.mshykhov.jobhunter.application.user.UserFacade
-import com.mshykhov.jobhunter.application.userjob.UserJobFacade
-import com.mshykhov.jobhunter.application.userjob.UserJobStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
@@ -14,6 +13,7 @@ class UserJobService(
     private val userFacade: UserFacade,
     private val userJobFacade: UserJobFacade,
 ) {
+    @Transactional(readOnly = true)
     fun list(
         auth0Sub: String,
         status: UserJobStatus?,
@@ -26,6 +26,18 @@ class UserJobService(
                 userJobFacade.findByUserId(user.id)
             }
         return userJobs.map { UserJobResponse.from(it) }
+    }
+
+    @Transactional(readOnly = true)
+    fun getDetail(
+        auth0Sub: String,
+        jobId: UUID,
+    ): UserJobDetailResponse {
+        val user = findUser(auth0Sub)
+        val userJob =
+            userJobFacade.findByUserIdAndJobId(user.id, jobId)
+                ?: throw NotFoundException("Job $jobId not found for user")
+        return UserJobDetailResponse.from(userJob)
     }
 
     @Transactional

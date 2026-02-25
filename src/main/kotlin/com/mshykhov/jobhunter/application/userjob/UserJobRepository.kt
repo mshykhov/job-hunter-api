@@ -1,25 +1,23 @@
 package com.mshykhov.jobhunter.application.userjob
 
-import com.mshykhov.jobhunter.application.userjob.UserJobEntity
-import com.mshykhov.jobhunter.application.userjob.UserJobStatus
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Query
 import java.util.UUID
 
 interface UserJobRepository : JpaRepository<UserJobEntity, UUID> {
+    @Query("SELECT uj FROM UserJobEntity uj JOIN FETCH uj.job WHERE uj.user.id = :userId AND uj.status = :status")
     fun findByUserIdAndStatus(
         userId: UUID,
         status: UserJobStatus,
     ): List<UserJobEntity>
 
+    @Query("SELECT uj FROM UserJobEntity uj JOIN FETCH uj.job WHERE uj.user.id = :userId")
     fun findByUserId(userId: UUID): List<UserJobEntity>
 
+    @Query("SELECT uj FROM UserJobEntity uj JOIN FETCH uj.job WHERE uj.user.id = :userId AND uj.job.id = :jobId")
     fun findByUserIdAndJobId(
         userId: UUID,
         jobId: UUID,
     ): UserJobEntity?
 
-    fun existsByUserIdAndJobId(
-        userId: UUID,
-        jobId: UUID,
-    ): Boolean
 }

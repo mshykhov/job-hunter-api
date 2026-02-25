@@ -1,6 +1,7 @@
 package com.mshykhov.jobhunter.api.rest.exception
 
-import com.mshykhov.jobhunter.application.common.NotFoundException
+import com.mshykhov.jobhunter.api.rest.exception.custom.ServiceUnavailableException
+import com.mshykhov.jobhunter.api.rest.exception.custom.NotFoundException
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -27,6 +28,10 @@ class GlobalExceptionHandler {
     @ExceptionHandler(HttpMessageNotReadableException::class)
     fun handleBadRequest(ex: HttpMessageNotReadableException): ResponseEntity<ErrorResponse> =
         ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ErrorResponse("Malformed request body", "BAD_REQUEST"))
+
+    @ExceptionHandler(ServiceUnavailableException::class)
+    fun handleServiceUnavailable(ex: ServiceUnavailableException): ResponseEntity<ErrorResponse> =
+        ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(ErrorResponse(ex.message ?: "Service unavailable", "SERVICE_UNAVAILABLE"))
 
     @ExceptionHandler(AuthorizationDeniedException::class)
     fun handleForbidden(ex: AuthorizationDeniedException): ResponseEntity<ErrorResponse> =
