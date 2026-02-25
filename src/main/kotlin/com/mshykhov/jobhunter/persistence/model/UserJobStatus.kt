@@ -3,7 +3,7 @@ package com.mshykhov.jobhunter.persistence.model
 import com.fasterxml.jackson.annotation.JsonCreator
 import com.mshykhov.jobhunter.common.enums.ValueMappedEnum
 
-enum class JobStatus(
+enum class UserJobStatus(
     override val value: String,
 ) : ValueMappedEnum {
     NEW("new"),
@@ -16,6 +16,6 @@ enum class JobStatus(
     companion object {
         @JvmStatic
         @JsonCreator
-        fun fromValue(value: String): JobStatus = entries.first { it.value.equals(value, ignoreCase = true) }
+        fun fromValue(value: String): UserJobStatus = entries.first { it.value.equals(value, ignoreCase = true) }
     }
 }

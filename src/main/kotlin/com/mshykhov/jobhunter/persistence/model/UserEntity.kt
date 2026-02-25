@@ -3,8 +3,6 @@ package com.mshykhov.jobhunter.persistence.model
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EntityListeners
-import jakarta.persistence.EnumType
-import jakarta.persistence.Enumerated
 import jakarta.persistence.Id
 import jakarta.persistence.PostLoad
 import jakarta.persistence.PostPersist
@@ -18,29 +16,17 @@ import java.time.Instant
 import java.util.UUID
 
 @Entity
-@Table(name = "jobs")
+@Table(name = "users")
 @EntityListeners(AuditingEntityListener::class)
-class JobEntity(
+class UserEntity(
     @Id
     private val id: UUID = UUID.randomUUID(),
-    @Column(nullable = false)
-    var title: String,
-    val company: String? = null,
-    @Column(nullable = false, unique = true)
-    val url: String,
-    @Column(nullable = false, columnDefinition = "TEXT")
-    var description: String,
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    val source: JobSource,
-    var salary: String? = null,
-    var location: String? = null,
-    @Column(nullable = false)
-    var remote: Boolean = false,
-    @Column(name = "published_at")
-    var publishedAt: Instant? = null,
-    @Column(name = "matched_at")
-    var matchedAt: Instant? = null,
+    @Column(name = "auth0_sub", unique = true, nullable = false)
+    val auth0Sub: String,
+    var email: String? = null,
+    var name: String? = null,
+    @Column(name = "telegram_chat_id")
+    var telegramChatId: String? = null,
     @CreatedDate
     @Column(name = "created_at", insertable = false, updatable = false)
     val createdAt: Instant? = null,

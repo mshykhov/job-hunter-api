@@ -6,6 +6,7 @@ import com.mshykhov.jobhunter.persistence.facade.JobFacade
 import com.mshykhov.jobhunter.persistence.model.JobEntity
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
@@ -16,30 +17,35 @@ private val logger = KotlinLogging.logger {}
 class JobService(
     private val jobFacade: JobFacade,
 ) {
-    fun ingest(requests: List<JobIngestRequest>): List<JobResponse> =
-        requests
-            .map { request ->
-                val existing = jobFacade.findByUrl(request.url)
+    @Transactional
+    fun ingest(requests: List<JobIngestRequest>): List<JobResponse> {
+        val urls = requests.map { it.url }
+        val existingByUrl = jobFacade.findByUrls(urls).associateBy { it.url }
+
+        val entities =
+            requests.map { request ->
+                val existing = existingByUrl[request.url]
                 if (existing != null) {
                     updateExisting(existing, request)
                 } else {
                     createNew(request)
                 }
-            }.map { JobResponse.from(it) }
+            }
+
+        return jobFacade.saveAll(entities).map { JobResponse.from(it) }
+    }
 
     private fun createNew(request: JobIngestRequest): JobEntity =
-        jobFacade.save(
-            JobEntity(
-                title = request.title,
-                company = request.company,
-                url = request.url,
-                description = request.description,
-                source = request.source,
-                salary = request.salary,
-                location = request.location,
-                remote = request.remote,
-                publishedAt = parsePublishedAt(request.publishedAt),
-            ),
+        JobEntity(
+            title = request.title,
+            company = request.company,
+            url = request.url,
+            description = request.description,
+            source = request.source,
+            salary = request.salary,
+            location = request.location,
+            remote = request.remote,
+            publishedAt = parsePublishedAt(request.publishedAt),
         )
 
     private fun updateExisting(
@@ -52,7 +58,7 @@ class JobService(
         entity.location = request.location
         entity.remote = request.remote
         entity.publishedAt = parsePublishedAt(request.publishedAt) ?: entity.publishedAt
-        return jobFacade.save(entity)
+        return entity
     }
 
     private fun parsePublishedAt(raw: String?): Instant? {

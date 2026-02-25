@@ -5,11 +5,15 @@ import jakarta.persistence.Entity
 import jakarta.persistence.EntityListeners
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
+import jakarta.persistence.FetchType
 import jakarta.persistence.Id
+import jakarta.persistence.JoinColumn
+import jakarta.persistence.ManyToOne
 import jakarta.persistence.PostLoad
 import jakarta.persistence.PostPersist
 import jakarta.persistence.Table
 import jakarta.persistence.Transient
+import jakarta.persistence.UniqueConstraint
 import org.springframework.data.annotation.CreatedDate
 import org.springframework.data.annotation.LastModifiedDate
 import org.springframework.data.domain.Persistable
@@ -18,29 +22,27 @@ import java.time.Instant
 import java.util.UUID
 
 @Entity
-@Table(name = "jobs")
+@Table(
+    name = "user_jobs",
+    uniqueConstraints = [UniqueConstraint(columnNames = ["user_id", "job_id"])],
+)
 @EntityListeners(AuditingEntityListener::class)
-class JobEntity(
+class UserJobEntity(
     @Id
     private val id: UUID = UUID.randomUUID(),
-    @Column(nullable = false)
-    var title: String,
-    val company: String? = null,
-    @Column(nullable = false, unique = true)
-    val url: String,
-    @Column(nullable = false, columnDefinition = "TEXT")
-    var description: String,
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    val user: UserEntity,
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "job_id", nullable = false)
+    val job: JobEntity,
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    val source: JobSource,
-    var salary: String? = null,
-    var location: String? = null,
-    @Column(nullable = false)
-    var remote: Boolean = false,
-    @Column(name = "published_at")
-    var publishedAt: Instant? = null,
-    @Column(name = "matched_at")
-    var matchedAt: Instant? = null,
+    var status: UserJobStatus = UserJobStatus.NEW,
+    @Column(name = "ai_relevance_score")
+    val aiRelevanceScore: Int? = null,
+    @Column(name = "ai_reasoning", columnDefinition = "TEXT")
+    val aiReasoning: String? = null,
     @CreatedDate
     @Column(name = "created_at", insertable = false, updatable = false)
     val createdAt: Instant? = null,

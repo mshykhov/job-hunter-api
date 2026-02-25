@@ -69,7 +69,7 @@ src/main/kotlin/com/mshykhov/jobhunter/
 | `DB_NAME` | `jobhunter` | Database name |
 | `DB_USERNAME` | `jobhunter` | Database user |
 | `DB_PASSWORD` | `jobhunter` | Database password |
-| `SERVER_PORT` | `8080` | Application port |
+| `SERVER_PORT` | `8080` (`8095` in local profile) | Application port |
 | `AUTH0_ENABLED` | `true` | Enable/disable Auth0 |
 | `AUTH0_ISSUER` | - | Auth0 issuer URL |
 | `AUTH0_AUDIENCE` | - | Auth0 audience |
