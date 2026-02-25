@@ -1,8 +1,8 @@
 package com.mshykhov.jobhunter.application.userjob
 
+import com.mshykhov.jobhunter.api.rest.exception.custom.NotFoundException
 import com.mshykhov.jobhunter.api.rest.job.dto.UserJobDetailResponse
 import com.mshykhov.jobhunter.api.rest.job.dto.UserJobResponse
-import com.mshykhov.jobhunter.api.rest.exception.custom.NotFoundException
 import com.mshykhov.jobhunter.application.user.UserFacade
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
