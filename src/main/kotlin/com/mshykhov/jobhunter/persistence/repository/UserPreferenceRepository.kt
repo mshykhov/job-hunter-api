@@ -6,9 +6,7 @@ import org.springframework.data.jpa.repository.Query
 import java.util.UUID
 
 interface UserPreferenceRepository : JpaRepository<UserPreferenceEntity, UUID> {
-    fun findByUserSub(userSub: String): UserPreferenceEntity?
-
-    fun existsByUserSub(userSub: String): Boolean
+    fun findByUserId(userId: UUID): UserPreferenceEntity?
 
     @Query(
         "SELECT * FROM user_preferences WHERE :source = ANY(enabled_sources)",

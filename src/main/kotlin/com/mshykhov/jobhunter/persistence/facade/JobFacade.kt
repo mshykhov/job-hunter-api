@@ -12,5 +12,11 @@ class JobFacade(
 ) {
     fun findByUrl(url: String): JobEntity? = jobRepository.findByUrl(url)
 
+    fun findByUrls(urls: List<String>): List<JobEntity> = jobRepository.findByUrlIn(urls)
+
+    fun findUnmatched(): List<JobEntity> = jobRepository.findByMatchedAtIsNull()
+
     fun save(entity: JobEntity): JobEntity = jobRepository.save(entity)
+
+    fun saveAll(entities: List<JobEntity>): List<JobEntity> = jobRepository.saveAll(entities)
 }

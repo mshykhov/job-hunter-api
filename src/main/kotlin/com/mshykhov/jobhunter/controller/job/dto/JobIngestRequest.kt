@@ -6,8 +6,7 @@ import jakarta.validation.constraints.NotBlank
 data class JobIngestRequest(
     @field:NotBlank
     val title: String,
-    @field:NotBlank
-    val company: String,
+    val company: String? = null,
     @field:NotBlank
     val url: String,
     @field:NotBlank
