@@ -5,6 +5,8 @@ import org.springframework.data.jpa.repository.Query
 import java.util.UUID
 
 interface UserJobRepository : JpaRepository<UserJobEntity, UUID> {
+    fun deleteByJobIdIn(jobIds: List<UUID>)
+
     @Query("SELECT uj FROM UserJobEntity uj JOIN FETCH uj.job WHERE uj.user.id = :userId AND uj.status = :status")
     fun findByUserIdAndStatus(
         userId: UUID,

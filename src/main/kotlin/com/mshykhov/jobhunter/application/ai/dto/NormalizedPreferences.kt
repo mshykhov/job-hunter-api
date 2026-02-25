@@ -8,5 +8,5 @@ data class NormalizedPreferences(
     val keywords: List<String> = emptyList(),
     val excludedKeywords: List<String> = emptyList(),
     val remoteOnly: Boolean = false,
-    val enabledSources: List<JobSource> = JobSource.entries,
+    val disabledSources: List<JobSource> = emptyList(),
 )

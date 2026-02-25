@@ -45,7 +45,8 @@ CREATE TABLE user_preferences
     keywords              TEXT[]  NOT NULL DEFAULT '{}',
     excluded_keywords     TEXT[]  NOT NULL DEFAULT '{}',
     remote_only           BOOLEAN NOT NULL DEFAULT FALSE,
-    enabled_sources       TEXT[]  NOT NULL DEFAULT '{}',
+    disabled_sources      TEXT[]  NOT NULL DEFAULT '{}',
+    min_score             INTEGER NOT NULL DEFAULT 50,
     notifications_enabled BOOLEAN NOT NULL DEFAULT TRUE,
     created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at            TIMESTAMPTZ NOT NULL DEFAULT now()

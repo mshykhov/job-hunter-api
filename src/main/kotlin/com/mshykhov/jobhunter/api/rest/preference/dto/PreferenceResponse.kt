@@ -10,7 +10,8 @@ data class PreferenceResponse(
     val keywords: List<String>,
     val excludedKeywords: List<String>,
     val remoteOnly: Boolean,
-    val enabledSources: List<JobSource>,
+    val disabledSources: List<JobSource>,
+    val minScore: Int,
     val notificationsEnabled: Boolean,
 ) {
     companion object {
@@ -22,7 +23,8 @@ data class PreferenceResponse(
                 keywords = entity.keywords,
                 excludedKeywords = entity.excludedKeywords,
                 remoteOnly = entity.remoteOnly,
-                enabledSources = entity.enabledSources,
+                disabledSources = entity.disabledSources,
+                minScore = entity.minScore,
                 notificationsEnabled = entity.notificationsEnabled,
             )
     }

@@ -56,8 +56,8 @@ jobhunter:
     issuer: ${AUTH0_ISSUER:}
     audience: ${AUTH0_AUDIENCE:}
   ai:
-    filter:
-      min-score: ${AI_FILTER_MIN_SCORE:50}
+    matching:
+      batch-size: ${AI_MATCHING_BATCH_SIZE:10}
   proxy:
     enabled: ${PROXY_ENABLED:false}
     api-key: ${WEBSHARE_API_KEY:}

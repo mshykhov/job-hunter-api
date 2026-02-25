@@ -8,7 +8,6 @@ enum class JobSource(
 ) : ValueMappedEnum {
     DOU("dou"),
     DJINNI("djinni"),
-    INDEED("indeed"),
     LINKEDIN("linkedin"),
     ;
 

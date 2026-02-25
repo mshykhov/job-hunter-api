@@ -26,4 +26,7 @@ class UserJobFacade(
 
     @Transactional
     fun saveAll(entities: List<UserJobEntity>): List<UserJobEntity> = userJobRepository.saveAll(entities)
+
+    @Transactional
+    fun deleteByJobIds(jobIds: List<UUID>): Unit = userJobRepository.deleteByJobIdIn(jobIds)
 }
