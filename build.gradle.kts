@@ -45,8 +45,8 @@ dependencies {
     implementation("org.flywaydb:flyway-core")
     implementation("org.flywaydb:flyway-database-postgresql")
 
-    // AI (Spring AI + Anthropic)
-    implementation("org.springframework.ai:spring-ai-starter-model-anthropic")
+    // AI (Spring AI + OpenAI)
+    implementation("org.springframework.ai:spring-ai-starter-model-openai")
 
     // OpenAPI / Swagger
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.6")

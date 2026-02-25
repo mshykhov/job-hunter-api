@@ -32,18 +32,29 @@ class JobMatchingService(
 
         val preferences = userPreferenceFacade.findAll()
         if (preferences.isEmpty()) {
-            markAllMatched(jobs)
+            markMatched(jobs)
             return
         }
 
         logger.info { "Matching ${jobs.size} jobs against ${preferences.size} user preferences" }
 
+        val matched = mutableListOf<JobEntity>()
+        var failedCount = 0
+
         for (job in jobs) {
-            matchJobToUsers(job, preferences)
+            try {
+                matchJobToUsers(job, preferences)
+                matched.add(job)
+            } catch (e: Exception) {
+                failedCount++
+                logger.error(e) { "AI evaluation failed for job '${job.title}', skipping" }
+            }
         }
 
-        markAllMatched(jobs)
-        logger.info { "Matching complete for ${jobs.size} jobs" }
+        if (matched.isNotEmpty()) {
+            markMatched(matched)
+        }
+        logger.info { "Matching complete: ${matched.size} processed, $failedCount failed" }
     }
 
     private fun matchJobToUsers(
@@ -56,27 +67,27 @@ class JobMatchingService(
         val userJobs =
             coldMatches.mapNotNull { preference ->
                 val aiResult = jobRelevanceEvaluator.evaluate(job, preference)
-                if (aiResult != null && aiResult.score < aiProperties.filter.minScore) {
+                if (aiResult.score < aiProperties.filter.minScore) {
                     logger.debug {
-                        "Job '${job.title}' filtered out by AI for user ${preference.user.id} (score: ${aiResult.score})"
+                        "Job '${job.title}' filtered out for user ${preference.user.id} (score: ${aiResult.score})"
                     }
                     return@mapNotNull null
                 }
                 UserJobEntity(
                     user = preference.user,
                     job = job,
-                    aiRelevanceScore = aiResult?.score,
-                    aiReasoning = aiResult?.reasoning,
+                    aiRelevanceScore = aiResult.score,
+                    aiReasoning = aiResult.reasoning,
                 )
             }
 
         if (userJobs.isNotEmpty()) {
             userJobFacade.saveAll(userJobs)
-            logger.info { "Job '${job.title}' matched ${userJobs.size} users" }
+            logger.info { "Job '${job.title}' matched ${userJobs.size} users (scores: ${userJobs.map { it.aiRelevanceScore }})" }
         }
     }
 
-    private fun markAllMatched(jobs: List<JobEntity>) {
+    private fun markMatched(jobs: List<JobEntity>) {
         val now = Instant.now(clock)
         jobs.forEach { it.matchedAt = now }
         jobFacade.saveAll(jobs)

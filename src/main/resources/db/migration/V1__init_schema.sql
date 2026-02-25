@@ -58,8 +58,8 @@ CREATE TABLE user_jobs
     user_id            UUID        NOT NULL REFERENCES users (id),
     job_id             UUID        NOT NULL REFERENCES jobs (id),
     status             VARCHAR(50) NOT NULL DEFAULT 'NEW',
-    ai_relevance_score INTEGER,
-    ai_reasoning       TEXT,
+    ai_relevance_score INTEGER     NOT NULL,
+    ai_reasoning       TEXT        NOT NULL,
     created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (user_id, job_id)

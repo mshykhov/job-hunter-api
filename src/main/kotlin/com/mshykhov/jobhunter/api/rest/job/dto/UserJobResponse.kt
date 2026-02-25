@@ -17,7 +17,7 @@ data class UserJobResponse(
     val location: String?,
     val remote: Boolean,
     val status: UserJobStatus,
-    val aiRelevanceScore: Int?,
+    val aiRelevanceScore: Int,
     val publishedAt: Instant?,
     val matchedAt: Instant?,
 ) {
