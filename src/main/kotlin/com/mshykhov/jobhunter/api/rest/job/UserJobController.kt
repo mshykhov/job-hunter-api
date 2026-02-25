@@ -1,8 +1,10 @@
 package com.mshykhov.jobhunter.api.rest.job
 
+import com.mshykhov.jobhunter.api.rest.job.dto.RematchResponse
 import com.mshykhov.jobhunter.api.rest.job.dto.UpdateJobStatusRequest
 import com.mshykhov.jobhunter.api.rest.job.dto.UserJobDetailResponse
 import com.mshykhov.jobhunter.api.rest.job.dto.UserJobResponse
+import com.mshykhov.jobhunter.application.matching.JobMatchingService
 import com.mshykhov.jobhunter.application.userjob.UserJobService
 import com.mshykhov.jobhunter.application.userjob.UserJobStatus
 import jakarta.validation.Valid
@@ -12,23 +14,27 @@ import org.springframework.security.oauth2.jwt.Jwt
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
+import java.time.Instant
 import java.util.UUID
 
 @RestController
 @RequestMapping("/jobs")
 class UserJobController(
     private val userJobService: UserJobService,
+    private val jobMatchingService: JobMatchingService,
 ) {
     @GetMapping
     @PreAuthorize("hasAuthority('SCOPE_read:jobs')")
     fun list(
         @AuthenticationPrincipal jwt: Jwt,
         @RequestParam(required = false) status: UserJobStatus?,
-    ): List<UserJobResponse> = userJobService.list(jwt.subject, status)
+        @RequestParam(required = false) minScore: Int?,
+    ): List<UserJobResponse> = userJobService.list(jwt.subject, status, minScore)
 
     @GetMapping("/{jobId}")
     @PreAuthorize("hasAuthority('SCOPE_read:jobs')")
@@ -44,4 +50,13 @@ class UserJobController(
         @PathVariable jobId: UUID,
         @Valid @RequestBody request: UpdateJobStatusRequest,
     ): UserJobResponse = userJobService.updateStatus(jwt.subject, jobId, request.status)
+
+    @PostMapping("/rematch")
+    @PreAuthorize("hasAuthority('SCOPE_write:jobs')")
+    fun rematch(
+        @RequestParam(required = false) since: Instant?,
+    ): RematchResponse {
+        val count = jobMatchingService.rematch(since)
+        return RematchResponse(jobsQueued = count)
+    }
 }

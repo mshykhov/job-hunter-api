@@ -35,5 +35,5 @@ private val SYSTEM_PROMPT =
     - keywords: relevant skill/framework keywords for job matching (e.g. spring, react, kubernetes, microservices)
     - excludedKeywords: technologies or domains the user wants to avoid
     - remoteOnly: whether user wants only remote positions (true/false)
-    - enabledSources: job sources to search. Available: DOU, DJINNI, INDEED, LINKEDIN. Include ALL by default. Only remove a source if the user explicitly says they don't want it.
+    - disabledSources: job source names the user explicitly wants to exclude from search. Empty by default (all sources active). Only add a source if the user explicitly says they don't want it.
     """.trimIndent()

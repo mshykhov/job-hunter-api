@@ -53,7 +53,8 @@ class PreferenceService(
             keywords = result.keywords,
             excludedKeywords = result.excludedKeywords,
             remoteOnly = result.remoteOnly,
-            enabledSources = result.enabledSources,
+            disabledSources = result.disabledSources,
+            minScore = 50,
             notificationsEnabled = true,
         )
     }
@@ -73,7 +74,8 @@ class PreferenceService(
         entity.keywords = request.keywords
         entity.excludedKeywords = request.excludedKeywords
         entity.remoteOnly = request.remoteOnly
-        entity.enabledSources = request.enabledSources
+        entity.disabledSources = request.disabledSources
+        entity.minScore = request.minScore
         entity.notificationsEnabled = request.notificationsEnabled
         return entity
     }

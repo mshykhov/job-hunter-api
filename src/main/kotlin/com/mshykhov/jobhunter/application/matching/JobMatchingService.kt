@@ -9,10 +9,17 @@ import com.mshykhov.jobhunter.application.userjob.UserJobEntity
 import com.mshykhov.jobhunter.application.userjob.UserJobFacade
 import com.mshykhov.jobhunter.infrastructure.ai.AiProperties
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.runBlocking
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
 import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
 
 private val logger = KotlinLogging.logger {}
 
@@ -38,18 +45,27 @@ class JobMatchingService(
 
         logger.info { "Matching ${jobs.size} jobs against ${preferences.size} user preferences" }
 
-        val matched = mutableListOf<JobEntity>()
-        var failedCount = 0
-
-        for (job in jobs) {
-            try {
-                matchJobToUsers(job, preferences)
-                matched.add(job)
-            } catch (e: Exception) {
-                failedCount++
-                logger.error(e) { "AI evaluation failed for job '${job.title}', skipping" }
+        val batchSize = aiProperties.matching.batchSize
+        val results =
+            runBlocking(Dispatchers.IO) {
+                jobs.chunked(batchSize).flatMap { batch ->
+                    batch
+                        .map { job ->
+                            async {
+                                try {
+                                    matchJobToUsers(job, preferences)
+                                    MatchResult.Success(job)
+                                } catch (e: Exception) {
+                                    logger.error(e) { "AI evaluation failed for job '${job.title}', skipping" }
+                                    MatchResult.Failure
+                                }
+                            }
+                        }.awaitAll()
+                }
             }
-        }
+
+        val matched = results.filterIsInstance<MatchResult.Success>().map { it.job }
+        val failedCount = results.count { it is MatchResult.Failure }
 
         if (matched.isNotEmpty()) {
             markMatched(matched)
@@ -65,14 +81,8 @@ class JobMatchingService(
         if (coldMatches.isEmpty()) return
 
         val userJobs =
-            coldMatches.mapNotNull { preference ->
+            coldMatches.map { preference ->
                 val aiResult = jobRelevanceEvaluator.evaluate(job, preference)
-                if (aiResult.score < aiProperties.filter.minScore) {
-                    logger.debug {
-                        "Job '${job.title}' filtered out for user ${preference.user.id} (score: ${aiResult.score})"
-                    }
-                    return@mapNotNull null
-                }
                 UserJobEntity(
                     user = preference.user,
                     job = job,
@@ -81,10 +91,27 @@ class JobMatchingService(
                 )
             }
 
-        if (userJobs.isNotEmpty()) {
-            userJobFacade.saveAll(userJobs)
-            logger.info { "Job '${job.title}' matched ${userJobs.size} users (scores: ${userJobs.map { it.aiRelevanceScore }})" }
-        }
+        userJobFacade.saveAll(userJobs)
+        logger.info { "Job '${job.title}' evaluated for ${userJobs.size} users (scores: ${userJobs.map { it.aiRelevanceScore }})" }
+    }
+
+    @Transactional
+    fun rematch(since: Instant?): Int {
+        val jobs =
+            if (since != null) {
+                jobFacade.findMatchedSince(since)
+            } else {
+                jobFacade.findAllMatched()
+            }
+        if (jobs.isEmpty()) return 0
+
+        val jobIds = jobs.map { it.id }
+        userJobFacade.deleteByJobIds(jobIds)
+        jobs.forEach { it.matchedAt = null }
+        jobFacade.saveAll(jobs)
+
+        logger.info { "Rematch queued: ${jobs.size} jobs reset (since=${since ?: "all"})" }
+        return jobs.size
     }
 
     private fun markMatched(jobs: List<JobEntity>) {
@@ -93,23 +120,31 @@ class JobMatchingService(
         jobFacade.saveAll(jobs)
     }
 
+    private sealed interface MatchResult {
+        data class Success(
+            val job: JobEntity,
+        ) : MatchResult
+
+        data object Failure : MatchResult
+    }
+
     // --- Cold filter ---
 
     private fun coldFilterMatches(
         job: JobEntity,
         preference: UserPreferenceEntity,
     ): Boolean =
-        isSourceEnabled(job, preference) &&
+        isSourceAllowed(job, preference) &&
             isRemoteMatch(job, preference) &&
             hasNoExcludedKeywords(job, preference) &&
             matchesCategories(job, preference)
 
-    private fun isSourceEnabled(
+    private fun isSourceAllowed(
         job: JobEntity,
         preference: UserPreferenceEntity,
     ): Boolean {
-        if (preference.enabledSources.isEmpty()) return true
-        return job.source in preference.enabledSources
+        if (preference.disabledSources.isEmpty()) return true
+        return job.source !in preference.disabledSources
     }
 
     private fun isRemoteMatch(
@@ -125,7 +160,7 @@ class JobMatchingService(
         preference: UserPreferenceEntity,
     ): Boolean {
         if (preference.excludedKeywords.isEmpty()) return true
-        val searchText = "${job.title} ${job.description}".lowercase()
+        val searchText = buildSearchText(job)
         return preference.excludedKeywords.none { keyword ->
             searchText.contains(keyword.lowercase())
         }
@@ -136,9 +171,14 @@ class JobMatchingService(
         preference: UserPreferenceEntity,
     ): Boolean {
         if (preference.categories.isEmpty()) return true
-        val searchText = "${job.title} ${job.description}".lowercase()
+        val searchText = buildSearchText(job)
         return preference.categories.any { category ->
             searchText.contains(category.lowercase())
         }
     }
+
+    private fun buildSearchText(job: JobEntity): String =
+        listOfNotNull(job.title, job.company, job.description, job.location, job.salary)
+            .joinToString(" ")
+            .lowercase()
 }

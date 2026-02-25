@@ -11,7 +11,7 @@ class UserPreferenceFacade(
 ) {
     fun findAll(): List<UserPreferenceEntity> = userPreferenceRepository.findAll()
 
-    fun findByEnabledSource(source: String): List<UserPreferenceEntity> = userPreferenceRepository.findByEnabledSource(source)
+    fun findBySourceAllowed(source: String): List<UserPreferenceEntity> = userPreferenceRepository.findBySourceAllowed(source)
 
     fun findByUserId(userId: UUID): UserPreferenceEntity? = userPreferenceRepository.findByUserId(userId)
 

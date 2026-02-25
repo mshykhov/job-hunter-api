@@ -4,9 +4,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties
 
 @ConfigurationProperties(prefix = "jobhunter.ai")
 data class AiProperties(
-    val filter: FilterProperties = FilterProperties(),
+    val matching: MatchingProperties = MatchingProperties(),
 ) {
-    data class FilterProperties(
-        val minScore: Int = 50,
+    data class MatchingProperties(
+        val batchSize: Int = 10,
     )
 }

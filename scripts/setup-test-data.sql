@@ -74,7 +74,7 @@ VALUES
      'InfraCloud',
      'https://indeed.com/jobs/3001',
      'InfraCloud needs a DevOps Engineer with Kubernetes, Terraform, and AWS experience. Python scripting skills required.',
-     'INDEED', '$5000-7000', 'Remote', true,
+     'LINKEDIN', '$5000-7000', 'Remote', true,
      now() - interval '3 hours', null)
 
 ON CONFLICT (url) DO NOTHING;

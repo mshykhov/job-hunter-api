@@ -51,8 +51,10 @@ class UserPreferenceEntity(
     var remoteOnly: Boolean = false,
     @JdbcTypeCode(SqlTypes.ARRAY)
     @Enumerated(EnumType.STRING)
-    @Column(name = "enabled_sources", columnDefinition = "text[]")
-    var enabledSources: List<JobSource> = emptyList(),
+    @Column(name = "disabled_sources", columnDefinition = "text[]")
+    var disabledSources: List<JobSource> = emptyList(),
+    @Column(name = "min_score", nullable = false)
+    var minScore: Int = 50,
     @Column(name = "notifications_enabled", nullable = false)
     var notificationsEnabled: Boolean = true,
     @CreatedDate

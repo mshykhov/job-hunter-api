@@ -9,6 +9,7 @@ data class SavePreferenceRequest(
     val keywords: List<String> = emptyList(),
     val excludedKeywords: List<String> = emptyList(),
     val remoteOnly: Boolean = false,
-    val enabledSources: List<JobSource> = emptyList(),
+    val disabledSources: List<JobSource> = emptyList(),
+    val minScore: Int = 50,
     val notificationsEnabled: Boolean = true,
 )

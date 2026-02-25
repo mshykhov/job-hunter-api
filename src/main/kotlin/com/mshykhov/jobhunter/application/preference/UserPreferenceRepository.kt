@@ -8,8 +8,8 @@ interface UserPreferenceRepository : JpaRepository<UserPreferenceEntity, UUID> {
     fun findByUserId(userId: UUID): UserPreferenceEntity?
 
     @Query(
-        "SELECT * FROM user_preferences WHERE :source = ANY(enabled_sources)",
+        "SELECT * FROM user_preferences WHERE NOT (:source = ANY(disabled_sources))",
         nativeQuery = true,
     )
-    fun findByEnabledSource(source: String): List<UserPreferenceEntity>
+    fun findBySourceAllowed(source: String): List<UserPreferenceEntity>
 }

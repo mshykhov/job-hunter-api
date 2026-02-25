@@ -8,7 +8,7 @@ Design doc for multi-user job matching pipeline with AI-powered filtering.
 - `POST /jobs/ingest` — batch ingest from n8n, dedup by URL
 - `GET /criteria?source={SOURCE}` — aggregated search criteria for n8n
 - `JobEntity` with source, dedup, audit fields
-- `UserPreferenceEntity` with categories, excluded keywords, enabled sources
+- `UserPreferenceEntity` with categories, excluded keywords, disabled sources
 
 ### Problems to fix
 1. **`JobEntity.status`** — status is per-job, but should be per user-job pair
@@ -53,7 +53,7 @@ Design doc for multi-user job matching pipeline with AI-powered filtering.
                                                │ excluded_keywords[]│
                                                │ min_salary         │
                                                │ remote_only        │
-                                               │ enabled_sources[]  │
+                                               │ disabled_sources[] │
                                                │ notifications_on   │
                                                │ created_at         │
                                                │ updated_at         │
@@ -105,7 +105,7 @@ Picks up: SELECT * FROM jobs WHERE matched_at IS NULL
 For each unmatched job, for each user:
     │
     ├─ STAGE 1: Cold Filter (no AI, fast)
-    │   ├─ Source enabled? (user.enabled_sources contains job.source)
+    │   ├─ Source allowed? (job.source not in user.disabled_sources)
     │   ├─ Remote match? (if user.remote_only → job.remote must be true)
     │   ├─ Excluded keywords? (job.title/description vs user.excluded_keywords)
     │   ├─ Category match? (job matches any user.categories)
@@ -180,7 +180,7 @@ POST /preferences (or PUT /preferences/{id})
   "excludedKeywords": ["crypto", "web3", "blockchain"],
   "minSalary": 5000,
   "remoteOnly": true,
-  "enabledSources": ["DOU", "DJINNI", "INDEED"]
+  "disabledSources": []
 }
 ```
 
@@ -255,7 +255,7 @@ CREATE TABLE user_preferences (
     excluded_keywords TEXT[] NOT NULL DEFAULT '{}',
     min_salary        INTEGER,
     remote_only       BOOLEAN NOT NULL DEFAULT FALSE,
-    enabled_sources   TEXT[] NOT NULL DEFAULT '{}',
+    disabled_sources  TEXT[] NOT NULL DEFAULT '{}',
     notifications_enabled BOOLEAN NOT NULL DEFAULT TRUE,
     created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
