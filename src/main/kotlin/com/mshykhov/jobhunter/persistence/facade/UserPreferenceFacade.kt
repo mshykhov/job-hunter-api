@@ -11,6 +11,8 @@ import java.util.UUID
 class UserPreferenceFacade(
     private val userPreferenceRepository: UserPreferenceRepository,
 ) {
+    fun findAll(): List<UserPreferenceEntity> = userPreferenceRepository.findAll()
+
     fun findByEnabledSource(source: String): List<UserPreferenceEntity> = userPreferenceRepository.findByEnabledSource(source)
 
     fun findByUserId(userId: UUID): UserPreferenceEntity? = userPreferenceRepository.findByUserId(userId)
