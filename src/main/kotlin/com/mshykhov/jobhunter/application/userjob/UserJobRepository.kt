@@ -19,5 +19,4 @@ interface UserJobRepository : JpaRepository<UserJobEntity, UUID> {
         userId: UUID,
         jobId: UUID,
     ): UserJobEntity?
-
 }
