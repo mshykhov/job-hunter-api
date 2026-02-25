@@ -42,8 +42,8 @@ class JobEntity(
     @Column(name = "matched_at")
     var matchedAt: Instant? = null,
     @CreatedDate
-    @Column(name = "created_at", insertable = false, updatable = false)
-    val createdAt: Instant? = null,
+    @Column(name = "created_at", updatable = false)
+    var createdAt: Instant? = null,
     @LastModifiedDate
     @Column(name = "updated_at", insertable = false)
     var updatedAt: Instant? = null,

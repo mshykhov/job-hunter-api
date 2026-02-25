@@ -307,34 +307,68 @@ Intentional. Company is part of job identity (same URL = same company). Only mut
 
 ---
 
+## AI Integration
+
+### SDK & Auth
+
+Uses [Anthropic Java SDK](https://github.com/anthropics/anthropic-sdk-java) (`com.anthropic:anthropic-java`).
+
+Two auth modes:
+- **API Key** — standard `ANTHROPIC_API_KEY`
+- **Auth Token** — OAuth token from `claude setup-token` (Max/Pro subscription, $0 extra)
+
+Configuration: `jobhunter.ai.*` in `application.yml`, toggled via `AI_ENABLED` env var.
+
+### Components
+
+| Component | Role |
+|-----------|------|
+| `AiConfig` | Creates `AnthropicClient` bean (conditional on `ai.enabled=true`) |
+| `AiProperties` | `@ConfigurationProperties` for all AI settings |
+| `ClaudeClient` | Thin wrapper over SDK: sends message, extracts text response |
+| `AiFilterService` | Builds prompt with job + preferences, parses JSON score/reasoning |
+| `PreferenceNormalizeService` | Builds prompt with raw text, parses structured preferences |
+
+### Graceful degradation
+
+- `AI_ENABLED=false` → cold filter only, no API calls
+- API call fails → job passes through on cold filter alone, error logged
+- Response parsing fails → same as API failure, null result
+
+---
+
 ## Package Structure (new/modified)
 
 ```
 com.mshykhov.jobhunter/
 ├── config/
+│   ├── AiConfig          # AnthropicClient bean
+│   └── AiProperties      # AI configuration properties
 ├── controller/
 │   ├── job/             # ingest (n8n) + user job list/status
 │   ├── criteria/        # search criteria for n8n
 │   └── preference/      # normalize + CRUD preferences
 ├── service/
 │   ├── JobService        # ingest logic
-│   ├── JobMatchingService # @Scheduled pipeline
-│   ├── SearchCriteriaService
-│   ├── PreferenceService  # normalize + save
-│   └── ai/
-│       └── AiFilterService # Claude Haiku integration
+│   ├── JobMatchingService # @Scheduled pipeline (cold + AI)
+│   ├── ColdFilterService  # source, remote, keywords, categories
+│   ├── AiFilterService    # Claude Haiku job relevance evaluation
+│   ├── ClaudeClient       # Anthropic SDK wrapper
+│   ├── PreferenceNormalizeService # AI preference normalization
+│   ├── PreferenceService  # CRUD preferences
+│   ├── UserJobService     # user job list/status
+│   └── SearchCriteriaService
 ├── persistence/
 │   ├── model/
 │   │   ├── JobEntity      # (status removed, matched_at added)
-│   │   ├── UserEntity     # NEW
-│   │   ├── UserJobEntity  # NEW
-│   │   ├── UserPreferenceEntity # MODIFIED
+│   │   ├── UserEntity     # Auth0 user
+│   │   ├── UserJobEntity  # per-user job status + AI metadata
+│   │   ├── UserPreferenceEntity # structured preferences
 │   │   ├── JobSource
-│   │   └── UserJobStatus  # NEW (replaces JobStatus)
+│   │   └── UserJobStatus  # NEW, APPLIED, IRRELEVANT
 │   ├── repository/
 │   └── facade/
-├── exception/
-└── common/
+└── exception/
 ```
 
 ---
