@@ -47,6 +47,12 @@ class UserPreferenceEntity(
     @JdbcTypeCode(SqlTypes.ARRAY)
     @Column(name = "excluded_keywords", columnDefinition = "text[]")
     var excludedKeywords: List<String> = emptyList(),
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    @Column(name = "locations", columnDefinition = "text[]")
+    var locations: List<String> = emptyList(),
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    @Column(name = "languages", columnDefinition = "text[]")
+    var languages: List<String> = emptyList(),
     @Column(name = "remote_only", nullable = false)
     var remoteOnly: Boolean = false,
     @JdbcTypeCode(SqlTypes.ARRAY)

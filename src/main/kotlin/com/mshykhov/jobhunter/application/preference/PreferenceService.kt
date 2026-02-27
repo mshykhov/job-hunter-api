@@ -52,9 +52,11 @@ class PreferenceService(
             seniorityLevels = result.seniorityLevels,
             keywords = result.keywords,
             excludedKeywords = result.excludedKeywords,
+            locations = result.locations,
             remoteOnly = result.remoteOnly,
             disabledSources = result.disabledSources,
             minScore = 50,
+            languages = listOf(),
             notificationsEnabled = true,
         )
     }
@@ -73,6 +75,7 @@ class PreferenceService(
         entity.seniorityLevels = request.seniorityLevels
         entity.keywords = request.keywords
         entity.excludedKeywords = request.excludedKeywords
+        entity.locations = request.locations
         entity.remoteOnly = request.remoteOnly
         entity.disabledSources = request.disabledSources
         entity.minScore = request.minScore

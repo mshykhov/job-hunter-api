@@ -8,6 +8,8 @@ data class SavePreferenceRequest(
     val seniorityLevels: List<String> = emptyList(),
     val keywords: List<String> = emptyList(),
     val excludedKeywords: List<String> = emptyList(),
+    val locations: List<String> = emptyList(),
+    val languages: List<String> = emptyList(),
     val remoteOnly: Boolean = false,
     val disabledSources: List<JobSource> = emptyList(),
     val minScore: Int = 50,

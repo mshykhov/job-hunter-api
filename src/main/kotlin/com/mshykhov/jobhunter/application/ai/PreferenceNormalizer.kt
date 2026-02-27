@@ -34,6 +34,7 @@ private val SYSTEM_PROMPT =
     - seniorityLevels: experience levels (e.g. junior, middle, senior, lead, principal)
     - keywords: relevant skill/framework keywords for job matching (e.g. spring, react, kubernetes, microservices)
     - excludedKeywords: technologies or domains the user wants to avoid
+    - locations: countries or regions to search jobs in (e.g. Ukraine, United States, Worldwide). Empty means no preference (use default).
     - remoteOnly: whether user wants only remote positions (true/false)
     - disabledSources: job source names the user explicitly wants to exclude from search. Empty by default (all sources active). Only add a source if the user explicitly says they don't want it.
     """.trimIndent()
