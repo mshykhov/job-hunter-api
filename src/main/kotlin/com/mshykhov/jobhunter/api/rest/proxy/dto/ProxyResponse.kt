@@ -1,5 +1,6 @@
 package com.mshykhov.jobhunter.api.rest.proxy.dto
 
+import com.mshykhov.jobhunter.infrastructure.fingerprint.BrowserFingerprint
 import com.mshykhov.jobhunter.infrastructure.proxy.WebshareProxy
 
 data class ProxyResponse(
@@ -9,9 +10,13 @@ data class ProxyResponse(
     val username: String,
     val password: String,
     val countryCode: String,
+    val fingerprint: Map<String, String> = emptyMap(),
 ) {
     companion object {
         fun from(proxy: WebshareProxy): ProxyResponse =
+            from(proxy, null)
+
+        fun from(proxy: WebshareProxy, fingerprint: BrowserFingerprint?): ProxyResponse =
             ProxyResponse(
                 url = "http://${proxy.username}:${proxy.password}@${proxy.proxyAddress}:${proxy.port}",
                 host = proxy.proxyAddress,
@@ -19,6 +24,7 @@ data class ProxyResponse(
                 username = proxy.username,
                 password = proxy.password,
                 countryCode = proxy.countryCode,
+                fingerprint = fingerprint?.toHeaderMap() ?: emptyMap(),
             )
     }
 }

@@ -3,6 +3,7 @@ package com.mshykhov.jobhunter.application.proxy
 import com.mshykhov.jobhunter.api.rest.exception.custom.ServiceUnavailableException
 import com.mshykhov.jobhunter.api.rest.proxy.dto.ProxyResponse
 import com.mshykhov.jobhunter.application.job.JobSource
+import com.mshykhov.jobhunter.infrastructure.fingerprint.FingerprintProvider
 import com.mshykhov.jobhunter.infrastructure.proxy.WebshareClient
 import com.mshykhov.jobhunter.infrastructure.proxy.WebshareProperties
 import com.mshykhov.jobhunter.infrastructure.proxy.WebshareProxy
@@ -19,6 +20,7 @@ private val logger = KotlinLogging.logger {}
 @Service
 class ProxyService(
     private val webshareClientProvider: ObjectProvider<WebshareClient>,
+    private val fingerprintProvider: ObjectProvider<FingerprintProvider>,
     private val proxyProperties: WebshareProperties,
 ) {
     @Volatile
@@ -30,6 +32,21 @@ class ProxyService(
     private val counters = ConcurrentHashMap<JobSource, AtomicInteger>()
 
     fun getProxy(source: JobSource): ProxyResponse {
+        val proxies = getValidProxies()
+        val counter = counters.computeIfAbsent(source) { AtomicInteger(0) }
+        val index = Math.floorMod(counter.getAndIncrement(), proxies.size)
+        return toResponse(proxies[index])
+    }
+
+    fun getAllProxies(): List<ProxyResponse> = getValidProxies().map { toResponse(it) }
+
+    private fun toResponse(proxy: WebshareProxy): ProxyResponse {
+        val provider = fingerprintProvider.ifAvailable
+        val fingerprint = provider?.getFingerprintForProxy("${proxy.proxyAddress}:${proxy.port}")
+        return ProxyResponse.from(proxy, fingerprint)
+    }
+
+    private fun getValidProxies(): List<WebshareProxy> {
         val client =
             webshareClientProvider.ifAvailable
                 ?: throw ServiceUnavailableException("Proxy service is not configured")
@@ -42,10 +59,7 @@ class ProxyService(
         if (proxies.isEmpty()) {
             throw ServiceUnavailableException("No proxies available")
         }
-
-        val counter = counters.computeIfAbsent(source) { AtomicInteger(0) }
-        val index = Math.floorMod(counter.getAndIncrement(), proxies.size)
-        return ProxyResponse.from(proxies[index])
+        return proxies
     }
 
     private fun needsRefresh(): Boolean = Duration.between(lastRefresh, Instant.now()).toMinutes() >= proxyProperties.cacheTtlMinutes

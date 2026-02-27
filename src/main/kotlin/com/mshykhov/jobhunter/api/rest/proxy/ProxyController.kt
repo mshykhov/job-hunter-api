@@ -19,4 +19,8 @@ class ProxyController(
     fun get(
         @RequestParam source: JobSource,
     ): ProxyResponse = proxyService.getProxy(source)
+
+    @GetMapping("/all")
+    @PreAuthorize("hasAuthority('SCOPE_read:proxies')")
+    fun getAll(): List<ProxyResponse> = proxyService.getAllProxies()
 }
