@@ -7,6 +7,6 @@ data class AiProperties(
     val matching: MatchingProperties = MatchingProperties(),
 ) {
     data class MatchingProperties(
-        val batchSize: Int = 10,
+        val concurrency: Int = 10,
     )
 }

@@ -13,6 +13,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -45,13 +47,13 @@ class JobMatchingService(
 
         logger.info { "Matching ${jobs.size} jobs against ${preferences.size} user preferences" }
 
-        val batchSize = aiProperties.matching.batchSize
+        val semaphore = Semaphore(aiProperties.matching.concurrency)
         val results =
             runBlocking(Dispatchers.IO) {
-                jobs.chunked(batchSize).flatMap { batch ->
-                    batch
-                        .map { job ->
-                            async {
+                jobs
+                    .map { job ->
+                        async {
+                            semaphore.withPermit {
                                 try {
                                     matchJobToUsers(job, preferences)
                                     MatchResult.Success(job)
@@ -60,8 +62,8 @@ class JobMatchingService(
                                     MatchResult.Failure
                                 }
                             }
-                        }.awaitAll()
-                }
+                        }
+                    }.awaitAll()
             }
 
         val matched = results.filterIsInstance<MatchResult.Success>().map { it.job }
