@@ -35,7 +35,7 @@ spring:
       api-key: ${OPENAI_API_KEY:}
       chat:
         options:
-          model: ${AI_MODEL:gpt-4o-mini}
+          model: ${AI_MODEL:gpt-5-nano}
           temperature: 1.0
     retry:
       max-attempts: 5
