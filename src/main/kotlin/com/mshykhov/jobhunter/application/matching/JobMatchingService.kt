@@ -83,7 +83,7 @@ class JobMatchingService(
         val userJobs =
             coldMatches.mapNotNull { preference ->
                 val aiResult = jobRelevanceEvaluator.evaluate(job, preference)
-                if (preference.remoteOnly && aiResult.inferredRemote == false) return@mapNotNull null
+                if (preference.remoteOnly && !aiResult.inferredRemote) return@mapNotNull null
                 UserJobEntity(
                     user = preference.user,
                     job = job,

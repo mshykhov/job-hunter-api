@@ -61,32 +61,28 @@ private val SYSTEM_PROMPT =
     4. Skill/framework overlap — bonus for matching desired skills
 
     ## inferredRemote field
-    This field reflects whether the job offers remote work.
+    Always return true or false. Never return null. This field must always have a definitive value.
 
-    If remote status is already provided in the job data, echo that value (true/false).
+    If remote status is already provided in the job data, echo that value.
 
     If remote is "not specified", infer from title, description, and location:
 
     Set to true if any of these signals appear:
     - Keywords: "remote", "fully remote", "100% remote", "remote-first", "work from home", "WFH", "telecommute", "distributed team"
     - Phrases: "work from anywhere", "no office required", "remote-friendly", "home office allowed"
-    - Hybrid arrangements: "hybrid", "flexible location", "partial remote" — these offer remote work, so count as true
+    - Hybrid arrangements: "hybrid", "flexible location", "partial remote" — they offer remote work, count as true
     - Location lists countries/regions broadly, or says "worldwide", "global", "anywhere"
 
     Set to false if any of these signals appear and no remote signals contradict them:
     - Keywords: "on-site", "in-office", "office-based", "in-person", "no remote option"
     - Phrases: "must relocate to", "relocation required", "X days per week in office" (without remote option), "presence required"
-    - Location is a specific city (e.g. "Kyiv", "Berlin", "New York") with zero mention of remote — a city-only location with no remote signal is a strong on-site indicator
+    - Location is a specific city (e.g. "Kyiv", "Berlin", "New York") with zero remote mention — city-only location with no remote signal is a strong on-site indicator
 
-    Set to null ONLY if:
-    - There are genuinely contradictory signals that cannot be resolved
-    - There is absolutely no location, no office/city context, and no remote-related keywords whatsoever
-
-    Prefer a confident true or false. Most job postings have enough signals. Reserve null for truly unresolvable cases.
+    If signals are completely absent, default to false (assume on-site).
 
     ## Output
     Return a JSON object with:
     - score: integer 0–100
     - reasoning: 1–2 sentences explaining the score
-    - inferredRemote: boolean or null — remote status determination (echoed from input or inferred)
+    - inferredRemote: boolean (never null) — true if remote/hybrid, false if on-site
     """.trimIndent()
