@@ -2,8 +2,8 @@ package com.mshykhov.jobhunter.api.rest.job
 
 import com.mshykhov.jobhunter.api.rest.job.dto.RematchResponse
 import com.mshykhov.jobhunter.api.rest.job.dto.UpdateJobStatusRequest
-import com.mshykhov.jobhunter.application.userjob.dto.UserJobDetailResponse
-import com.mshykhov.jobhunter.application.userjob.dto.UserJobResponse
+import com.mshykhov.jobhunter.api.rest.job.dto.UserJobDetailResponse
+import com.mshykhov.jobhunter.api.rest.job.dto.UserJobResponse
 import com.mshykhov.jobhunter.application.matching.JobMatchingService
 import com.mshykhov.jobhunter.application.userjob.UserJobService
 import com.mshykhov.jobhunter.application.userjob.UserJobStatus
@@ -34,14 +34,15 @@ class UserJobController(
         @AuthenticationPrincipal jwt: Jwt,
         @RequestParam(required = false) status: UserJobStatus?,
         @RequestParam(required = false) minScore: Int?,
-    ): List<UserJobResponse> = userJobService.list(jwt.subject, status, minScore)
+    ): List<UserJobResponse> =
+        userJobService.list(jwt.subject, status, minScore).map { UserJobResponse.from(it) }
 
     @GetMapping("/{jobId}")
     @PreAuthorize("hasAuthority('SCOPE_read:jobs')")
     fun getDetail(
         @AuthenticationPrincipal jwt: Jwt,
         @PathVariable jobId: UUID,
-    ): UserJobDetailResponse = userJobService.getDetail(jwt.subject, jobId)
+    ): UserJobDetailResponse = UserJobDetailResponse.from(userJobService.getDetail(jwt.subject, jobId))
 
     @PatchMapping("/{jobId}/status")
     @PreAuthorize("hasAuthority('SCOPE_write:jobs')")
@@ -49,7 +50,7 @@ class UserJobController(
         @AuthenticationPrincipal jwt: Jwt,
         @PathVariable jobId: UUID,
         @Valid @RequestBody request: UpdateJobStatusRequest,
-    ): UserJobResponse = userJobService.updateStatus(jwt.subject, jobId, request.status)
+    ): UserJobResponse = UserJobResponse.from(userJobService.updateStatus(jwt.subject, jobId, request.status))
 
     @PostMapping("/rematch")
     @PreAuthorize("hasAuthority('SCOPE_write:jobs')")

@@ -1,4 +1,4 @@
-package com.mshykhov.jobhunter.application.job.dto
+package com.mshykhov.jobhunter.api.rest.job.dto
 
 import com.mshykhov.jobhunter.application.job.JobEntity
 import com.mshykhov.jobhunter.application.job.JobSource

@@ -1,7 +1,6 @@
 package com.mshykhov.jobhunter.application.job
 
-import com.mshykhov.jobhunter.application.job.dto.JobIngestRequest
-import com.mshykhov.jobhunter.application.job.dto.JobResponse
+import com.mshykhov.jobhunter.api.rest.job.dto.JobIngestRequest
 import com.mshykhov.jobhunter.application.common.DateTimeParser
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Service
@@ -15,7 +14,7 @@ class JobService(
     private val jobFacade: JobFacade,
 ) {
     @Transactional
-    fun ingest(requests: List<JobIngestRequest>): List<JobResponse> {
+    fun ingest(requests: List<JobIngestRequest>): List<JobEntity> {
         val uniqueRequests = requests.associateBy { it.url }.values
         val urls = uniqueRequests.map { it.url }
         val existingByUrl = jobFacade.findByUrls(urls).associateBy { it.url }
@@ -35,7 +34,7 @@ class JobService(
         val sources = entities.groupingBy { it.source }.eachCount()
         logger.info { "Ingest: ${entities.size} jobs ($newCount new, $updatedCount updated), sources: $sources" }
 
-        return jobFacade.saveAll(entities).map { JobResponse.from(it) }
+        return jobFacade.saveAll(entities)
     }
 
     private fun createNew(request: JobIngestRequest): JobEntity =

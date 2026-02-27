@@ -1,7 +1,7 @@
 package com.mshykhov.jobhunter.api.rest.job
 
-import com.mshykhov.jobhunter.application.job.dto.JobIngestRequest
-import com.mshykhov.jobhunter.application.job.dto.JobResponse
+import com.mshykhov.jobhunter.api.rest.job.dto.JobIngestRequest
+import com.mshykhov.jobhunter.api.rest.job.dto.JobResponse
 import com.mshykhov.jobhunter.application.job.JobService
 import jakarta.validation.Valid
 import org.springframework.security.access.prepost.PreAuthorize
@@ -19,7 +19,7 @@ class JobController(
     @PreAuthorize("hasAuthority('SCOPE_write:jobs')")
     fun ingest(
         @Valid @RequestBody request: List<JobIngestRequest>,
-    ): List<JobResponse> = jobService.ingest(request)
+    ): List<JobResponse> = jobService.ingest(request).map { JobResponse.from(it) }
 
     @PostMapping("/check-urls")
     @PreAuthorize("hasAuthority('SCOPE_write:jobs')")

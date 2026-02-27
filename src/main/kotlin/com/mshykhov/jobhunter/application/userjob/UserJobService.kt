@@ -1,8 +1,6 @@
 package com.mshykhov.jobhunter.application.userjob
 
 import com.mshykhov.jobhunter.api.rest.exception.custom.NotFoundException
-import com.mshykhov.jobhunter.application.userjob.dto.UserJobDetailResponse
-import com.mshykhov.jobhunter.application.userjob.dto.UserJobResponse
 import com.mshykhov.jobhunter.application.preference.UserPreferenceFacade
 import com.mshykhov.jobhunter.application.user.UserFacade
 import org.springframework.stereotype.Service
@@ -20,7 +18,7 @@ class UserJobService(
         auth0Sub: String,
         status: UserJobStatus?,
         minScore: Int?,
-    ): List<UserJobResponse> {
+    ): List<UserJobEntity> {
         val user = userFacade.findByAuth0Sub(auth0Sub) ?: return emptyList()
         val effectiveMinScore = minScore ?: userPreferenceFacade.findByUserId(user.id)?.minScore ?: 0
         val userJobs =
@@ -29,21 +27,17 @@ class UserJobService(
             } else {
                 userJobFacade.findByUserId(user.id)
             }
-        return userJobs
-            .filter { it.aiRelevanceScore >= effectiveMinScore }
-            .map { UserJobResponse.from(it) }
+        return userJobs.filter { it.aiRelevanceScore >= effectiveMinScore }
     }
 
     @Transactional(readOnly = true)
     fun getDetail(
         auth0Sub: String,
         jobId: UUID,
-    ): UserJobDetailResponse {
+    ): UserJobEntity {
         val user = findUser(auth0Sub)
-        val userJob =
-            userJobFacade.findByUserIdAndJobId(user.id, jobId)
-                ?: throw NotFoundException("Job $jobId not found for user")
-        return UserJobDetailResponse.from(userJob)
+        return userJobFacade.findByUserIdAndJobId(user.id, jobId)
+            ?: throw NotFoundException("Job $jobId not found for user")
     }
 
     @Transactional
@@ -51,13 +45,13 @@ class UserJobService(
         auth0Sub: String,
         jobId: UUID,
         status: UserJobStatus,
-    ): UserJobResponse {
+    ): UserJobEntity {
         val user = findUser(auth0Sub)
         val userJob =
             userJobFacade.findByUserIdAndJobId(user.id, jobId)
                 ?: throw NotFoundException("Job $jobId not found for user")
         userJob.status = status
-        return UserJobResponse.from(userJobFacade.save(userJob))
+        return userJobFacade.save(userJob)
     }
 
     private fun findUser(auth0Sub: String) =
