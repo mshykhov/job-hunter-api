@@ -81,8 +81,9 @@ class JobMatchingService(
         if (coldMatches.isEmpty()) return
 
         val userJobs =
-            coldMatches.map { preference ->
+            coldMatches.mapNotNull { preference ->
                 val aiResult = jobRelevanceEvaluator.evaluate(job, preference)
+                if (preference.remoteOnly && aiResult.inferredRemote == false) return@mapNotNull null
                 UserJobEntity(
                     user = preference.user,
                     job = job,
@@ -92,6 +93,7 @@ class JobMatchingService(
                 )
             }
 
+        if (userJobs.isEmpty()) return
         userJobFacade.saveAll(userJobs)
         logger.info { "Job '${job.title}' evaluated for ${userJobs.size} users (scores: ${userJobs.map { it.aiRelevanceScore }})" }
     }
