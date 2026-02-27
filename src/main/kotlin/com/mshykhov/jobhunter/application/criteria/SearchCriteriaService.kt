@@ -12,6 +12,8 @@ class SearchCriteriaService(
     fun getAggregated(source: JobSource): SearchCriteriaResponse {
         val preferences = userPreferenceFacade.findBySourceAllowed(source.name)
         val categories = preferences.flatMap { it.categories }.distinct()
-        return SearchCriteriaResponse(categories = categories)
+        val locations = preferences.flatMap { it.locations }.distinct()
+        val remoteOnly = preferences.isNotEmpty() && preferences.all { it.remoteOnly }
+        return SearchCriteriaResponse(categories = categories, locations = locations, remoteOnly = remoteOnly)
     }
 }
