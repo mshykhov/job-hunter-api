@@ -1,4 +1,4 @@
-package com.mshykhov.jobhunter.api.rest.job.dto
+package com.mshykhov.jobhunter.application.job.dto
 
 import com.mshykhov.jobhunter.application.job.JobSource
 import jakarta.validation.constraints.NotBlank

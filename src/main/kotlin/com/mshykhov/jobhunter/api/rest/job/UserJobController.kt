@@ -2,8 +2,8 @@ package com.mshykhov.jobhunter.api.rest.job
 
 import com.mshykhov.jobhunter.api.rest.job.dto.RematchResponse
 import com.mshykhov.jobhunter.api.rest.job.dto.UpdateJobStatusRequest
-import com.mshykhov.jobhunter.api.rest.job.dto.UserJobDetailResponse
-import com.mshykhov.jobhunter.api.rest.job.dto.UserJobResponse
+import com.mshykhov.jobhunter.application.userjob.dto.UserJobDetailResponse
+import com.mshykhov.jobhunter.application.userjob.dto.UserJobResponse
 import com.mshykhov.jobhunter.application.matching.JobMatchingService
 import com.mshykhov.jobhunter.application.userjob.UserJobService
 import com.mshykhov.jobhunter.application.userjob.UserJobStatus

@@ -1,7 +1,7 @@
 package com.mshykhov.jobhunter.api.rest.job
 
-import com.mshykhov.jobhunter.api.rest.job.dto.JobIngestRequest
-import com.mshykhov.jobhunter.api.rest.job.dto.JobResponse
+import com.mshykhov.jobhunter.application.job.dto.JobIngestRequest
+import com.mshykhov.jobhunter.application.job.dto.JobResponse
 import com.mshykhov.jobhunter.application.job.JobService
 import jakarta.validation.Valid
 import org.springframework.security.access.prepost.PreAuthorize

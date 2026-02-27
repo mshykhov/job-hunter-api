@@ -1,7 +1,7 @@
 package com.mshykhov.jobhunter.application.job
 
-import com.mshykhov.jobhunter.api.rest.job.dto.JobIngestRequest
-import com.mshykhov.jobhunter.api.rest.job.dto.JobResponse
+import com.mshykhov.jobhunter.application.job.dto.JobIngestRequest
+import com.mshykhov.jobhunter.application.job.dto.JobResponse
 import com.mshykhov.jobhunter.application.common.DateTimeParser
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Service
