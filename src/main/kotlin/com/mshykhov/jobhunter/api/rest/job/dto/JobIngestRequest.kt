@@ -9,11 +9,11 @@ data class JobIngestRequest(
     val company: String? = null,
     @field:NotBlank
     val url: String,
-    @field:NotBlank
-    val description: String,
+    val description: String = "",
     val source: JobSource,
     val salary: String? = null,
     val location: String? = null,
-    val remote: Boolean = false,
+    val remote: Boolean? = null,
     val publishedAt: String? = null,
+    val rawData: Map<String, Any?> = emptyMap(),
 )

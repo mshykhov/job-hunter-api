@@ -14,7 +14,7 @@ data class JobResponse(
     val source: JobSource,
     val salary: String?,
     val location: String?,
-    val remote: Boolean,
+    val remote: Boolean?,
     val publishedAt: Instant?,
     val createdAt: Instant,
     val updatedAt: Instant,

@@ -152,7 +152,7 @@ class JobMatchingService(
         preference: UserPreferenceEntity,
     ): Boolean {
         if (!preference.remoteOnly) return true
-        return job.remote
+        return job.remote != false
     }
 
     private fun hasNoExcludedKeywords(

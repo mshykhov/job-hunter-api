@@ -45,6 +45,7 @@ class JobService(
             url = request.url,
             description = request.description,
             source = request.source,
+            rawData = request.rawData,
             salary = request.salary,
             location = request.location,
             remote = request.remote,
@@ -57,11 +58,17 @@ class JobService(
     ): JobEntity {
         entity.title = request.title
         entity.description = request.description
+        entity.rawData = request.rawData
         entity.salary = request.salary
         entity.location = request.location
         entity.remote = request.remote
         entity.publishedAt = parsePublishedAt(request.publishedAt) ?: entity.publishedAt
         return entity
+    }
+
+    fun findExistingUrls(urls: List<String>): List<String> {
+        if (urls.isEmpty()) return emptyList()
+        return jobFacade.findByUrls(urls).map { it.url }
     }
 
     private fun parsePublishedAt(raw: String?): Instant? {

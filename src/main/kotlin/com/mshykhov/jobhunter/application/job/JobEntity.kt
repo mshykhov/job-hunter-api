@@ -10,6 +10,8 @@ import jakarta.persistence.PostLoad
 import jakarta.persistence.PostPersist
 import jakarta.persistence.Table
 import jakarta.persistence.Transient
+import org.hibernate.annotations.JdbcTypeCode
+import org.hibernate.type.SqlTypes
 import org.springframework.data.annotation.CreatedDate
 import org.springframework.data.annotation.LastModifiedDate
 import org.springframework.data.domain.Persistable
@@ -33,10 +35,12 @@ class JobEntity(
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     val source: JobSource,
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "raw_data", nullable = false, columnDefinition = "jsonb")
+    var rawData: Map<String, Any?> = emptyMap(),
     var salary: String? = null,
     var location: String? = null,
-    @Column(nullable = false)
-    var remote: Boolean = false,
+    var remote: Boolean? = null,
     @Column(name = "published_at")
     var publishedAt: Instant? = null,
     @Column(name = "matched_at")
