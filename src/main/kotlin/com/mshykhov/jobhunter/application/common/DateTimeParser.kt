@@ -1,6 +1,7 @@
 package com.mshykhov.jobhunter.application.common
 
 import java.time.Instant
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
@@ -12,6 +13,7 @@ object DateTimeParser {
             { raw -> tryParse { Instant.parse(raw) } },
             { raw -> tryParse { DateTimeFormatter.RFC_1123_DATE_TIME.parse(raw, Instant::from) } },
             { raw -> tryParse { LocalDateTime.parse(raw).toInstant(ZoneOffset.UTC) } },
+            { raw -> tryParse { LocalDate.parse(raw).atStartOfDay().toInstant(ZoneOffset.UTC) } },
         )
 
     fun toInstant(raw: String?): Instant? {

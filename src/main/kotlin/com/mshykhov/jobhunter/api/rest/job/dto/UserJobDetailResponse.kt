@@ -16,7 +16,7 @@ data class UserJobDetailResponse(
     val source: JobSource,
     val salary: String?,
     val location: String?,
-    val remote: Boolean,
+    val remote: Boolean?,
     val status: UserJobStatus,
     val aiRelevanceScore: Int,
     val aiReasoning: String,

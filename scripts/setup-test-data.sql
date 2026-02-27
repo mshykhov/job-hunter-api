@@ -3,14 +3,14 @@
 
 BEGIN;
 
-INSERT INTO jobs (id, title, company, url, description, source, salary, location, remote, published_at, matched_at)
+INSERT INTO jobs (id, title, company, url, description, source, raw_data, salary, location, remote, published_at, matched_at)
 VALUES
     ('c0000000-0000-0000-0000-000000000001',
      'Senior Kotlin Backend Developer',
      'TechCorp',
      'https://dou.ua/jobs/1001',
      'We are looking for a Senior Kotlin Backend Developer to join our team. You will work with Spring Boot, PostgreSQL, and Kubernetes. Requirements: 5+ years of experience with JVM languages, strong knowledge of Kotlin and Spring ecosystem, experience with microservices architecture.',
-     'DOU', '$6000-8000', 'Remote', true,
+     'DOU', '{}'::jsonb, '$6000-8000', 'Remote', true,
      now() - interval '3 days', now() - interval '2 days'),
 
     ('c0000000-0000-0000-0000-000000000002',
@@ -18,7 +18,7 @@ VALUES
      'FinTech Solutions',
      'https://djinni.co/jobs/2001',
      'FinTech Solutions is hiring a Lead Engineer to architect and build our core banking platform. Tech stack: Kotlin, Spring Boot 3, PostgreSQL, Kafka, gRPC. You will lead a team of 5 developers and drive technical decisions.',
-     'DJINNI', '$8000-10000', 'Remote', true,
+     'DJINNI', '{}'::jsonb, '$8000-10000', 'Remote', true,
      now() - interval '5 days', now() - interval '4 days'),
 
     ('c0000000-0000-0000-0000-000000000003',
@@ -26,7 +26,7 @@ VALUES
      'CloudScale',
      'https://dou.ua/jobs/1002',
      'Join CloudScale as a Senior Backend Engineer. We build cloud-native applications using Java 21, Spring Boot, and AWS. Experience with distributed systems and event-driven architecture is a plus. Competitive salary and fully remote position.',
-     'DOU', '$5500-7500', 'Remote', true,
+     'DOU', '{}'::jsonb, '$5500-7500', 'Remote', true,
      now() - interval '2 days', now() - interval '1 day'),
 
     ('c0000000-0000-0000-0000-000000000004',
@@ -34,7 +34,7 @@ VALUES
      'StartupXYZ',
      'https://djinni.co/jobs/2002',
      'StartupXYZ is building an AI-powered recruitment platform. We need a Kotlin Developer with Spring Boot experience. Bonus: experience with OpenAI API, vector databases, and Kubernetes.',
-     'DJINNI', '$4500-6000', 'Remote', true,
+     'DJINNI', '{}'::jsonb, '$4500-6000', 'Remote', true,
      now() - interval '7 days', now() - interval '6 days'),
 
     ('c0000000-0000-0000-0000-000000000005',
@@ -42,7 +42,7 @@ VALUES
      'DataFlow Inc',
      'https://dou.ua/jobs/1003',
      'DataFlow Inc is looking for a Senior Software Engineer to work on our data platform. Technologies: Kotlin, Spring, PostgreSQL, Apache Kafka, Flink. You will design and implement real-time data processing pipelines.',
-     'DOU', '$7000-9000', 'Kyiv, Ukraine (Remote OK)', true,
+     'DOU', '{}'::jsonb, '$7000-9000', 'Kyiv, Ukraine (Remote OK)', true,
      now() - interval '1 day', now() - interval '12 hours'),
 
     ('c0000000-0000-0000-0000-000000000006',
@@ -50,7 +50,7 @@ VALUES
      'WebAgency',
      'https://dou.ua/jobs/1004',
      'Looking for a Full Stack Developer with React and Node.js experience. Must know TypeScript, Next.js, and MongoDB. PHP knowledge is a plus.',
-     'DOU', '$3000-4500', 'Kyiv, Ukraine', false,
+     'DOU', '{}'::jsonb, '$3000-4500', 'Kyiv, Ukraine', false,
      now() - interval '4 days', now() - interval '3 days'),
 
     ('c0000000-0000-0000-0000-000000000007',
@@ -58,7 +58,7 @@ VALUES
      'WebShop',
      'https://djinni.co/jobs/2003',
      'We need a Junior PHP Developer for our WordPress-based e-commerce platform. Experience with WooCommerce and MySQL is required.',
-     'DJINNI', '$800-1200', 'Lviv, Ukraine', false,
+     'DJINNI', '{}'::jsonb, '$800-1200', 'Lviv, Ukraine', false,
      now() - interval '6 days', now() - interval '5 days'),
 
     ('c0000000-0000-0000-0000-000000000008',
@@ -66,7 +66,7 @@ VALUES
      'NeoBank',
      'https://dou.ua/jobs/1005',
      'NeoBank is hiring Senior Kotlin Backend Developers. We use Kotlin, Spring Boot, PostgreSQL, and deploy to Kubernetes. Fully remote, great benefits.',
-     'DOU', '$6500-8500', 'Remote', true,
+     'DOU', '{}'::jsonb, '$6500-8500', 'Remote', true,
      now() - interval '6 hours', null),
 
     ('c0000000-0000-0000-0000-000000000009',
@@ -74,7 +74,7 @@ VALUES
      'InfraCloud',
      'https://indeed.com/jobs/3001',
      'InfraCloud needs a DevOps Engineer with Kubernetes, Terraform, and AWS experience. Python scripting skills required.',
-     'LINKEDIN', '$5000-7000', 'Remote', true,
+     'LINKEDIN', '{}'::jsonb, '$5000-7000', 'Remote', true,
      now() - interval '3 hours', null)
 
 ON CONFLICT (url) DO NOTHING;

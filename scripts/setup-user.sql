@@ -8,7 +8,7 @@ VALUES ('a0000000-0000-0000-0000-000000000001', 'local-dev-user', 'dev@jobhunter
 ON CONFLICT (auth0_sub) DO NOTHING;
 
 INSERT INTO user_preferences (id, user_id, raw_input, categories, seniority_levels, keywords,
-                              excluded_keywords, remote_only, disabled_sources,
+                              excluded_keywords, locations, remote_only, disabled_sources,
                               min_score, notifications_enabled)
 VALUES ('b0000000-0000-0000-0000-000000000001',
         'a0000000-0000-0000-0000-000000000001',
@@ -17,9 +17,10 @@ VALUES ('b0000000-0000-0000-0000-000000000001',
         ARRAY ['senior', 'lead'],
         ARRAY ['spring', 'microservices', 'postgresql', 'kubernetes'],
         ARRAY ['php', 'wordpress', 'drupal'],
+        ARRAY ['Ukraine', 'United Kingdom', 'United States', 'Europe', 'Middle East'],
         true,
         ARRAY[]::text[],
-        50,
+        0,
         true)
 ON CONFLICT (user_id) DO NOTHING;
 
