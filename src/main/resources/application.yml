@@ -63,6 +63,11 @@ jobhunter:
     api-key: ${WEBSHARE_API_KEY:}
     base-url: ${WEBSHARE_BASE_URL:https://proxy.webshare.io/api/v2}
     cache-ttl-minutes: ${PROXY_CACHE_TTL_MINUTES:60}
+  scrapeops:
+    enabled: ${SCRAPEOPS_ENABLED:false}
+    api-key: ${SCRAPEOPS_API_KEY:}
+    num-results: ${SCRAPEOPS_NUM_RESULTS:50}
+    refresh-interval-minutes: ${SCRAPEOPS_REFRESH_MINUTES:360}
 
 logging:
   level:
