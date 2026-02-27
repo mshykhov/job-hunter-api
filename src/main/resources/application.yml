@@ -35,8 +35,16 @@ spring:
       api-key: ${OPENAI_API_KEY:}
       chat:
         options:
-          model: ${AI_MODEL:gpt-5-nano}
+          model: ${AI_MODEL:gpt-4o-mini}
           temperature: 1.0
+    retry:
+      max-attempts: 5
+      on-http-codes: 429
+      exclude-on-http-codes: 400,401,403
+      backoff:
+        initial-interval: 2s
+        multiplier: 2
+        max-interval: 30s
 
 server:
   port: ${SERVER_PORT:8080}
@@ -57,7 +65,7 @@ jobhunter:
     audience: ${AUTH0_AUDIENCE:}
   ai:
     matching:
-      batch-size: ${AI_MATCHING_BATCH_SIZE:10}
+      concurrency: ${AI_MATCHING_CONCURRENCY:10}
   proxy:
     enabled: ${PROXY_ENABLED:false}
     api-key: ${WEBSHARE_API_KEY:}
