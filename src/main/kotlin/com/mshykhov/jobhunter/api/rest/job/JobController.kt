@@ -20,4 +20,10 @@ class JobController(
     fun ingest(
         @Valid @RequestBody request: List<JobIngestRequest>,
     ): List<JobResponse> = jobService.ingest(request)
+
+    @PostMapping("/check-urls")
+    @PreAuthorize("hasAuthority('SCOPE_write:jobs')")
+    fun checkUrls(
+        @RequestBody urls: List<String>,
+    ): List<String> = jobService.findExistingUrls(urls)
 }
