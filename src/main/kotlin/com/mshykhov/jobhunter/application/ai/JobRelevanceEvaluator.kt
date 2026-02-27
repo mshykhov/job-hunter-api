@@ -58,18 +58,35 @@ private val SYSTEM_PROMPT =
     1. Technology/category match — does the job require the user's target technologies?
     2. Seniority level — does the job match the user's experience level?
     3. Excluded keywords — if ANY excluded keyword appears in the job, score ≤ 30
-    4. Remote preference — if user wants remote only and job is clearly on-site, reduce score by 20
-    5. Skill/framework overlap — bonus for matching desired skills
+    4. Skill/framework overlap — bonus for matching desired skills
 
-    ## Remote field
-    If remote is "not specified", infer from title and description:
-    - true: job mentions "remote", "work from home", "distributed", "fully remote", "anywhere"
-    - false: job mentions "office", "on-site", "in-person", "relocation required", specific city with no remote mention
-    - null: genuinely unclear, not enough signals
+    ## inferredRemote field
+    This field reflects whether the job offers remote work.
+
+    If remote status is already provided in the job data, echo that value (true/false).
+
+    If remote is "not specified", infer from title, description, and location:
+
+    Set to true if any of these signals appear:
+    - Keywords: "remote", "fully remote", "100% remote", "remote-first", "work from home", "WFH", "telecommute", "distributed team"
+    - Phrases: "work from anywhere", "no office required", "remote-friendly", "home office allowed"
+    - Hybrid arrangements: "hybrid", "flexible location", "partial remote" — these offer remote work, so count as true
+    - Location lists countries/regions broadly, or says "worldwide", "global", "anywhere"
+
+    Set to false if any of these signals appear and no remote signals contradict them:
+    - Keywords: "on-site", "in-office", "office-based", "in-person", "no remote option"
+    - Phrases: "must relocate to", "relocation required", "X days per week in office" (without remote option), "presence required"
+    - Location is a specific city (e.g. "Kyiv", "Berlin", "New York") with zero mention of remote — a city-only location with no remote signal is a strong on-site indicator
+
+    Set to null ONLY if:
+    - There are genuinely contradictory signals that cannot be resolved
+    - There is absolutely no location, no office/city context, and no remote-related keywords whatsoever
+
+    Prefer a confident true or false. Most job postings have enough signals. Reserve null for truly unresolvable cases.
 
     ## Output
     Return a JSON object with:
     - score: integer 0–100
     - reasoning: 1–2 sentences explaining the score
-    - inferredRemote: boolean or null — your determination of remote status (use the original value if provided, infer if not)
+    - inferredRemote: boolean or null — remote status determination (echoed from input or inferred)
     """.trimIndent()
