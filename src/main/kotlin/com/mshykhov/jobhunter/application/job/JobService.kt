@@ -19,20 +19,22 @@ class JobService(
         val urls = uniqueRequests.map { it.url }
         val existingByUrl = jobFacade.findByUrls(urls).associateBy { it.url }
 
+        var updatedCount = 0
         val entities =
             uniqueRequests.map { request ->
                 val existing = existingByUrl[request.url]
                 if (existing != null) {
-                    updateExisting(existing, request)
+                    if (updateExisting(existing, request)) updatedCount++
+                    existing
                 } else {
                     createNew(request)
                 }
             }
 
         val newCount = entities.count { it.isNew }
-        val updatedCount = entities.size - newCount
+        val unchangedCount = entities.size - newCount - updatedCount
         val sources = entities.groupingBy { it.source }.eachCount()
-        logger.info { "Ingest: ${entities.size} jobs ($newCount new, $updatedCount updated), sources: $sources" }
+        logger.info { "Ingest: ${entities.size} jobs ($newCount new, $updatedCount updated, $unchangedCount unchanged), sources: $sources" }
 
         return jobFacade.saveAll(entities)
     }
@@ -51,18 +53,30 @@ class JobService(
             publishedAt = parsePublishedAt(request.publishedAt),
         )
 
+    /** Returns true if any field changed, false if the job is identical to what we already have. */
     private fun updateExisting(
         entity: JobEntity,
         request: JobIngestRequest,
-    ): JobEntity {
+    ): Boolean {
+        val parsedPublishedAt = parsePublishedAt(request.publishedAt)
+        val hasChanges =
+            entity.title != request.title ||
+                entity.description != request.description ||
+                entity.salary != request.salary ||
+                entity.location != request.location ||
+                entity.remote != request.remote ||
+                entity.rawData != request.rawData ||
+                (parsedPublishedAt != null && entity.publishedAt != parsedPublishedAt)
+        if (!hasChanges) return false
+
         entity.title = request.title
         entity.description = request.description
         entity.rawData = request.rawData
         entity.salary = request.salary
         entity.location = request.location
         entity.remote = request.remote
-        entity.publishedAt = parsePublishedAt(request.publishedAt) ?: entity.publishedAt
-        return entity
+        entity.publishedAt = parsedPublishedAt ?: entity.publishedAt
+        return true
     }
 
     fun findExistingUrls(urls: List<String>): List<String> {
