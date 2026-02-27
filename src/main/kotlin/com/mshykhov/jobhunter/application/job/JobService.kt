@@ -19,24 +19,24 @@ class JobService(
         val urls = uniqueRequests.map { it.url }
         val existingByUrl = jobFacade.findByUrls(urls).associateBy { it.url }
 
-        var updatedCount = 0
-        val entities =
-            uniqueRequests.map { request ->
-                val existing = existingByUrl[request.url]
-                if (existing != null) {
-                    if (updateExisting(existing, request)) updatedCount++
-                    existing
-                } else {
-                    createNew(request)
-                }
+        val toSave = mutableListOf<JobEntity>()
+        val unchangedEntities = mutableListOf<JobEntity>()
+
+        uniqueRequests.forEach { request ->
+            val existing = existingByUrl[request.url]
+            if (existing != null) {
+                if (updateExisting(existing, request)) toSave.add(existing) else unchangedEntities.add(existing)
+            } else {
+                toSave.add(createNew(request))
             }
+        }
 
-        val newCount = entities.count { it.isNew }
-        val unchangedCount = entities.size - newCount - updatedCount
-        val sources = entities.groupingBy { it.source }.eachCount()
-        logger.info { "Ingest: ${entities.size} jobs ($newCount new, $updatedCount updated, $unchangedCount unchanged), sources: $sources" }
+        val newCount = toSave.count { it.isNew }
+        val updatedCount = toSave.size - newCount
+        val sources = (toSave + unchangedEntities).groupingBy { it.source }.eachCount()
+        logger.info { "Ingest: ${toSave.size + unchangedEntities.size} jobs ($newCount new, $updatedCount updated, ${unchangedEntities.size} unchanged), sources: $sources" }
 
-        return jobFacade.saveAll(entities)
+        return jobFacade.saveAll(toSave) + unchangedEntities
     }
 
     private fun createNew(request: JobIngestRequest): JobEntity =
