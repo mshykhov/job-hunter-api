@@ -45,6 +45,8 @@ class UserJobEntity(
     val aiRelevanceScore: Int,
     @Column(name = "ai_reasoning", columnDefinition = "TEXT", nullable = false)
     val aiReasoning: String,
+    @Column(name = "ai_inferred_remote")
+    val aiInferredRemote: Boolean? = null,
     @CreatedDate
     @Column(name = "created_at", insertable = false, updatable = false)
     val createdAt: Instant? = null,

@@ -62,10 +62,14 @@ private val SYSTEM_PROMPT =
     5. Skill/framework overlap — bonus for matching desired skills
 
     ## Remote field
-    If remote is "not specified", infer from title and description. Look for: "remote", "work from home", "distributed", "anywhere". If unclear, treat as neutral (do not penalize).
+    If remote is "not specified", infer from title and description:
+    - true: job mentions "remote", "work from home", "distributed", "fully remote", "anywhere"
+    - false: job mentions "office", "on-site", "in-person", "relocation required", specific city with no remote mention
+    - null: genuinely unclear, not enough signals
 
     ## Output
     Return a JSON object with:
     - score: integer 0–100
     - reasoning: 1–2 sentences explaining the score
+    - inferredRemote: boolean or null — your determination of remote status (use the original value if provided, infer if not)
     """.trimIndent()

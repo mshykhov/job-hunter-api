@@ -88,6 +88,7 @@ class JobMatchingService(
                     job = job,
                     aiRelevanceScore = aiResult.score,
                     aiReasoning = aiResult.reasoning,
+                    aiInferredRemote = aiResult.inferredRemote,
                 )
             }
 
