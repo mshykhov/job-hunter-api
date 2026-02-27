@@ -5,7 +5,7 @@ import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
 
 @Component
-@Transactional
+@Transactional(readOnly = true)
 class JobFacade(
     private val jobRepository: JobRepository,
 ) {
@@ -17,5 +17,6 @@ class JobFacade(
 
     fun findMatchedSince(since: Instant): List<JobEntity> = jobRepository.findByMatchedAtGreaterThanEqual(since)
 
+    @Transactional
     fun saveAll(entities: List<JobEntity>): List<JobEntity> = jobRepository.saveAll(entities)
 }
