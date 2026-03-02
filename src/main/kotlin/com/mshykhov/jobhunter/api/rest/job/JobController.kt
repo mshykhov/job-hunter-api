@@ -1,5 +1,7 @@
 package com.mshykhov.jobhunter.api.rest.job
 
+import com.mshykhov.jobhunter.api.rest.job.dto.JobCheckRequest
+import com.mshykhov.jobhunter.api.rest.job.dto.JobCheckResponse
 import com.mshykhov.jobhunter.api.rest.job.dto.JobIngestRequest
 import com.mshykhov.jobhunter.api.rest.job.dto.JobResponse
 import com.mshykhov.jobhunter.application.job.JobService
@@ -21,9 +23,9 @@ class JobController(
         @Valid @RequestBody request: List<JobIngestRequest>,
     ): List<JobResponse> = jobService.ingest(request).map { JobResponse.from(it) }
 
-    @PostMapping("/check-urls")
+    @PostMapping("/check")
     @PreAuthorize("hasAuthority('SCOPE_write:jobs')")
-    fun checkUrls(
-        @RequestBody urls: List<String>,
-    ): List<String> = jobService.findExistingUrls(urls)
+    fun checkJobs(
+        @Valid @RequestBody requests: List<JobCheckRequest>,
+    ): JobCheckResponse = jobService.checkJobs(requests)
 }

@@ -1,5 +1,7 @@
 package com.mshykhov.jobhunter.application.job
 
+import com.mshykhov.jobhunter.api.rest.job.dto.JobCheckRequest
+import com.mshykhov.jobhunter.api.rest.job.dto.JobCheckResponse
 import com.mshykhov.jobhunter.api.rest.job.dto.JobIngestRequest
 import com.mshykhov.jobhunter.application.common.DateTimeParser
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -81,9 +83,44 @@ class JobService(
         return true
     }
 
-    fun findExistingUrls(urls: List<String>): List<String> {
-        if (urls.isEmpty()) return emptyList()
-        return jobFacade.findByUrls(urls).map { it.url }
+    fun checkJobs(requests: List<JobCheckRequest>): JobCheckResponse {
+        if (requests.isEmpty()) return JobCheckResponse(emptyList(), emptyList(), emptyList())
+
+        val uniqueRequests = requests.associateBy { it.url }.values.toList()
+        val urls = uniqueRequests.map { it.url }
+        val existingByUrl = jobFacade.findByUrls(urls).associateBy { it.url }
+
+        val newUrls = mutableListOf<String>()
+        val updatedUrls = mutableListOf<String>()
+        val unchangedUrls = mutableListOf<String>()
+
+        uniqueRequests.forEach { request ->
+            val existing = existingByUrl[request.url]
+            when {
+                existing == null -> newUrls.add(request.url)
+                hasDiscoveryChanges(existing, request) -> updatedUrls.add(request.url)
+                else -> unchangedUrls.add(request.url)
+            }
+        }
+
+        logger.info {
+            "Check: ${uniqueRequests.size} jobs (${newUrls.size} new, ${updatedUrls.size} updated, ${unchangedUrls.size} unchanged)"
+        }
+
+        return JobCheckResponse(newUrls, updatedUrls, unchangedUrls)
+    }
+
+    private fun hasDiscoveryChanges(
+        entity: JobEntity,
+        request: JobCheckRequest,
+    ): Boolean {
+        if (request.title != null && entity.title != request.title) return true
+        if (request.company != null && entity.company != request.company) return true
+        if (request.salary != null && entity.salary != request.salary) return true
+        if (request.location != null && entity.location != request.location) return true
+        val parsedPublishedAt = parsePublishedAt(request.publishedAt)
+        if (parsedPublishedAt != null && entity.publishedAt != parsedPublishedAt) return true
+        return false
     }
 
     private fun parsePublishedAt(raw: String?): Instant? {
