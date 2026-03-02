@@ -53,11 +53,12 @@ class FingerprintProvider(
 
     private fun refresh() {
         try {
-            val response = restClient
-                .get()
-                .uri("/browser-headers?api_key={apiKey}&num_results={num}", properties.apiKey, properties.numResults)
-                .retrieve()
-                .body(ScrapeOpsResponse::class.java)
+            val response =
+                restClient
+                    .get()
+                    .uri("/browser-headers?api_key={apiKey}&num_results={num}", properties.apiKey, properties.numResults)
+                    .retrieve()
+                    .body(ScrapeOpsResponse::class.java)
 
             if (response != null && response.result.isNotEmpty()) {
                 cache.set(response.result)

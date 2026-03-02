@@ -13,10 +13,12 @@ data class ProxyResponse(
     val fingerprint: Map<String, String> = emptyMap(),
 ) {
     companion object {
-        fun from(proxy: WebshareProxy): ProxyResponse =
-            from(proxy, null)
+        fun from(proxy: WebshareProxy): ProxyResponse = from(proxy, null)
 
-        fun from(proxy: WebshareProxy, fingerprint: BrowserFingerprint?): ProxyResponse =
+        fun from(
+            proxy: WebshareProxy,
+            fingerprint: BrowserFingerprint?,
+        ): ProxyResponse =
             ProxyResponse(
                 url = "http://${proxy.username}:${proxy.password}@${proxy.proxyAddress}:${proxy.port}",
                 host = proxy.proxyAddress,

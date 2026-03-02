@@ -34,7 +34,9 @@ class JobService(
         val newCount = toSave.count { it.isNew }
         val updatedCount = toSave.size - newCount
         val sources = (toSave + unchangedEntities).groupingBy { it.source }.eachCount()
-        logger.info { "Ingest: ${toSave.size + unchangedEntities.size} jobs ($newCount new, $updatedCount updated, ${unchangedEntities.size} unchanged), sources: $sources" }
+        logger.info {
+            "Ingest: ${toSave.size + unchangedEntities.size} jobs ($newCount new, $updatedCount updated, ${unchangedEntities.size} unchanged), sources: $sources"
+        }
 
         return jobFacade.saveAll(toSave) + unchangedEntities
     }
