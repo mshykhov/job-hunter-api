@@ -4,61 +4,87 @@ import com.mshykhov.jobhunter.api.rest.exception.custom.NotFoundException
 import com.mshykhov.jobhunter.api.rest.exception.custom.ServiceUnavailableException
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.dao.DataIntegrityViolationException
+import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
+import org.springframework.http.HttpStatusCode
 import org.springframework.http.ResponseEntity
-import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.security.authorization.AuthorizationDeniedException
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
+import org.springframework.web.context.request.WebRequest
+import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler
 
-private val logger = KotlinLogging.logger {}
+private val log = KotlinLogging.logger {}
 
 @RestControllerAdvice
-class GlobalExceptionHandler {
+class GlobalExceptionHandler : ResponseEntityExceptionHandler() {
+    override fun handleMethodArgumentNotValid(
+        ex: MethodArgumentNotValidException,
+        headers: HttpHeaders,
+        status: HttpStatusCode,
+        request: WebRequest,
+    ): ResponseEntity<Any>? {
+        val errors = ex.bindingResult.fieldErrors.joinToString("; ") { "${it.field}: ${it.defaultMessage}" }
+        log.warn { "Validation error: $errors" }
+        return ResponseEntity
+            .status(HttpStatus.BAD_REQUEST)
+            .body(ErrorResponse(errors, "VALIDATION_ERROR"))
+    }
+
+    override fun handleExceptionInternal(
+        ex: Exception,
+        body: Any?,
+        headers: HttpHeaders,
+        statusCode: HttpStatusCode,
+        request: WebRequest,
+    ): ResponseEntity<Any>? {
+        val status = HttpStatus.resolve(statusCode.value()) ?: HttpStatus.INTERNAL_SERVER_ERROR
+        val code = status.name
+        log.warn { "${status.value()} $code: ${ex.message}" }
+        return ResponseEntity
+            .status(status)
+            .headers(headers)
+            .body(ErrorResponse(status.reasonPhrase, code))
+    }
+
     @ExceptionHandler(NotFoundException::class)
     fun handleNotFound(ex: NotFoundException): ResponseEntity<ErrorResponse> {
-        logger.warn { "Not found: ${ex.message}" }
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ErrorResponse(ex.message ?: "Not found", "NOT_FOUND"))
-    }
-
-    @ExceptionHandler(MethodArgumentNotValidException::class)
-    fun handleValidation(ex: MethodArgumentNotValidException): ResponseEntity<ErrorResponse> {
-        val errors = ex.bindingResult.fieldErrors.joinToString("; ") { "${it.field}: ${it.defaultMessage}" }
-        logger.warn { "Validation error: $errors" }
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ErrorResponse(errors, "VALIDATION_ERROR"))
-    }
-
-    @ExceptionHandler(HttpMessageNotReadableException::class)
-    fun handleBadRequest(ex: HttpMessageNotReadableException): ResponseEntity<ErrorResponse> {
-        logger.warn { "Malformed request body: ${ex.message}" }
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ErrorResponse("Malformed request body", "BAD_REQUEST"))
+        log.warn { "Not found: ${ex.message}" }
+        return ResponseEntity
+            .status(HttpStatus.NOT_FOUND)
+            .body(ErrorResponse(ex.message ?: "Not found", "NOT_FOUND"))
     }
 
     @ExceptionHandler(ServiceUnavailableException::class)
     fun handleServiceUnavailable(ex: ServiceUnavailableException): ResponseEntity<ErrorResponse> {
-        logger.error { "Service unavailable: ${ex.message}" }
-        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+        log.error { "Service unavailable: ${ex.message}" }
+        return ResponseEntity
+            .status(HttpStatus.SERVICE_UNAVAILABLE)
             .body(ErrorResponse(ex.message ?: "Service unavailable", "SERVICE_UNAVAILABLE"))
     }
 
     @ExceptionHandler(DataIntegrityViolationException::class)
     fun handleConflict(ex: DataIntegrityViolationException): ResponseEntity<ErrorResponse> {
-        logger.warn { "Data conflict: ${ex.mostSpecificCause.message}" }
-        return ResponseEntity.status(HttpStatus.CONFLICT)
+        log.warn { "Data conflict: ${ex.mostSpecificCause.message}" }
+        return ResponseEntity
+            .status(HttpStatus.CONFLICT)
             .body(ErrorResponse("Data conflict: duplicate or constraint violation", "CONFLICT"))
     }
 
     @ExceptionHandler(AuthorizationDeniedException::class)
     fun handleForbidden(ex: AuthorizationDeniedException): ResponseEntity<ErrorResponse> {
-        logger.warn { "Access denied: ${ex.message}" }
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ErrorResponse("Access denied", "FORBIDDEN"))
+        log.warn { "Access denied: ${ex.message}" }
+        return ResponseEntity
+            .status(HttpStatus.FORBIDDEN)
+            .body(ErrorResponse("Access denied", "FORBIDDEN"))
     }
 
     @ExceptionHandler(Exception::class)
     fun handleUnexpected(ex: Exception): ResponseEntity<ErrorResponse> {
-        logger.error(ex) { "Unexpected error" }
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+        log.error(ex) { "Unexpected error" }
+        return ResponseEntity
+            .status(HttpStatus.INTERNAL_SERVER_ERROR)
             .body(ErrorResponse("Internal server error", "INTERNAL_ERROR"))
     }
 }
