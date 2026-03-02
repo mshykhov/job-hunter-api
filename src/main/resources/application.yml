@@ -61,7 +61,7 @@ management:
 jobhunter:
   auth0:
     enabled: ${AUTH0_ENABLED:true}
-    issuer: ${AUTH0_ISSUER:}
+    issuer: https://${AUTH0_DOMAIN:}/
     audience: ${AUTH0_AUDIENCE:}
   ai:
     matching:
