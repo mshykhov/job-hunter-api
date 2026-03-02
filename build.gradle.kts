@@ -5,10 +5,31 @@ plugins {
     id("org.springframework.boot") version "3.5.3"
     id("io.spring.dependency-management") version "1.1.7"
     id("org.jlleitschuh.gradle.ktlint") version "14.0.1"
+    id("pl.allegro.tech.build.axion-release") version "1.18.16"
+}
+
+// Workaround for git submodules (https://github.com/allegro/axion-release-plugin/issues/249)
+fun resolveGitDirectory(): String {
+    val gitFile = file(".git")
+    return if (gitFile.isFile) {
+        val gitDir = gitFile.readText().substringAfter("gitdir:").trim()
+        file(gitDir).absolutePath
+    } else {
+        gitFile.absolutePath
+    }
+}
+
+scmVersion {
+    repository {
+        directory.set(resolveGitDirectory())
+    }
+    tag {
+        prefix.set("v")
+    }
 }
 
 group = "com.mshykhov"
-version = "0.1.0"
+version = scmVersion.version
 
 java {
     toolchain {
