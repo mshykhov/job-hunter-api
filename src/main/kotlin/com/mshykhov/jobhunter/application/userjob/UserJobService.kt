@@ -1,10 +1,12 @@
 package com.mshykhov.jobhunter.application.userjob
 
 import com.mshykhov.jobhunter.api.rest.exception.custom.NotFoundException
+import com.mshykhov.jobhunter.application.job.JobSource
 import com.mshykhov.jobhunter.application.preference.UserPreferenceFacade
 import com.mshykhov.jobhunter.application.user.UserFacade
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.Instant
 import java.util.UUID
 
 @Service
@@ -18,6 +20,10 @@ class UserJobService(
         auth0Sub: String,
         status: UserJobStatus?,
         minScore: Int?,
+        sources: List<JobSource>?,
+        publishedAfter: Instant?,
+        matchedAfter: Instant?,
+        updatedAfter: Instant?,
     ): List<UserJobEntity> {
         val user = userFacade.findByAuth0Sub(auth0Sub) ?: return emptyList()
         val effectiveMinScore = minScore ?: userPreferenceFacade.findByUserId(user.id)?.minScore ?: 0
@@ -27,7 +33,13 @@ class UserJobService(
             } else {
                 userJobFacade.findByUserId(user.id)
             }
-        return userJobs.filter { it.aiRelevanceScore >= effectiveMinScore }
+        return userJobs.filter { uj ->
+            uj.aiRelevanceScore >= effectiveMinScore &&
+                (sources.isNullOrEmpty() || uj.job.source in sources) &&
+                (publishedAfter == null || uj.job.publishedAt?.let { it >= publishedAfter } == true) &&
+                (matchedAfter == null || uj.createdAt?.let { it >= matchedAfter } == true) &&
+                (updatedAfter == null || uj.job.updatedAt?.let { it >= updatedAfter } == true)
+        }
     }
 
     @Transactional(readOnly = true)

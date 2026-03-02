@@ -22,6 +22,7 @@ data class UserJobDetailResponse(
     val aiReasoning: String,
     val publishedAt: Instant?,
     val matchedAt: Instant?,
+    val updatedAt: Instant?,
 ) {
     companion object {
         fun from(entity: UserJobEntity): UserJobDetailResponse =
@@ -41,6 +42,7 @@ data class UserJobDetailResponse(
                 aiReasoning = entity.aiReasoning,
                 publishedAt = entity.job.publishedAt,
                 matchedAt = entity.createdAt,
+                updatedAt = entity.job.updatedAt,
             )
     }
 }

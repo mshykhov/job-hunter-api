@@ -20,6 +20,7 @@ data class UserJobResponse(
     val aiRelevanceScore: Int,
     val publishedAt: Instant?,
     val matchedAt: Instant?,
+    val updatedAt: Instant?,
 ) {
     companion object {
         fun from(entity: UserJobEntity): UserJobResponse =
@@ -37,6 +38,7 @@ data class UserJobResponse(
                 aiRelevanceScore = entity.aiRelevanceScore,
                 publishedAt = entity.job.publishedAt,
                 matchedAt = entity.createdAt,
+                updatedAt = entity.job.updatedAt,
             )
     }
 }
