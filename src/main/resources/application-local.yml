@@ -20,3 +20,9 @@ jobhunter:
     enabled: ${AUTH0_ENABLED:true}
     issuer: https://${AUTH0_DOMAIN:login.gaynance.com}/
     audience: ${AUTH0_AUDIENCE:https://api.jobhunter.com}
+
+springdoc:
+  swagger-ui:
+    oauth:
+      client-id: ${AUTH0_CLIENT_ID:WJ1Wz0pCVSkITh7toIWPvHIIea5Zo4uW}
+      use-pkce-with-authorization-code-grant: true
