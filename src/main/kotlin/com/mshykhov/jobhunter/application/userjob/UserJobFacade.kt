@@ -9,6 +9,8 @@ import java.util.UUID
 class UserJobFacade(
     private val userJobRepository: UserJobRepository,
 ) {
+    fun findUserIdsByJobId(jobId: UUID): Set<UUID> = userJobRepository.findUserIdsByJobId(jobId)
+
     fun findByUserId(userId: UUID): List<UserJobEntity> = userJobRepository.findByUserId(userId)
 
     fun findByUserIdAndStatus(

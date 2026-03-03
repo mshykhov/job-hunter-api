@@ -80,8 +80,12 @@ class JobMatchingService(
         val coldMatches = preferences.filter { coldFilterMatches(job, it) }
         if (coldMatches.isEmpty()) return
 
+        val existingUserIds = userJobFacade.findUserIdsByJobId(job.id)
+        val newMatches = coldMatches.filter { it.user.id !in existingUserIds }
+        if (newMatches.isEmpty()) return
+
         val userJobs =
-            coldMatches.mapNotNull { preference ->
+            newMatches.mapNotNull { preference ->
                 val aiResult = jobRelevanceEvaluator.evaluate(job, preference)
                 if (preference.remoteOnly && !aiResult.inferredRemote) return@mapNotNull null
                 UserJobEntity(
