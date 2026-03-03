@@ -17,4 +17,6 @@ management:
 
 jobhunter:
   auth0:
-    enabled: false
+    enabled: ${AUTH0_ENABLED:true}
+    issuer: https://${AUTH0_DOMAIN:login.gaynance.com}/
+    audience: ${AUTH0_AUDIENCE:https://api.jobhunter.com}
