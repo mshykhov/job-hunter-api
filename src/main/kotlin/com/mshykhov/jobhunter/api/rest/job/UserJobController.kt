@@ -1,13 +1,13 @@
 package com.mshykhov.jobhunter.api.rest.job
 
+import com.mshykhov.jobhunter.api.rest.job.dto.PaginatedUserJobResponse
 import com.mshykhov.jobhunter.api.rest.job.dto.RematchResponse
 import com.mshykhov.jobhunter.api.rest.job.dto.UpdateJobStatusRequest
 import com.mshykhov.jobhunter.api.rest.job.dto.UserJobDetailResponse
+import com.mshykhov.jobhunter.api.rest.job.dto.UserJobFilterRequest
 import com.mshykhov.jobhunter.api.rest.job.dto.UserJobResponse
-import com.mshykhov.jobhunter.application.job.JobSource
 import com.mshykhov.jobhunter.application.matching.JobMatchingService
 import com.mshykhov.jobhunter.application.userjob.UserJobService
-import com.mshykhov.jobhunter.application.userjob.UserJobStatus
 import jakarta.validation.Valid
 import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.security.core.annotation.AuthenticationPrincipal
@@ -29,20 +29,12 @@ class UserJobController(
     private val userJobService: UserJobService,
     private val jobMatchingService: JobMatchingService,
 ) {
-    @GetMapping
+    @PostMapping("/search")
     @PreAuthorize("hasAuthority('SCOPE_read:jobs')")
-    fun list(
+    fun search(
         @AuthenticationPrincipal jwt: Jwt,
-        @RequestParam(required = false) status: UserJobStatus?,
-        @RequestParam(required = false) minScore: Int?,
-        @RequestParam(required = false) sources: List<JobSource>?,
-        @RequestParam(required = false) publishedAfter: Instant?,
-        @RequestParam(required = false) matchedAfter: Instant?,
-        @RequestParam(required = false) updatedAfter: Instant?,
-    ): List<UserJobResponse> =
-        userJobService
-            .list(jwt.subject, status, minScore, sources, publishedAfter, matchedAfter, updatedAfter)
-            .map { UserJobResponse.from(it) }
+        @RequestBody filter: UserJobFilterRequest,
+    ): PaginatedUserJobResponse = userJobService.search(jwt.subject, filter)
 
     @GetMapping("/{jobId}")
     @PreAuthorize("hasAuthority('SCOPE_read:jobs')")
