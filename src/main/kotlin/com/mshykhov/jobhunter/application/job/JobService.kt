@@ -3,8 +3,15 @@ package com.mshykhov.jobhunter.application.job
 import com.mshykhov.jobhunter.api.rest.job.dto.JobCheckRequest
 import com.mshykhov.jobhunter.api.rest.job.dto.JobCheckResponse
 import com.mshykhov.jobhunter.api.rest.job.dto.JobIngestRequest
+import com.mshykhov.jobhunter.api.rest.job.dto.PublicJobPageResponse
+import com.mshykhov.jobhunter.api.rest.job.dto.PublicJobResponse
 import com.mshykhov.jobhunter.application.common.DateTimeParser
+import com.mshykhov.jobhunter.infrastructure.config.CacheConfig
 import io.github.oshai.kotlinlogging.KotlinLogging
+import org.springframework.cache.annotation.Cacheable
+import org.springframework.data.domain.PageRequest
+import org.springframework.data.domain.Sort
+import org.springframework.data.jpa.domain.Specification
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
@@ -15,6 +22,47 @@ private val logger = KotlinLogging.logger {}
 class JobService(
     private val jobFacade: JobFacade,
 ) {
+    @Cacheable(CacheConfig.PUBLIC_JOBS_CACHE)
+    @Transactional(readOnly = true)
+    fun searchPublic(
+        page: Int,
+        size: Int,
+        search: String?,
+        source: JobSource?,
+        remote: Boolean?,
+    ): PublicJobPageResponse {
+        var spec: Specification<JobEntity> = Specification { _, _, _ -> null }
+
+        if (!search.isNullOrBlank()) {
+            spec = spec.and(JobSpecifications.search(search))
+        }
+        if (source != null) {
+            spec = spec.and(JobSpecifications.source(source))
+        }
+        if (remote == true) {
+            spec = spec.and(JobSpecifications.remote())
+        }
+
+        val pageable =
+            PageRequest.of(
+                page,
+                size,
+                Sort
+                    .by(Sort.Direction.DESC, "publishedAt")
+                    .and(Sort.by(Sort.Direction.DESC, "id")),
+            )
+
+        val result = jobFacade.findAll(spec, pageable)
+
+        return PublicJobPageResponse(
+            content = result.content.map { PublicJobResponse.from(it) },
+            page = result.number,
+            size = result.size,
+            totalElements = result.totalElements,
+            totalPages = result.totalPages,
+        )
+    }
+
     @Transactional
     fun ingest(requests: List<JobIngestRequest>): List<JobEntity> {
         val uniqueRequests = requests.associateBy { it.url }.values

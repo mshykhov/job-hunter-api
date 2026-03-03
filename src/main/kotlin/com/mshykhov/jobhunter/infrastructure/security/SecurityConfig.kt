@@ -46,6 +46,8 @@ class SecurityConfig(
                 auth
                     .requestMatchers("/actuator/**")
                     .permitAll()
+                    .requestMatchers("/public/**")
+                    .permitAll()
                     .requestMatchers("/swagger-ui/**", "/api-docs/**")
                     .permitAll()
                     .requestMatchers("/jobs/**", "/criteria/**", "/preferences/**", "/proxies/**")

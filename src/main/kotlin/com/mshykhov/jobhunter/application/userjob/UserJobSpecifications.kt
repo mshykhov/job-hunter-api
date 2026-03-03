@@ -9,7 +9,6 @@ import java.time.Instant
 import java.util.UUID
 
 object UserJobSpecifications {
-
     fun userId(userId: UUID): Specification<UserJobEntity> =
         Specification { root, _, cb ->
             cb.equal(root.get<UserEntity>("user").get<UUID>("id"), userId)
@@ -65,7 +64,10 @@ object UserJobSpecifications {
             )
         }
 
-    fun beforeCursor(createdAt: Instant, id: UUID): Specification<UserJobEntity> =
+    fun beforeCursor(
+        createdAt: Instant,
+        id: UUID,
+    ): Specification<UserJobEntity> =
         Specification { root, _, cb ->
             cb.or(
                 cb.lessThan(root.get("createdAt"), createdAt),

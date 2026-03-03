@@ -1,5 +1,8 @@
 package com.mshykhov.jobhunter.application.job
 
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.Pageable
+import org.springframework.data.jpa.domain.Specification
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
@@ -10,6 +13,11 @@ import java.util.UUID
 class JobFacade(
     private val jobRepository: JobRepository,
 ) {
+    fun findAll(
+        spec: Specification<JobEntity>,
+        pageable: Pageable,
+    ): Page<JobEntity> = jobRepository.findAll(spec, pageable)
+
     fun findByUrls(urls: List<String>): List<JobEntity> = jobRepository.findByUrlIn(urls)
 
     fun findUnmatched(): List<JobEntity> = jobRepository.findByMatchedAtIsNull()

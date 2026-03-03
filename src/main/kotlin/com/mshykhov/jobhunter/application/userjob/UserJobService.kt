@@ -25,53 +25,60 @@ class UserJobService(
         auth0Sub: String,
         filter: UserJobFilterRequest,
     ): PaginatedUserJobResponse {
-        val user = userFacade.findByAuth0Sub(auth0Sub)
-            ?: return PaginatedUserJobResponse(
-                content = emptyList(),
-                totalElements = 0,
-                hasMore = false,
-                size = filter.size,
-                statusCounts = emptyMap(),
-            )
+        val user =
+            userFacade.findByAuth0Sub(auth0Sub)
+                ?: return PaginatedUserJobResponse(
+                    content = emptyList(),
+                    totalElements = 0,
+                    hasMore = false,
+                    size = filter.size,
+                    statusCounts = emptyMap(),
+                )
 
-        val effectiveMinScore = filter.minScore
-            ?: userPreferenceFacade.findByUserId(user.id)?.minScore
-            ?: 0
+        val effectiveMinScore =
+            filter.minScore
+                ?: userPreferenceFacade.findByUserId(user.id)?.minScore
+                ?: 0
 
         val baseSpec = buildBaseSpec(user.id, effectiveMinScore, filter)
-        var fullSpec = if (!filter.statuses.isNullOrEmpty()) {
-            baseSpec.and(UserJobSpecifications.statuses(filter.statuses))
-        } else {
-            baseSpec
-        }
-
-        if (filter.cursorCreatedAt != null && filter.cursorId != null) {
-            fullSpec = fullSpec.and(
-                UserJobSpecifications.beforeCursor(filter.cursorCreatedAt, filter.cursorId),
-            )
-        }
-
-        val limit = filter.size.coerceIn(1, 100)
-        val pageable = PageRequest.of(
-            0,
-            limit + 1,
-            Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id")),
-        )
-        val results = userJobRepository.findAll(fullSpec, pageable).content
-        val hasMore = results.size > limit
-        val content = if (hasMore) results.take(limit) else results
-
-        val totalElements = userJobRepository.count(
+        var fullSpec =
             if (!filter.statuses.isNullOrEmpty()) {
                 baseSpec.and(UserJobSpecifications.statuses(filter.statuses))
             } else {
                 baseSpec
-            },
-        )
+            }
 
-        val statusCounts = UserJobStatus.entries.associate { status ->
-            status to userJobRepository.count(baseSpec.and(UserJobSpecifications.statuses(listOf(status))))
+        if (filter.cursorCreatedAt != null && filter.cursorId != null) {
+            fullSpec =
+                fullSpec.and(
+                    UserJobSpecifications.beforeCursor(filter.cursorCreatedAt, filter.cursorId),
+                )
         }
+
+        val limit = filter.size.coerceIn(1, 100)
+        val pageable =
+            PageRequest.of(
+                0,
+                limit + 1,
+                Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id")),
+            )
+        val results = userJobRepository.findAll(fullSpec, pageable).content
+        val hasMore = results.size > limit
+        val content = if (hasMore) results.take(limit) else results
+
+        val totalElements =
+            userJobRepository.count(
+                if (!filter.statuses.isNullOrEmpty()) {
+                    baseSpec.and(UserJobSpecifications.statuses(filter.statuses))
+                } else {
+                    baseSpec
+                },
+            )
+
+        val statusCounts =
+            UserJobStatus.entries.associate { status ->
+                status to userJobRepository.count(baseSpec.and(UserJobSpecifications.statuses(listOf(status))))
+            }
 
         return PaginatedUserJobResponse(
             content = content.map { UserJobResponse.from(it) },
@@ -87,9 +94,11 @@ class UserJobService(
         minScore: Int,
         filter: UserJobFilterRequest,
     ): Specification<UserJobEntity> {
-        var spec = UserJobSpecifications.withJobFetch()
-            .and(UserJobSpecifications.userId(userId))
-            .and(UserJobSpecifications.minScore(minScore))
+        var spec =
+            UserJobSpecifications
+                .withJobFetch()
+                .and(UserJobSpecifications.userId(userId))
+                .and(UserJobSpecifications.minScore(minScore))
 
         if (!filter.sources.isNullOrEmpty()) {
             spec = spec.and(UserJobSpecifications.sources(filter.sources))
