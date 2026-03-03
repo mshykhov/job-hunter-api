@@ -110,17 +110,16 @@ class JobMatchingService(
 
         val jobIds = jobs.map { it.id }
         userJobFacade.deleteByJobIds(jobIds)
-        jobs.forEach { it.matchedAt = null }
-        jobFacade.saveAll(jobs)
+        jobFacade.updateMatchedAt(jobIds, null)
 
         logger.info { "Rematch queued: ${jobs.size} jobs reset (since=${since ?: "all"})" }
         return jobs.size
     }
 
+    @Transactional
     private fun markMatched(jobs: List<JobEntity>) {
-        val now = Instant.now(clock)
-        jobs.forEach { it.matchedAt = now }
-        jobFacade.saveAll(jobs)
+        val ids = jobs.map { it.id }
+        jobFacade.updateMatchedAt(ids, Instant.now(clock))
     }
 
     private sealed interface MatchResult {

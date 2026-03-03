@@ -3,6 +3,7 @@ package com.mshykhov.jobhunter.application.job
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
+import java.util.UUID
 
 @Component
 @Transactional(readOnly = true)
@@ -19,4 +20,10 @@ class JobFacade(
 
     @Transactional
     fun saveAll(entities: List<JobEntity>): List<JobEntity> = jobRepository.saveAll(entities)
+
+    @Transactional
+    fun updateMatchedAt(
+        ids: List<UUID>,
+        matchedAt: Instant?,
+    ) = jobRepository.updateMatchedAt(ids, matchedAt)
 }
