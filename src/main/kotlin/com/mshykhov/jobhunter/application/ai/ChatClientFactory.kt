@@ -1,5 +1,6 @@
 package com.mshykhov.jobhunter.application.ai
 
+import com.mshykhov.jobhunter.application.common.AiNotConfiguredException
 import org.springframework.ai.chat.client.ChatClient
 import org.springframework.ai.openai.OpenAiChatModel
 import org.springframework.ai.openai.OpenAiChatOptions
@@ -9,6 +10,9 @@ import org.springframework.stereotype.Component
 @Component
 class ChatClientFactory {
     fun createForUser(settings: UserAiSettingsEntity): ChatClient {
+        if (settings.apiKey.isBlank()) {
+            throw AiNotConfiguredException("API key is corrupted or missing — please re-enter your API key in settings.")
+        }
         val api = OpenAiApi.builder().apiKey(settings.apiKey).build()
         val options =
             OpenAiChatOptions

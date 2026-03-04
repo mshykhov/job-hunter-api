@@ -2,26 +2,35 @@ package com.mshykhov.jobhunter.application.ai
 
 import com.mshykhov.jobhunter.application.ai.dto.NormalizedPreferences
 import com.mshykhov.jobhunter.application.common.ServiceUnavailableException
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.ai.chat.client.ChatClient
 import org.springframework.ai.chat.client.entity
 import org.springframework.stereotype.Service
+
+private val logger = KotlinLogging.logger {}
 
 @Service
 class PreferenceNormalizer {
     fun normalize(
         rawInput: String,
         chatClient: ChatClient,
-    ): NormalizedPreferences =
-        try {
-            chatClient
-                .prompt()
-                .system(SYSTEM_PROMPT)
-                .user(rawInput)
-                .call()
-                .entity<NormalizedPreferences>()
+    ): NormalizedPreferences {
+        logger.info { "Normalizing preferences, input length: ${rawInput.length}" }
+        return try {
+            val result =
+                chatClient
+                    .prompt()
+                    .system(SYSTEM_PROMPT)
+                    .user(rawInput)
+                    .call()
+                    .entity<NormalizedPreferences>()
+            logger.info { "Normalization complete: ${result.categories.size} categories, ${result.keywords.size} keywords, ${result.seniorityLevels.size} seniority levels" }
+            result
         } catch (e: Exception) {
+            logger.error(e) { "AI normalization failed" }
             throw ServiceUnavailableException("AI normalization failed: ${e.message}")
         }
+    }
 }
 
 private val SYSTEM_PROMPT =
