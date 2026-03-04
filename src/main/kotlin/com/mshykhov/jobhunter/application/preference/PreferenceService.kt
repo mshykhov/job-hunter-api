@@ -1,10 +1,17 @@
 package com.mshykhov.jobhunter.application.preference
 
+import com.mshykhov.jobhunter.api.rest.preference.dto.MatchingPreferenceRequest
+import com.mshykhov.jobhunter.api.rest.preference.dto.MatchingPreferenceResponse
+import com.mshykhov.jobhunter.api.rest.preference.dto.NormalizePreferenceResponse
 import com.mshykhov.jobhunter.api.rest.preference.dto.PreferenceResponse
-import com.mshykhov.jobhunter.api.rest.preference.dto.SavePreferenceRequest
+import com.mshykhov.jobhunter.api.rest.preference.dto.SearchPreferenceRequest
+import com.mshykhov.jobhunter.api.rest.preference.dto.SearchPreferenceResponse
+import com.mshykhov.jobhunter.api.rest.preference.dto.TelegramPreferenceRequest
+import com.mshykhov.jobhunter.api.rest.preference.dto.TelegramPreferenceResponse
+import com.mshykhov.jobhunter.application.ai.ChatClientFactory
 import com.mshykhov.jobhunter.application.ai.PreferenceNormalizer
+import com.mshykhov.jobhunter.application.ai.UserAiSettingsService
 import com.mshykhov.jobhunter.application.common.NotFoundException
-import com.mshykhov.jobhunter.application.user.UserEntity
 import com.mshykhov.jobhunter.application.user.UserFacade
 import com.mshykhov.jobhunter.infrastructure.document.DocumentParser
 import org.springframework.stereotype.Service
@@ -16,6 +23,8 @@ class PreferenceService(
     private val userFacade: UserFacade,
     private val userPreferenceFacade: UserPreferenceFacade,
     private val preferenceNormalizer: PreferenceNormalizer,
+    private val userAiSettingsService: UserAiSettingsService,
+    private val chatClientFactory: ChatClientFactory,
     private val documentParser: DocumentParser,
 ) {
     @Transactional(readOnly = true)
@@ -30,70 +39,82 @@ class PreferenceService(
     }
 
     @Transactional
-    fun save(
+    fun saveSearch(
         auth0Sub: String,
-        request: SavePreferenceRequest,
-    ): PreferenceResponse {
-        val user = findOrCreateUser(auth0Sub)
-        val existing = userPreferenceFacade.findByUserId(user.id)
+        request: SearchPreferenceRequest,
+    ): SearchPreferenceResponse {
+        val entity = findOrCreatePreference(auth0Sub)
 
-        val entity =
-            if (existing != null) {
-                applyRequest(existing, request)
-            } else {
-                createNew(user, request)
-            }
+        entity.search.rawInput = request.rawInput
+        entity.search.categories = request.categories
+        entity.search.seniorityLevels = request.seniorityLevels
+        entity.search.locations = request.locations
+        entity.search.remoteOnly = request.remoteOnly
 
-        return PreferenceResponse.from(userPreferenceFacade.save(entity))
+        val saved = userPreferenceFacade.save(entity)
+        return SearchPreferenceResponse.from(saved.search)
     }
 
-    fun normalizeFile(file: MultipartFile): PreferenceResponse {
+    @Transactional
+    fun saveMatching(
+        auth0Sub: String,
+        request: MatchingPreferenceRequest,
+    ): MatchingPreferenceResponse {
+        val entity = findOrCreatePreference(auth0Sub)
+
+        entity.matching.keywords = request.keywords
+        entity.matching.excludedKeywords = request.excludedKeywords
+        entity.matching.excludedTitleKeywords = request.excludedTitleKeywords
+        entity.matching.excludedCompanies = request.excludedCompanies
+        entity.matching.disabledSources = request.disabledSources
+        entity.matching.minScore = request.minScore
+        entity.matching.matchWithAi = request.matchWithAi
+        entity.matching.customPrompt = request.customPrompt
+
+        val saved = userPreferenceFacade.save(entity)
+        return MatchingPreferenceResponse.from(saved.matching)
+    }
+
+    @Transactional
+    fun saveTelegram(
+        auth0Sub: String,
+        request: TelegramPreferenceRequest,
+    ): TelegramPreferenceResponse {
+        val entity = findOrCreatePreference(auth0Sub)
+
+        entity.telegram.chatId = request.chatId
+        entity.telegram.username = request.username
+        entity.telegram.notificationsEnabled = request.notificationsEnabled
+        entity.telegram.notificationSources = request.notificationSources
+
+        val saved = userPreferenceFacade.save(entity)
+        return TelegramPreferenceResponse.from(saved.telegram)
+    }
+
+    fun normalizeFile(
+        auth0Sub: String,
+        file: MultipartFile,
+    ): NormalizePreferenceResponse {
         val contentType =
             file.contentType
                 ?: throw IllegalArgumentException("File content type is required")
         val text = documentParser.extractText(file.inputStream, contentType)
-        return normalize(text)
+        return normalize(auth0Sub, text)
     }
 
-    fun normalize(rawInput: String): PreferenceResponse {
-        val result = preferenceNormalizer.normalize(rawInput)
-        return PreferenceResponse(
-            rawInput = rawInput,
-            categories = result.categories,
-            seniorityLevels = result.seniorityLevels,
-            keywords = result.keywords,
-            excludedKeywords = result.excludedKeywords,
-            locations = result.locations,
-            languages = result.languages,
-            remoteOnly = result.remoteOnly,
-            disabledSources = result.disabledSources,
-            minScore = 50,
-            notificationsEnabled = true,
-        )
+    fun normalize(
+        auth0Sub: String,
+        rawInput: String,
+    ): NormalizePreferenceResponse {
+        val settings = userAiSettingsService.resolveForUser(auth0Sub)
+        val chatClient = chatClientFactory.createForUser(settings)
+        val result = preferenceNormalizer.normalize(rawInput, chatClient)
+        return NormalizePreferenceResponse.from(rawInput, result)
     }
 
-    private fun createNew(
-        user: UserEntity,
-        request: SavePreferenceRequest,
-    ): UserPreferenceEntity = applyRequest(UserPreferenceEntity(user = user), request)
-
-    private fun applyRequest(
-        entity: UserPreferenceEntity,
-        request: SavePreferenceRequest,
-    ): UserPreferenceEntity {
-        entity.rawInput = request.rawInput
-        entity.categories = request.categories
-        entity.seniorityLevels = request.seniorityLevels
-        entity.keywords = request.keywords
-        entity.excludedKeywords = request.excludedKeywords
-        entity.locations = request.locations
-        entity.languages = request.languages
-        entity.remoteOnly = request.remoteOnly
-        entity.disabledSources = request.disabledSources
-        entity.minScore = request.minScore
-        entity.notificationsEnabled = request.notificationsEnabled
-        return entity
+    private fun findOrCreatePreference(auth0Sub: String): UserPreferenceEntity {
+        val user = userFacade.findOrCreate(auth0Sub)
+        return userPreferenceFacade.findByUserId(user.id)
+            ?: UserPreferenceEntity(user = user)
     }
-
-    private fun findOrCreateUser(auth0Sub: String): UserEntity = userFacade.findOrCreate(auth0Sub)
 }
