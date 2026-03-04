@@ -14,6 +14,8 @@ class UserJobFacade(
 ) {
     fun findUserIdsByJobId(jobId: UUID): Set<UUID> = userJobRepository.findUserIdsByJobId(jobId)
 
+    fun findByJobId(jobId: UUID): List<UserJobEntity> = userJobRepository.findByJobId(jobId)
+
     fun findByUserIdAndJobId(
         userId: UUID,
         jobId: UUID,

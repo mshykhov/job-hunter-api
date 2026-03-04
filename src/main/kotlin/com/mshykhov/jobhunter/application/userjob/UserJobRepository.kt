@@ -13,6 +13,9 @@ interface UserJobRepository :
     @Query("SELECT uj.user.id FROM UserJobEntity uj WHERE uj.job.id = :jobId")
     fun findUserIdsByJobId(jobId: UUID): Set<UUID>
 
+    @Query("SELECT uj FROM UserJobEntity uj WHERE uj.job.id = :jobId")
+    fun findByJobId(jobId: UUID): List<UserJobEntity>
+
     @Query("SELECT uj FROM UserJobEntity uj JOIN FETCH uj.job WHERE uj.user.id = :userId AND uj.job.id = :jobId")
     fun findByUserIdAndJobId(
         userId: UUID,

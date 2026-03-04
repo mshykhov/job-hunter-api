@@ -42,11 +42,11 @@ class UserJobEntity(
     @Column(nullable = false)
     var status: UserJobStatus = UserJobStatus.NEW,
     @Column(name = "ai_relevance_score", nullable = false)
-    val aiRelevanceScore: Int,
+    var aiRelevanceScore: Int,
     @Column(name = "ai_reasoning", columnDefinition = "TEXT", nullable = false)
-    val aiReasoning: String,
+    var aiReasoning: String,
     @Column(name = "ai_inferred_remote")
-    val aiInferredRemote: Boolean? = null,
+    var aiInferredRemote: Boolean? = null,
     @CreatedDate
     @Column(name = "created_at", insertable = false, updatable = false)
     val createdAt: Instant? = null,

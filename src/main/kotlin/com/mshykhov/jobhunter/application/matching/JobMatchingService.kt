@@ -111,15 +111,10 @@ class JobMatchingService(
         userChatClients: Map<UUID, ChatClient>,
         stats: MatchingStats,
     ): List<UserJobEntity> {
-        val existingUserIds = userJobFacade.findUserIdsByJobId(job.id)
+        val existingByUserId = userJobFacade.findByJobId(job.id).associateBy { it.user.id }
         val userJobs = mutableListOf<UserJobEntity>()
 
         for (preference in preferences) {
-            if (preference.user.id in existingUserIds) {
-                stats.alreadyMatched++
-                continue
-            }
-
             val filterResult = coldFilterChain.evaluate(job, preference)
             if (filterResult is FilterResult.Rejected) {
                 logger.debug {
@@ -130,19 +125,24 @@ class JobMatchingService(
                 continue
             }
 
+            val existing = existingByUserId[preference.user.id]
             val chatClient = userChatClients[preference.user.id]
+
             if (chatClient != null) {
-                val result = evaluateWithAi(job, preference, chatClient, stats)
+                val result = evaluateWithAi(job, preference, chatClient, stats, existing)
                 if (result != null) userJobs += result
             } else {
                 stats.coldOnly++
-                userJobs +=
-                    UserJobEntity(
-                        user = preference.user,
-                        job = job,
-                        aiRelevanceScore = 0,
-                        aiReasoning = COLD_ONLY_REASONING,
-                    )
+                userJobs += existing?.apply {
+                    aiRelevanceScore = 0
+                    aiReasoning = COLD_ONLY_REASONING
+                    aiInferredRemote = null
+                } ?: UserJobEntity(
+                    user = preference.user,
+                    job = job,
+                    aiRelevanceScore = 0,
+                    aiReasoning = COLD_ONLY_REASONING,
+                )
             }
         }
 
@@ -154,6 +154,7 @@ class JobMatchingService(
         preference: UserPreferenceEntity,
         chatClient: ChatClient,
         stats: MatchingStats,
+        existing: UserJobEntity?,
     ): UserJobEntity? {
         val aiResult =
             try {
@@ -177,7 +178,11 @@ class JobMatchingService(
             return null
         }
 
-        return UserJobEntity(
+        return existing?.apply {
+            aiRelevanceScore = aiResult.score
+            aiReasoning = aiResult.reasoning
+            aiInferredRemote = aiResult.inferredRemote
+        } ?: UserJobEntity(
             user = preference.user,
             job = job,
             aiRelevanceScore = aiResult.score,
@@ -224,9 +229,7 @@ class JobMatchingService(
         val jobs = jobFacade.findMatchedSince(effectiveSince)
         if (jobs.isEmpty()) return 0
 
-        val jobIds = jobs.map { it.id }
-        userJobFacade.deleteByJobIds(jobIds)
-        jobFacade.updateMatchedAt(jobIds, null)
+        jobFacade.updateMatchedAt(jobs.map { it.id }, null)
 
         logger.info { "Rematch queued: ${jobs.size} jobs reset (since=$effectiveSince)" }
         return jobs.size
