@@ -1,7 +1,7 @@
 package com.mshykhov.jobhunter.api.rest.exception
 
-import com.mshykhov.jobhunter.api.rest.exception.custom.NotFoundException
-import com.mshykhov.jobhunter.api.rest.exception.custom.ServiceUnavailableException
+import com.mshykhov.jobhunter.application.common.NotFoundException
+import com.mshykhov.jobhunter.application.common.ServiceUnavailableException
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.http.HttpHeaders

@@ -1,7 +1,7 @@
 package com.mshykhov.jobhunter.application.ai
 
-import com.mshykhov.jobhunter.api.rest.exception.custom.ServiceUnavailableException
 import com.mshykhov.jobhunter.application.ai.dto.NormalizedPreferences
+import com.mshykhov.jobhunter.application.common.ServiceUnavailableException
 import org.springframework.ai.chat.client.ChatClient
 import org.springframework.ai.chat.client.entity
 import org.springframework.stereotype.Service
@@ -18,8 +18,6 @@ class PreferenceNormalizer(
                 .user(rawInput)
                 .call()
                 .entity<NormalizedPreferences>()
-        } catch (e: ServiceUnavailableException) {
-            throw e
         } catch (e: Exception) {
             throw ServiceUnavailableException("AI normalization failed: ${e.message}")
         }

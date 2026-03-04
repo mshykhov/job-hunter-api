@@ -12,10 +12,6 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator
-import org.springframework.security.oauth2.core.OAuth2Error
-import org.springframework.security.oauth2.core.OAuth2TokenValidator
-import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult
-import org.springframework.security.oauth2.jwt.Jwt
 import org.springframework.security.oauth2.jwt.JwtDecoder
 import org.springframework.security.oauth2.jwt.JwtDecoders
 import org.springframework.security.oauth2.jwt.JwtValidators
@@ -132,16 +128,3 @@ class SecurityConfig(
 )
 @EnableMethodSecurity
 class MethodSecurityConfig
-
-class AudienceValidator(
-    private val audience: String,
-) : OAuth2TokenValidator<Jwt> {
-    override fun validate(token: Jwt): OAuth2TokenValidatorResult =
-        if (token.audience.contains(audience)) {
-            OAuth2TokenValidatorResult.success()
-        } else {
-            OAuth2TokenValidatorResult.failure(
-                OAuth2Error("invalid_token", "Required audience not found", null),
-            )
-        }
-}

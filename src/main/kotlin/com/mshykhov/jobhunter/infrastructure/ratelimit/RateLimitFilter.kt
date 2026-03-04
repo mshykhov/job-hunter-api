@@ -1,26 +1,27 @@
-package com.mshykhov.jobhunter.infrastructure.config
+package com.mshykhov.jobhunter.infrastructure.ratelimit
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.github.benmanes.caffeine.cache.Caffeine
+import com.mshykhov.jobhunter.api.rest.exception.ErrorResponse
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
-import org.springframework.stereotype.Component
 import org.springframework.web.filter.OncePerRequestFilter
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
-@Component
-class RateLimitFilter : OncePerRequestFilter() {
+class RateLimitFilter(
+    private val properties: RateLimitProperties,
+    private val objectMapper: ObjectMapper,
+) : OncePerRequestFilter() {
     private val requestCounts =
         Caffeine
             .newBuilder()
-            .expireAfterWrite(1, TimeUnit.MINUTES)
-            .maximumSize(10_000)
+            .expireAfterWrite(properties.windowSeconds, TimeUnit.SECONDS)
+            .maximumSize(properties.maxCacheSize)
             .build<String, AtomicInteger>()
-
-    override fun shouldNotFilter(request: HttpServletRequest): Boolean = !request.requestURI.startsWith("/public/")
 
     override fun doFilterInternal(
         request: HttpServletRequest,
@@ -31,14 +32,14 @@ class RateLimitFilter : OncePerRequestFilter() {
         val counter = requestCounts.get(clientIp) { AtomicInteger(0) }
         val currentCount = counter.incrementAndGet()
 
-        response.setHeader(HEADER_LIMIT, MAX_REQUESTS.toString())
-        response.setHeader(HEADER_REMAINING, (MAX_REQUESTS - currentCount).coerceAtLeast(0).toString())
+        response.setHeader(HEADER_LIMIT, properties.maxRequests.toString())
+        response.setHeader(HEADER_REMAINING, (properties.maxRequests - currentCount).coerceAtLeast(0).toString())
 
-        if (currentCount > MAX_REQUESTS) {
+        if (currentCount > properties.maxRequests) {
             response.status = HttpStatus.TOO_MANY_REQUESTS.value()
             response.contentType = MediaType.APPLICATION_JSON_VALUE
-            response.setHeader(HEADER_RETRY_AFTER, "60")
-            response.writer.write("""{"message":"Rate limit exceeded","code":"RATE_LIMITED"}""")
+            response.setHeader(HEADER_RETRY_AFTER, properties.windowSeconds.toString())
+            objectMapper.writeValue(response.writer, ErrorResponse("Rate limit exceeded", "RATE_LIMITED"))
             return
         }
 
@@ -54,7 +55,6 @@ class RateLimitFilter : OncePerRequestFilter() {
             ?: request.remoteAddr
 
     companion object {
-        private const val MAX_REQUESTS = 60
         private const val HEADER_LIMIT = "X-RateLimit-Limit"
         private const val HEADER_REMAINING = "X-RateLimit-Remaining"
         private const val HEADER_RETRY_AFTER = "Retry-After"

@@ -32,8 +32,3 @@ data class BrowserFingerprint(
             )
     }
 }
-
-@JsonIgnoreProperties(ignoreUnknown = true)
-internal data class ScrapeOpsResponse(
-    val result: List<BrowserFingerprint> = emptyList(),
-)

@@ -1,7 +1,7 @@
 package com.mshykhov.jobhunter.api.rest.proxy.dto
 
 import com.mshykhov.jobhunter.infrastructure.fingerprint.BrowserFingerprint
-import com.mshykhov.jobhunter.infrastructure.proxy.WebshareProxy
+import com.mshykhov.jobhunter.infrastructure.proxy.model.WebshareProxy
 
 data class ProxyResponse(
     val url: String,
@@ -13,8 +13,6 @@ data class ProxyResponse(
     val fingerprint: Map<String, String> = emptyMap(),
 ) {
     companion object {
-        fun from(proxy: WebshareProxy): ProxyResponse = from(proxy, null)
-
         fun from(
             proxy: WebshareProxy,
             fingerprint: BrowserFingerprint?,

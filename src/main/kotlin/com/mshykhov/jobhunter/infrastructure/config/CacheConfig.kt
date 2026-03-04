@@ -18,7 +18,7 @@ class CacheConfig {
             PUBLIC_JOBS_CACHE,
             Caffeine
                 .newBuilder()
-                .expireAfterWrite(5, TimeUnit.MINUTES)
+                .expireAfterWrite(10, TimeUnit.SECONDS)
                 .maximumSize(500)
                 .build(),
         )

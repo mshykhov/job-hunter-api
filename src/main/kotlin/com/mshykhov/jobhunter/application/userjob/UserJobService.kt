@@ -1,9 +1,9 @@
 package com.mshykhov.jobhunter.application.userjob
 
-import com.mshykhov.jobhunter.api.rest.exception.custom.NotFoundException
 import com.mshykhov.jobhunter.api.rest.job.dto.PaginatedUserJobResponse
 import com.mshykhov.jobhunter.api.rest.job.dto.UserJobFilterRequest
 import com.mshykhov.jobhunter.api.rest.job.dto.UserJobResponse
+import com.mshykhov.jobhunter.application.common.NotFoundException
 import com.mshykhov.jobhunter.application.preference.UserPreferenceFacade
 import com.mshykhov.jobhunter.application.user.UserFacade
 import org.springframework.data.domain.PageRequest
@@ -17,7 +17,6 @@ import java.util.UUID
 class UserJobService(
     private val userFacade: UserFacade,
     private val userJobFacade: UserJobFacade,
-    private val userJobRepository: UserJobRepository,
     private val userPreferenceFacade: UserPreferenceFacade,
 ) {
     @Transactional(readOnly = true)
@@ -62,12 +61,12 @@ class UserJobService(
                 limit + 1,
                 Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id")),
             )
-        val results = userJobRepository.findAll(fullSpec, pageable).content
+        val results = userJobFacade.findAll(fullSpec, pageable).content
         val hasMore = results.size > limit
         val content = if (hasMore) results.take(limit) else results
 
         val totalElements =
-            userJobRepository.count(
+            userJobFacade.count(
                 if (!filter.statuses.isNullOrEmpty()) {
                     baseSpec.and(UserJobSpecifications.statuses(filter.statuses))
                 } else {
@@ -77,7 +76,7 @@ class UserJobService(
 
         val statusCounts =
             UserJobStatus.entries.associate { status ->
-                status to userJobRepository.count(baseSpec.and(UserJobSpecifications.statuses(listOf(status))))
+                status to userJobFacade.count(baseSpec.and(UserJobSpecifications.statuses(listOf(status))))
             }
 
         return PaginatedUserJobResponse(

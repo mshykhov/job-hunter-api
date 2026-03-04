@@ -31,6 +31,7 @@ class JobService(
         source: JobSource?,
         remote: Boolean?,
     ): PublicJobPageResponse {
+        val effectiveSize = size.coerceIn(1, MAX_PAGE_SIZE)
         var spec: Specification<JobEntity> = Specification { _, _, _ -> null }
 
         if (!search.isNullOrBlank()) {
@@ -46,7 +47,7 @@ class JobService(
         val pageable =
             PageRequest.of(
                 page,
-                size,
+                effectiveSize,
                 Sort
                     .by(Sort.Direction.DESC, "publishedAt")
                     .and(Sort.by(Sort.Direction.DESC, "id")),
@@ -177,5 +178,9 @@ class JobService(
             logger.warn { "Failed to parse publishedAt: $raw" }
         }
         return parsed
+    }
+
+    companion object {
+        private const val MAX_PAGE_SIZE = 100
     }
 }

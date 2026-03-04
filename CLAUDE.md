@@ -37,9 +37,16 @@ api/rest  →  application  ←  infrastructure
 
 **Rules:**
 - `api/` depends on `application/` — controllers call services
-- `application/` may use beans from `infrastructure/` — services use clients, properties
+- `application/` may use beans and types from `infrastructure/` — services use clients, properties
+- `application/` services may accept and return REST DTOs from `api/rest/` — keeping the API layer thin
 - `infrastructure/` provides beans only — never calls business logic
 - **No circular dependencies** — within `application/`, dependencies flow one-way
+
+### DTO Placement
+- **REST DTOs** live in `api/rest/{feature}/dto/` — request/response classes for HTTP layer
+- **AI DTOs** live in `application/ai/dto/` — internal AI service models
+- **Domain exceptions** live in `application/common/` — shared across all features
+- **Error response DTOs** live in `api/rest/exception/` — HTTP error formatting
 
 ### Feature Dependency Graph (application/)
 
@@ -61,11 +68,15 @@ com.mshykhov.jobhunter/
 │   └── exception/                 # GlobalExceptionHandler, ErrorResponse
 ├── application/                   # Business domain
 │   ├── {feature}/                 # Service + Entity + Repository + Facade together
-│   └── common/                    # Shared: NotFoundException, ValueMappedEnum, utils
+│   ├── ai/                        # AI evaluators + dto/ for AI models
+│   └── common/                    # Shared: NotFoundException, ServiceUnavailableException, ValueMappedEnum, utils
 └── infrastructure/                # Technical concerns
-    ├── ai/                        # ClaudeClient, AiProperties, AiConfig
-    ├── security/                  # SecurityConfig, Auth0Properties
-    └── config/                    # OpenApi, Clock, JpaAuditing, Scheduling, Web
+    ├── ai/                        # AiConfig, AiProperties
+    ├── fingerprint/               # BrowserFingerprint, FingerprintProvider, ScrapeOpsProperties
+    ├── proxy/                     # WebshareClient, WebshareConfig + model/ for DTOs
+    ├── ratelimit/                 # RateLimitFilter
+    ├── security/                  # SecurityConfig, AudienceValidator, Auth0Properties, DevAuthenticationFilter
+    └── config/                    # OpenApi, Clock, JpaAuditing, Scheduling, Web, Cache
 ```
 
 ### Adding a New Feature
@@ -103,11 +114,17 @@ Controller → Service → Facade → Repository
 - Service NEVER accesses Repository directly (only via Facade)
 - Facade is thin: only @Transactional + repository calls
 
+### File Organization
+- **One class per file** — no multi-class files (except small related sealed interfaces)
+- **Infrastructure models** in `model/` subfolder when a package has external API DTOs
+- **Split folders** with 10+ files into logical subfolders
+
 ### Database
 - **Flyway only** — all schema changes via `V{N}__{description}.sql`
 - **Hibernate ddl-auto: validate** — Hibernate validates, never modifies schema
 - **Naming**: snake_case for tables/columns, entity fields are camelCase
 - **UUID primary keys** — `gen_random_uuid()` in PostgreSQL
+- **`@Embedded`** for value objects (e.g., `Telegram` in `UserEntity`)
 
 ### REST API
 - No `/api` prefix — endpoints at root path
@@ -128,8 +145,12 @@ Controller → Service → Facade → Repository
 | Method | Path | Scope | Description |
 |--------|------|-------|-------------|
 | `POST` | `/jobs/ingest` | `write:jobs` | Batch ingest jobs from n8n |
-| `GET` | `/jobs` | `read:jobs` | User's matched jobs |
+| `POST` | `/jobs/check` | `write:jobs` | Smart job change detection |
+| `POST` | `/jobs/search` | `read:jobs` | User's matched jobs (cursor-based) |
+| `GET` | `/jobs/{id}` | `read:jobs` | Job detail with AI reasoning |
 | `PATCH` | `/jobs/{id}/status` | `write:jobs` | Update job status (NEW/APPLIED/IRRELEVANT) |
+| `POST` | `/jobs/rematch` | `write:jobs` | Re-trigger AI matching |
+| `GET` | `/public/jobs` | — | Public job listing (cached, rate-limited) |
 | `GET` | `/criteria?source={SOURCE}` | `read:criteria` | Aggregated search criteria for n8n |
 | `GET` | `/preferences` | `read:preferences` | User preferences |
 | `PUT` | `/preferences` | `write:preferences` | Save preferences |

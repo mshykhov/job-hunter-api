@@ -1,9 +1,9 @@
 package com.mshykhov.jobhunter.application.preference
 
-import com.mshykhov.jobhunter.api.rest.exception.custom.NotFoundException
 import com.mshykhov.jobhunter.api.rest.preference.dto.PreferenceResponse
 import com.mshykhov.jobhunter.api.rest.preference.dto.SavePreferenceRequest
 import com.mshykhov.jobhunter.application.ai.PreferenceNormalizer
+import com.mshykhov.jobhunter.application.common.NotFoundException
 import com.mshykhov.jobhunter.application.user.UserEntity
 import com.mshykhov.jobhunter.application.user.UserFacade
 import org.springframework.stereotype.Service

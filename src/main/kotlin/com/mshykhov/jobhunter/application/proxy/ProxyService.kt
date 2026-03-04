@@ -1,12 +1,12 @@
 package com.mshykhov.jobhunter.application.proxy
 
-import com.mshykhov.jobhunter.api.rest.exception.custom.ServiceUnavailableException
 import com.mshykhov.jobhunter.api.rest.proxy.dto.ProxyResponse
+import com.mshykhov.jobhunter.application.common.ServiceUnavailableException
 import com.mshykhov.jobhunter.application.job.JobSource
 import com.mshykhov.jobhunter.infrastructure.fingerprint.FingerprintProvider
 import com.mshykhov.jobhunter.infrastructure.proxy.WebshareClient
 import com.mshykhov.jobhunter.infrastructure.proxy.WebshareProperties
-import com.mshykhov.jobhunter.infrastructure.proxy.WebshareProxy
+import com.mshykhov.jobhunter.infrastructure.proxy.model.WebshareProxy
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.stereotype.Service

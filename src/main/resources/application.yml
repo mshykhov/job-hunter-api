@@ -71,6 +71,10 @@ jobhunter:
     api-key: ${WEBSHARE_API_KEY:}
     base-url: ${WEBSHARE_BASE_URL:https://proxy.webshare.io/api/v2}
     cache-ttl-minutes: ${PROXY_CACHE_TTL_MINUTES:60}
+  rate-limit:
+    max-requests: ${RATE_LIMIT_MAX_REQUESTS:60}
+    window-seconds: ${RATE_LIMIT_WINDOW_SECONDS:60}
+    max-cache-size: ${RATE_LIMIT_MAX_CACHE_SIZE:10000}
   scrapeops:
     enabled: ${SCRAPEOPS_ENABLED:false}
     api-key: ${SCRAPEOPS_API_KEY:}

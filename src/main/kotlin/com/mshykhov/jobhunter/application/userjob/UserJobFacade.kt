@@ -1,5 +1,8 @@
 package com.mshykhov.jobhunter.application.userjob
 
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.Pageable
+import org.springframework.data.jpa.domain.Specification
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
@@ -11,17 +14,17 @@ class UserJobFacade(
 ) {
     fun findUserIdsByJobId(jobId: UUID): Set<UUID> = userJobRepository.findUserIdsByJobId(jobId)
 
-    fun findByUserId(userId: UUID): List<UserJobEntity> = userJobRepository.findByUserId(userId)
-
-    fun findByUserIdAndStatus(
-        userId: UUID,
-        status: UserJobStatus,
-    ): List<UserJobEntity> = userJobRepository.findByUserIdAndStatus(userId, status)
-
     fun findByUserIdAndJobId(
         userId: UUID,
         jobId: UUID,
     ): UserJobEntity? = userJobRepository.findByUserIdAndJobId(userId, jobId)
+
+    fun findAll(
+        spec: Specification<UserJobEntity>,
+        pageable: Pageable,
+    ): Page<UserJobEntity> = userJobRepository.findAll(spec, pageable)
+
+    fun count(spec: Specification<UserJobEntity>): Long = userJobRepository.count(spec)
 
     @Transactional
     fun save(entity: UserJobEntity): UserJobEntity = userJobRepository.save(entity)

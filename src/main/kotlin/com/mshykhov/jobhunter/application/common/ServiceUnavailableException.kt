@@ -1,4 +1,4 @@
-package com.mshykhov.jobhunter.api.rest.exception.custom
+package com.mshykhov.jobhunter.application.common
 
 class ServiceUnavailableException(
     message: String,
