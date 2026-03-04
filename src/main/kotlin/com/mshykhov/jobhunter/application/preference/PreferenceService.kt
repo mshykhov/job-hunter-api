@@ -47,9 +47,9 @@ class PreferenceService(
 
         entity.search.rawInput = request.rawInput
         entity.search.categories = request.categories
-        entity.search.seniorityLevels = request.seniorityLevels
         entity.search.locations = request.locations
         entity.search.remoteOnly = request.remoteOnly
+        entity.search.disabledSources = request.disabledSources
 
         val saved = userPreferenceFacade.save(entity)
         return SearchPreferenceResponse.from(saved.search)
@@ -66,7 +66,7 @@ class PreferenceService(
         entity.matching.excludedKeywords = request.excludedKeywords
         entity.matching.excludedTitleKeywords = request.excludedTitleKeywords
         entity.matching.excludedCompanies = request.excludedCompanies
-        entity.matching.disabledSources = request.disabledSources
+        entity.matching.seniorityLevels = request.seniorityLevels
         entity.matching.minScore = request.minScore
         entity.matching.matchWithAi = request.matchWithAi
         entity.matching.customPrompt = request.customPrompt

@@ -36,7 +36,7 @@ class JobRelevanceEvaluator {
 
             ## User Preferences
             - Target technologies: ${preference.search.categories.joinToString(", ").ifEmpty { "not specified" }}
-            - Seniority levels: ${preference.search.seniorityLevels.joinToString(", ").ifEmpty { "not specified" }}
+            - Seniority levels: ${preference.matching.seniorityLevels.joinToString(", ").ifEmpty { "not specified" }}
             - Desired skills/frameworks: ${preference.matching.keywords.joinToString(", ").ifEmpty { "not specified" }}
             - Excluded keywords: ${preference.matching.excludedKeywords.joinToString(", ").ifEmpty { "none" }}
             - Preferred locations: ${preference.search.locations.joinToString(", ").ifEmpty { "not specified" }}

@@ -1,10 +1,7 @@
 package com.mshykhov.jobhunter.application.preference
 
-import com.mshykhov.jobhunter.application.job.JobSource
 import jakarta.persistence.Column
 import jakarta.persistence.Embeddable
-import jakarta.persistence.EnumType
-import jakarta.persistence.Enumerated
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
 
@@ -23,9 +20,8 @@ class MatchingPreferences(
     @Column(name = "excluded_companies", columnDefinition = "text[]")
     var excludedCompanies: List<String> = emptyList(),
     @JdbcTypeCode(SqlTypes.ARRAY)
-    @Enumerated(EnumType.STRING)
-    @Column(name = "disabled_sources", columnDefinition = "text[]")
-    var disabledSources: List<JobSource> = emptyList(),
+    @Column(name = "seniority_levels", columnDefinition = "text[]")
+    var seniorityLevels: List<String> = emptyList(),
     @Column(name = "min_score", nullable = false)
     var minScore: Int = 50,
     @Column(name = "match_with_ai", nullable = false)

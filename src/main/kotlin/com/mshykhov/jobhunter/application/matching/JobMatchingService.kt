@@ -181,8 +181,8 @@ class JobMatchingService(
         job: JobEntity,
         preference: UserPreferenceEntity,
     ): Boolean {
-        if (preference.matching.disabledSources.isEmpty()) return true
-        return job.source !in preference.matching.disabledSources
+        if (preference.search.disabledSources.isEmpty()) return true
+        return job.source !in preference.search.disabledSources
     }
 
     private fun isRemoteMatch(

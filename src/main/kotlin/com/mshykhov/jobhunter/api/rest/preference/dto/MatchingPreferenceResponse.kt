@@ -1,6 +1,5 @@
 package com.mshykhov.jobhunter.api.rest.preference.dto
 
-import com.mshykhov.jobhunter.application.job.JobSource
 import com.mshykhov.jobhunter.application.preference.MatchingPreferences
 
 data class MatchingPreferenceResponse(
@@ -8,7 +7,7 @@ data class MatchingPreferenceResponse(
     val excludedKeywords: List<String>,
     val excludedTitleKeywords: List<String>,
     val excludedCompanies: List<String>,
-    val disabledSources: List<JobSource>,
+    val seniorityLevels: List<String>,
     val minScore: Int,
     val matchWithAi: Boolean,
     val customPrompt: String?,
@@ -20,7 +19,7 @@ data class MatchingPreferenceResponse(
                 excludedKeywords = matching.excludedKeywords,
                 excludedTitleKeywords = matching.excludedTitleKeywords,
                 excludedCompanies = matching.excludedCompanies,
-                disabledSources = matching.disabledSources,
+                seniorityLevels = matching.seniorityLevels,
                 minScore = matching.minScore,
                 matchWithAi = matching.matchWithAi,
                 customPrompt = matching.customPrompt,
