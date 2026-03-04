@@ -7,9 +7,9 @@ enum class JobSource(
     override val value: String,
     val displayName: String,
 ) : ValueMappedEnum {
-    DOU("dou","DOU"),
-    DJINNI("djinni","Djinni"),
-    LINKEDIN("linkedin","Linkedin"),
+    DOU("dou", "DOU"),
+    DJINNI("djinni", "Djinni"),
+    LINKEDIN("linkedin", "Linkedin"),
     ;
 
     override fun toString(): String = value
