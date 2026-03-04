@@ -2,6 +2,8 @@ package com.mshykhov.jobhunter.application.ai
 
 import com.mshykhov.jobhunter.application.ai.dto.JobRelevanceResult
 import com.mshykhov.jobhunter.application.job.JobEntity
+import com.mshykhov.jobhunter.application.preference.MatchingPreferences
+import com.mshykhov.jobhunter.application.preference.SearchPreferences
 import com.mshykhov.jobhunter.application.preference.UserPreferenceEntity
 import org.springframework.ai.chat.client.ChatClient
 import org.springframework.stereotype.Service
@@ -26,42 +28,72 @@ class JobRelevanceEvaluator {
     ): String {
         val matching = preference.matching
         val search = preference.search
+        val components = buildScoringComponents(matching, search)
 
-        val prompt =
-            buildString {
-                appendLine("## Job")
-                appendLine("Title: ${job.title}")
-                job.company?.let { appendLine("Company: $it") }
-                appendLine("Description: ${job.description.take(DESCRIPTION_LIMIT)}")
-                job.location?.let { appendLine("Location: $it") }
-                appendLine("Remote: ${job.remote ?: "unknown — infer from description"}")
-                job.salary?.let { appendLine("Salary: $it") }
+        return buildString {
+            appendLine("## Job")
+            appendLine("Title: ${job.title}")
+            job.company?.let { appendLine("Company: $it") }
+            appendLine("Description: ${job.description.take(DESCRIPTION_LIMIT)}")
+            job.location?.let { appendLine("Location: $it") }
+            appendLine("Remote: ${job.remote ?: "unknown — infer from description"}")
+            job.salary?.let { appendLine("Salary: $it") }
 
+            appendLine()
+            appendLine("## Preferences")
+            components.forEach { appendLine("${it.name}: ${it.value}") }
+
+            appendLine()
+            appendLine("## Weights")
+            appendLine(components.joinToString(", ") { "${it.name}: ${it.weight}%" })
+
+            if (!matching.customPrompt.isNullOrBlank()) {
                 appendLine()
-                appendLine("## Preferences")
-                appendLine("Categories: ${search.categories.joinToString(", ").ifEmpty { "any" }}")
-                appendLine("Seniority: ${matching.seniorityLevels.joinToString(", ").ifEmpty { "any" }}")
-                appendLine("Keywords: ${matching.keywords.joinToString(", ").ifEmpty { "any" }}")
-
-                appendLine()
-                appendLine("## Weights")
-                appendLine(
-                    "Keywords: ${matching.weightKeywords}%, Seniority: ${matching.weightSeniority}%, " +
-                        "Categories: ${matching.weightCategories}%",
-                )
-
-                if (!matching.customPrompt.isNullOrBlank()) {
-                    appendLine()
-                    appendLine("## Custom instructions")
-                    appendLine(matching.customPrompt)
-                }
+                appendLine("## Custom instructions")
+                appendLine(matching.customPrompt)
             }
-
-        return prompt
+        }
     }
 
     companion object {
         private const val DESCRIPTION_LIMIT = 3000
+    }
+}
+
+private data class ScoringComponent(val name: String, val value: String, val weight: Int)
+
+private fun buildScoringComponents(
+    matching: MatchingPreferences,
+    search: SearchPreferences,
+): List<ScoringComponent> {
+    val raw = mutableListOf<ScoringComponent>()
+
+    if (matching.keywords.isNotEmpty()) {
+        raw.add(ScoringComponent("Keywords", matching.keywords.joinToString(", "), matching.weightKeywords))
+    }
+    if (matching.seniorityLevels.isNotEmpty()) {
+        raw.add(ScoringComponent("Seniority", matching.seniorityLevels.joinToString(", "), matching.weightSeniority))
+    }
+    if (search.categories.isNotEmpty()) {
+        raw.add(ScoringComponent("Categories", search.categories.joinToString(", "), matching.weightCategories))
+    }
+
+    if (raw.isEmpty()) {
+        return listOf(ScoringComponent("General relevance", "evaluate overall fit", 100))
+    }
+
+    return redistributeWeights(raw)
+}
+
+private fun redistributeWeights(components: List<ScoringComponent>): List<ScoringComponent> {
+    val totalWeight = components.sumOf { it.weight }
+    if (totalWeight == 100) return components
+
+    val normalized = components.map { it.copy(weight = it.weight * 100 / totalWeight) }
+    val remainder = 100 - normalized.sumOf { it.weight }
+
+    return normalized.mapIndexed { i, c ->
+        if (i == 0) c.copy(weight = c.weight + remainder) else c
     }
 }
 
@@ -70,17 +102,22 @@ private val SYSTEM_PROMPT =
     You are a job relevance scoring engine.
 
     ## Weighted scoring (0–100)
-    Score each component separately, then compute weighted total.
-    The user provides weights (summing to 100%) for these components:
+    Score ONLY the components listed in the Weights section. Ignore unlisted components.
+    The weights always sum to 100%.
+
+    Component scoring rules:
 
     1. **Keywords** — overlap between job requirements and user's desired skills/keywords.
        Score proportionally to how many desired keywords appear in the job.
     2. **Seniority** — does the job match the user's experience level?
        Full points: exact match. Half: adjacent level (e.g. Senior vs Lead). Zero: 2+ levels off.
-    3. **Categories** — does the job match the user's target technology categories?
-       Full points: core category match. Half: related/adjacent tech. Zero: different domain.
+    3. **Categories** — does the job's PRIMARY technology stack match the user's target categories?
+       Evaluate based on the MAIN technology the role requires, not "nice to have" or bonus skills.
+       Full points: primary tech matches (e.g. user wants Java, job is Java).
+       Half: closely related primary tech (e.g. user wants Kotlin, job is Java).
+       Zero: different primary tech (e.g. user wants Java, job is C#/Python/.NET even if Java is mentioned as a bonus).
 
-    Formula: score = (keywords_score * keywords_weight + seniority_score * seniority_weight + categories_score * categories_weight) / 100
+    Formula: score = sum(component_score * component_weight) / 100
 
     Each component_score is 0–100. Final score is 0–100.
 
