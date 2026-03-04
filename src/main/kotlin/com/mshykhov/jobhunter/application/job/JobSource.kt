@@ -5,10 +5,11 @@ import com.mshykhov.jobhunter.application.common.ValueMappedEnum
 
 enum class JobSource(
     override val value: String,
+    val displayName: String,
 ) : ValueMappedEnum {
-    DOU("dou"),
-    DJINNI("djinni"),
-    LINKEDIN("linkedin"),
+    DOU("dou","DOU"),
+    DJINNI("djinni","Djinni"),
+    LINKEDIN("linkedin","Linkedin"),
     ;
 
     override fun toString(): String = value

@@ -1,5 +1,6 @@
 package com.mshykhov.jobhunter.api.rest.job
 
+import com.mshykhov.jobhunter.api.rest.job.dto.JobSourceResponse
 import com.mshykhov.jobhunter.api.rest.job.dto.PublicJobPageResponse
 import com.mshykhov.jobhunter.application.job.JobService
 import com.mshykhov.jobhunter.application.job.JobSource
@@ -13,6 +14,9 @@ import org.springframework.web.bind.annotation.RestController
 class PublicJobController(
     private val jobService: JobService,
 ) {
+    @GetMapping("/sources")
+    fun getSources(): List<JobSourceResponse> = JobSource.entries.map { JobSourceResponse.from(it) }
+
     @GetMapping
     fun search(
         @RequestParam(defaultValue = "0") page: Int,
