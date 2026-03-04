@@ -26,16 +26,16 @@ class MatchingPreferences(
     var matchWithAi: Boolean = true,
     @Column(name = "custom_prompt", columnDefinition = "TEXT")
     var customPrompt: String? = null,
-    @Column(name = "weight_technology", nullable = false)
-    var weightTechnology: Int = DEFAULT_WEIGHT_TECHNOLOGY,
+    @Column(name = "weight_keywords", nullable = false)
+    var weightKeywords: Int = DEFAULT_WEIGHT_KEYWORDS,
     @Column(name = "weight_seniority", nullable = false)
     var weightSeniority: Int = DEFAULT_WEIGHT_SENIORITY,
-    @Column(name = "weight_skills", nullable = false)
-    var weightSkills: Int = DEFAULT_WEIGHT_SKILLS,
+    @Column(name = "weight_categories", nullable = false)
+    var weightCategories: Int = DEFAULT_WEIGHT_CATEGORIES,
 ) {
     companion object {
-        const val DEFAULT_WEIGHT_TECHNOLOGY = 45
+        const val DEFAULT_WEIGHT_KEYWORDS = 45
         const val DEFAULT_WEIGHT_SENIORITY = 30
-        const val DEFAULT_WEIGHT_SKILLS = 25
+        const val DEFAULT_WEIGHT_CATEGORIES = 25
     }
 }

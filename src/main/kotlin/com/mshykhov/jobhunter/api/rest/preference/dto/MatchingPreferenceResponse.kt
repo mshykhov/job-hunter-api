@@ -10,9 +10,9 @@ data class MatchingPreferenceResponse(
     val seniorityLevels: List<String>,
     val matchWithAi: Boolean,
     val customPrompt: String?,
-    val weightTechnology: Int,
+    val weightKeywords: Int,
     val weightSeniority: Int,
-    val weightSkills: Int,
+    val weightCategories: Int,
 ) {
     companion object {
         fun from(matching: MatchingPreferences): MatchingPreferenceResponse =
@@ -24,9 +24,9 @@ data class MatchingPreferenceResponse(
                 seniorityLevels = matching.seniorityLevels,
                 matchWithAi = matching.matchWithAi,
                 customPrompt = matching.customPrompt,
-                weightTechnology = matching.weightTechnology,
+                weightKeywords = matching.weightKeywords,
                 weightSeniority = matching.weightSeniority,
-                weightSkills = matching.weightSkills,
+                weightCategories = matching.weightCategories,
             )
     }
 }

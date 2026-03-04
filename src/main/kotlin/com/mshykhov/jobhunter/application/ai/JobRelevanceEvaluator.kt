@@ -39,15 +39,15 @@ class JobRelevanceEvaluator {
 
                 appendLine()
                 appendLine("## Preferences")
-                appendLine("Technologies: ${search.categories.joinToString(", ").ifEmpty { "any" }}")
+                appendLine("Categories: ${search.categories.joinToString(", ").ifEmpty { "any" }}")
                 appendLine("Seniority: ${matching.seniorityLevels.joinToString(", ").ifEmpty { "any" }}")
-                appendLine("Skills: ${matching.keywords.joinToString(", ").ifEmpty { "any" }}")
+                appendLine("Keywords: ${matching.keywords.joinToString(", ").ifEmpty { "any" }}")
 
                 appendLine()
                 appendLine("## Weights")
                 appendLine(
-                    "Technology: ${matching.weightTechnology}%, Seniority: ${matching.weightSeniority}%, " +
-                        "Skills: ${matching.weightSkills}%",
+                    "Keywords: ${matching.weightKeywords}%, Seniority: ${matching.weightSeniority}%, " +
+                        "Categories: ${matching.weightCategories}%",
                 )
 
                 if (!matching.customPrompt.isNullOrBlank()) {
@@ -73,14 +73,14 @@ private val SYSTEM_PROMPT =
     Score each component separately, then compute weighted total.
     The user provides weights (summing to 100%) for these components:
 
-    1. **Technology** — does the job require the user's target technologies?
-       Full points: core tech match. Half: related/adjacent tech. Zero: different domain.
+    1. **Keywords** — overlap between job requirements and user's desired skills/keywords.
+       Score proportionally to how many desired keywords appear in the job.
     2. **Seniority** — does the job match the user's experience level?
        Full points: exact match. Half: adjacent level (e.g. Senior vs Lead). Zero: 2+ levels off.
-    3. **Skills** — overlap between job requirements and user's desired skills/frameworks.
-       Score proportionally to how many desired skills appear in the job.
+    3. **Categories** — does the job match the user's target technology categories?
+       Full points: core category match. Half: related/adjacent tech. Zero: different domain.
 
-    Formula: score = (tech_score * tech_weight + seniority_score * seniority_weight + skills_score * skills_weight) / 100
+    Formula: score = (keywords_score * keywords_weight + seniority_score * seniority_weight + categories_score * categories_weight) / 100
 
     Each component_score is 0–100. Final score is 0–100.
 

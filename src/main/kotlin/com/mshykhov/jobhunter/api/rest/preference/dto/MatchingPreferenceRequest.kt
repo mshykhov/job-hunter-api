@@ -14,14 +14,14 @@ data class MatchingPreferenceRequest(
     val matchWithAi: Boolean = true,
     val customPrompt: String? = null,
     @field:Min(0) @field:Max(100)
-    val weightTechnology: Int = MatchingPreferences.DEFAULT_WEIGHT_TECHNOLOGY,
+    val weightKeywords: Int = MatchingPreferences.DEFAULT_WEIGHT_KEYWORDS,
     @field:Min(0) @field:Max(100)
     val weightSeniority: Int = MatchingPreferences.DEFAULT_WEIGHT_SENIORITY,
     @field:Min(0) @field:Max(100)
-    val weightSkills: Int = MatchingPreferences.DEFAULT_WEIGHT_SKILLS,
+    val weightCategories: Int = MatchingPreferences.DEFAULT_WEIGHT_CATEGORIES,
 ) {
     @AssertTrue(message = "Scoring weights must sum to 100")
-    fun isWeightsSumValid(): Boolean = weightTechnology + weightSeniority + weightSkills == 100
+    fun isWeightsSumValid(): Boolean = weightKeywords + weightSeniority + weightCategories == 100
 
     fun applyTo(target: MatchingPreferences) {
         target.keywords = keywords
@@ -31,8 +31,8 @@ data class MatchingPreferenceRequest(
         target.seniorityLevels = seniorityLevels
         target.matchWithAi = matchWithAi
         target.customPrompt = customPrompt
-        target.weightTechnology = weightTechnology
+        target.weightKeywords = weightKeywords
         target.weightSeniority = weightSeniority
-        target.weightSkills = weightSkills
+        target.weightCategories = weightCategories
     }
 }
