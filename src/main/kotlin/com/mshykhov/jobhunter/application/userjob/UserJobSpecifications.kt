@@ -47,6 +47,11 @@ object UserJobSpecifications {
             )
         }
 
+    fun minScore(score: Int): Specification<UserJobEntity> =
+        Specification { root, _, cb ->
+            cb.greaterThanOrEqualTo(root.get("aiRelevanceScore"), score)
+        }
+
     fun search(query: String): Specification<UserJobEntity> =
         Specification { root, _, cb ->
             val pattern = "%${query.lowercase()}%"
@@ -56,20 +61,6 @@ object UserJobSpecifications {
                 cb.like(cb.lower(job.get("company")), pattern),
                 cb.like(cb.lower(job.get("location")), pattern),
                 cb.like(cb.lower(job.get("salary")), pattern),
-            )
-        }
-
-    fun beforeCursor(
-        createdAt: Instant,
-        id: UUID,
-    ): Specification<UserJobEntity> =
-        Specification { root, _, cb ->
-            cb.or(
-                cb.lessThan(root.get("createdAt"), createdAt),
-                cb.and(
-                    cb.equal(root.get<Instant>("createdAt"), createdAt),
-                    cb.lessThan(root.get("id"), id),
-                ),
             )
         }
 

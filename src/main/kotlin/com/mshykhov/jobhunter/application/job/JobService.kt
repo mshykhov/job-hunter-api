@@ -10,7 +10,6 @@ import com.mshykhov.jobhunter.infrastructure.config.CacheConfig
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.cache.annotation.Cacheable
 import org.springframework.data.domain.PageRequest
-import org.springframework.data.domain.Sort
 import org.springframework.data.jpa.domain.Specification
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -31,6 +30,7 @@ class JobService(
         source: JobSource?,
         remote: Boolean?,
         publishedAfter: Instant?,
+        sortBy: PublicJobSort = PublicJobSort.PUBLISHED,
     ): PublicJobPageResponse {
         val effectiveSize = size.coerceIn(1, MAX_PAGE_SIZE)
         var spec: Specification<JobEntity> = Specification { _, _, _ -> null }
@@ -48,15 +48,7 @@ class JobService(
             spec = spec.and(JobSpecifications.publishedAfter(publishedAfter))
         }
 
-        val pageable =
-            PageRequest.of(
-                page,
-                effectiveSize,
-                Sort
-                    .by(Sort.Direction.DESC, "publishedAt")
-                    .and(Sort.by(Sort.Direction.DESC, "id")),
-            )
-
+        val pageable = PageRequest.of(page.coerceAtLeast(0), effectiveSize, sortBy.sort)
         val result = jobFacade.findAll(spec, pageable)
 
         return PublicJobPageResponse(

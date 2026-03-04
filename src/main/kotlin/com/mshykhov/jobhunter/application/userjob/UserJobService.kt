@@ -6,7 +6,6 @@ import com.mshykhov.jobhunter.api.rest.job.dto.UserJobResponse
 import com.mshykhov.jobhunter.application.common.NotFoundException
 import com.mshykhov.jobhunter.application.user.UserFacade
 import org.springframework.data.domain.PageRequest
-import org.springframework.data.domain.Sort
 import org.springframework.data.jpa.domain.Specification
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -26,46 +25,24 @@ class UserJobService(
             userFacade.findByAuth0Sub(auth0Sub)
                 ?: return PaginatedUserJobResponse(
                     content = emptyList(),
-                    totalElements = 0,
-                    hasMore = false,
+                    page = 0,
                     size = filter.size,
+                    totalElements = 0,
+                    totalPages = 0,
                     statusCounts = emptyMap(),
                 )
 
         val baseSpec = buildBaseSpec(user.id, filter)
-        var fullSpec =
+        val fullSpec =
             if (!filter.statuses.isNullOrEmpty()) {
                 baseSpec.and(UserJobSpecifications.statuses(filter.statuses))
             } else {
                 baseSpec
             }
 
-        if (filter.cursorCreatedAt != null && filter.cursorId != null) {
-            fullSpec =
-                fullSpec.and(
-                    UserJobSpecifications.beforeCursor(filter.cursorCreatedAt, filter.cursorId),
-                )
-        }
-
-        val limit = filter.size.coerceIn(1, 100)
-        val pageable =
-            PageRequest.of(
-                0,
-                limit + 1,
-                Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id")),
-            )
-        val results = userJobFacade.findAll(fullSpec, pageable).content
-        val hasMore = results.size > limit
-        val content = if (hasMore) results.take(limit) else results
-
-        val totalElements =
-            userJobFacade.count(
-                if (!filter.statuses.isNullOrEmpty()) {
-                    baseSpec.and(UserJobSpecifications.statuses(filter.statuses))
-                } else {
-                    baseSpec
-                },
-            )
+        val effectiveSize = filter.size.coerceIn(1, MAX_PAGE_SIZE)
+        val pageable = PageRequest.of(filter.page.coerceAtLeast(0), effectiveSize, filter.sortBy.sort)
+        val result = userJobFacade.findAll(fullSpec, pageable)
 
         val statusCounts =
             UserJobStatus.entries.associate { status ->
@@ -73,10 +50,11 @@ class UserJobService(
             }
 
         return PaginatedUserJobResponse(
-            content = content.map { UserJobResponse.from(it) },
-            totalElements = totalElements,
-            hasMore = hasMore,
-            size = limit,
+            content = result.content.map { UserJobResponse.from(it) },
+            page = result.number,
+            size = result.size,
+            totalElements = result.totalElements,
+            totalPages = result.totalPages,
             statusCounts = statusCounts,
         )
     }
@@ -108,6 +86,9 @@ class UserJobService(
         if (!filter.search.isNullOrBlank()) {
             spec = spec.and(UserJobSpecifications.search(filter.search))
         }
+        if (filter.minScore != null) {
+            spec = spec.and(UserJobSpecifications.minScore(filter.minScore))
+        }
         return spec
     }
 
@@ -138,4 +119,8 @@ class UserJobService(
     private fun findUser(auth0Sub: String) =
         userFacade.findByAuth0Sub(auth0Sub)
             ?: throw NotFoundException("User not found: $auth0Sub")
+
+    companion object {
+        private const val MAX_PAGE_SIZE = 100
+    }
 }

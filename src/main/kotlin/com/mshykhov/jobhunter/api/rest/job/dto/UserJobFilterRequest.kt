@@ -1,9 +1,9 @@
 package com.mshykhov.jobhunter.api.rest.job.dto
 
 import com.mshykhov.jobhunter.application.job.JobSource
+import com.mshykhov.jobhunter.application.userjob.UserJobSort
 import com.mshykhov.jobhunter.application.userjob.UserJobStatus
 import java.time.Instant
-import java.util.UUID
 
 data class UserJobFilterRequest(
     val statuses: List<UserJobStatus>? = null,
@@ -13,7 +13,8 @@ data class UserJobFilterRequest(
     val updatedAfter: Instant? = null,
     val search: String? = null,
     val remote: Boolean? = null,
+    val minScore: Int? = null,
+    val page: Int = 0,
     val size: Int = 50,
-    val cursorCreatedAt: Instant? = null,
-    val cursorId: UUID? = null,
+    val sortBy: UserJobSort = UserJobSort.SCORE,
 )

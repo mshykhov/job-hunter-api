@@ -4,6 +4,7 @@ import com.mshykhov.jobhunter.api.rest.job.dto.JobSourceResponse
 import com.mshykhov.jobhunter.api.rest.job.dto.PublicJobPageResponse
 import com.mshykhov.jobhunter.application.job.JobService
 import com.mshykhov.jobhunter.application.job.JobSource
+import com.mshykhov.jobhunter.application.job.PublicJobSort
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
@@ -26,5 +27,6 @@ class PublicJobController(
         @RequestParam(required = false) source: JobSource?,
         @RequestParam(required = false) remote: Boolean?,
         @RequestParam(required = false) publishedAfter: Instant?,
-    ): PublicJobPageResponse = jobService.searchPublic(page, size, search, source, remote, publishedAfter)
+        @RequestParam(defaultValue = "PUBLISHED") sortBy: PublicJobSort,
+    ): PublicJobPageResponse = jobService.searchPublic(page, size, search, source, remote, publishedAfter, sortBy)
 }
