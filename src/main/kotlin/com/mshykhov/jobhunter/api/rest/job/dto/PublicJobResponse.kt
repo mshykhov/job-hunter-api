@@ -16,6 +16,7 @@ data class PublicJobResponse(
     val location: String?,
     val remote: Boolean?,
     val publishedAt: Instant?,
+    val scrapedAt: Instant?,
 ) {
     companion object {
         fun from(entity: JobEntity): PublicJobResponse =
@@ -30,6 +31,7 @@ data class PublicJobResponse(
                 location = entity.location,
                 remote = entity.remote,
                 publishedAt = entity.publishedAt,
+                scrapedAt = entity.updatedAt,
             )
     }
 }
