@@ -4,7 +4,6 @@ import com.mshykhov.jobhunter.api.rest.job.dto.PaginatedUserJobResponse
 import com.mshykhov.jobhunter.api.rest.job.dto.UserJobFilterRequest
 import com.mshykhov.jobhunter.api.rest.job.dto.UserJobResponse
 import com.mshykhov.jobhunter.application.common.NotFoundException
-import com.mshykhov.jobhunter.application.preference.UserPreferenceFacade
 import com.mshykhov.jobhunter.application.user.UserFacade
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
@@ -17,7 +16,6 @@ import java.util.UUID
 class UserJobService(
     private val userFacade: UserFacade,
     private val userJobFacade: UserJobFacade,
-    private val userPreferenceFacade: UserPreferenceFacade,
 ) {
     @Transactional(readOnly = true)
     fun search(
@@ -34,12 +32,7 @@ class UserJobService(
                     statusCounts = emptyMap(),
                 )
 
-        val effectiveMinScore =
-            filter.minScore
-                ?: userPreferenceFacade.findByUserId(user.id)?.matching?.minScore
-                ?: 0
-
-        val baseSpec = buildBaseSpec(user.id, effectiveMinScore, filter)
+        val baseSpec = buildBaseSpec(user.id, filter)
         var fullSpec =
             if (!filter.statuses.isNullOrEmpty()) {
                 baseSpec.and(UserJobSpecifications.statuses(filter.statuses))
@@ -90,14 +83,12 @@ class UserJobService(
 
     private fun buildBaseSpec(
         userId: UUID,
-        minScore: Int,
         filter: UserJobFilterRequest,
     ): Specification<UserJobEntity> {
         var spec =
             UserJobSpecifications
                 .withJobFetch()
                 .and(UserJobSpecifications.userId(userId))
-                .and(UserJobSpecifications.minScore(minScore))
 
         if (!filter.sources.isNullOrEmpty()) {
             spec = spec.and(UserJobSpecifications.sources(filter.sources))

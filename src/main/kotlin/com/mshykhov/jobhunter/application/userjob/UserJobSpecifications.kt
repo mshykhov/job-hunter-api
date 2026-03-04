@@ -19,11 +19,6 @@ object UserJobSpecifications {
             root.get<UserJobStatus>("status").`in`(statuses)
         }
 
-    fun minScore(score: Int): Specification<UserJobEntity> =
-        Specification { root, _, cb ->
-            cb.greaterThanOrEqualTo(root.get("aiRelevanceScore"), score)
-        }
-
     fun sources(sources: List<JobSource>): Specification<UserJobEntity> =
         Specification { root, _, _ ->
             root.get<JobEntity>("job").get<JobSource>("source").`in`(sources)

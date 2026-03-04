@@ -7,7 +7,6 @@ import java.util.UUID
 
 data class UserJobFilterRequest(
     val statuses: List<UserJobStatus>? = null,
-    val minScore: Int? = null,
     val sources: List<JobSource>? = null,
     val publishedAfter: Instant? = null,
     val matchedAfter: Instant? = null,
