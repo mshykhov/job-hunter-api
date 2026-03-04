@@ -7,12 +7,11 @@ import org.springframework.ai.chat.client.ChatClient
 import org.springframework.stereotype.Service
 
 @Service
-class JobRelevanceEvaluator(
-    private val chatClient: ChatClient,
-) {
+class JobRelevanceEvaluator {
     fun evaluate(
         job: JobEntity,
         preference: UserPreferenceEntity,
+        chatClient: ChatClient,
     ): JobRelevanceResult =
         chatClient
             .prompt()
@@ -24,24 +23,36 @@ class JobRelevanceEvaluator(
     private fun buildUserPrompt(
         job: JobEntity,
         preference: UserPreferenceEntity,
-    ): String =
-        """
-        ## Job Posting
-        - Title: ${job.title}
-        - Company: ${job.company ?: "not specified"}
-        - Description: ${job.description.take(3000)}
-        - Location: ${job.location ?: "not specified"}
-        - Remote: ${job.remote ?: "not specified — infer from title and description"}
-        - Salary: ${job.salary ?: "not specified"}
+    ): String {
+        val basePrompt =
+            """
+            ## Job Posting
+            - Title: ${job.title}
+            - Company: ${job.company ?: "not specified"}
+            - Description: ${job.description.take(3000)}
+            - Location: ${job.location ?: "not specified"}
+            - Remote: ${job.remote ?: "not specified — infer from title and description"}
+            - Salary: ${job.salary ?: "not specified"}
 
-        ## User Preferences
-        - Target technologies: ${preference.categories.joinToString(", ").ifEmpty { "not specified" }}
-        - Seniority levels: ${preference.seniorityLevels.joinToString(", ").ifEmpty { "not specified" }}
-        - Desired skills/frameworks: ${preference.keywords.joinToString(", ").ifEmpty { "not specified" }}
-        - Excluded keywords: ${preference.excludedKeywords.joinToString(", ").ifEmpty { "none" }}
-        - Preferred locations: ${preference.locations.joinToString(", ").ifEmpty { "not specified" }}
-        - Remote only: ${preference.remoteOnly}
-        """.trimIndent()
+            ## User Preferences
+            - Target technologies: ${preference.search.categories.joinToString(", ").ifEmpty { "not specified" }}
+            - Seniority levels: ${preference.search.seniorityLevels.joinToString(", ").ifEmpty { "not specified" }}
+            - Desired skills/frameworks: ${preference.matching.keywords.joinToString(", ").ifEmpty { "not specified" }}
+            - Excluded keywords: ${preference.matching.excludedKeywords.joinToString(", ").ifEmpty { "none" }}
+            - Preferred locations: ${preference.search.locations.joinToString(", ").ifEmpty { "not specified" }}
+            - Remote only: ${preference.search.remoteOnly}
+            """.trimIndent()
+
+        val customPrompt = preference.matching.customPrompt
+        if (customPrompt.isNullOrBlank()) return basePrompt
+
+        return basePrompt +
+            "\n\n" +
+            """
+            ## Additional user instructions
+            $customPrompt
+            """.trimIndent()
+    }
 }
 
 private val SYSTEM_PROMPT =

@@ -8,7 +8,6 @@ data class NormalizedPreferences(
     val keywords: List<String> = emptyList(),
     val excludedKeywords: List<String> = emptyList(),
     val locations: List<String> = emptyList(),
-    val languages: List<String> = emptyList(),
     val remoteOnly: Boolean = false,
     val disabledSources: List<JobSource> = emptyList(),
 )

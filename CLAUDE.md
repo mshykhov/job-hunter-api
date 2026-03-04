@@ -68,10 +68,11 @@ com.mshykhov.jobhunter/
 │   └── exception/                 # GlobalExceptionHandler, ErrorResponse
 ├── application/                   # Business domain
 │   ├── {feature}/                 # Service + Entity + Repository + Facade together
-│   ├── ai/                        # AI evaluators + dto/ for AI models
-│   └── common/                    # Shared: NotFoundException, ServiceUnavailableException, ValueMappedEnum, utils
+│   ├── ai/                        # AI evaluators, UserAiSettings (Entity/Facade/Service), ChatClientFactory + dto/
+│   ├── profile/                   # ProfileService (read-only aggregation)
+│   └── common/                    # Shared: NotFoundException, ServiceUnavailableException, AiNotConfiguredException, ValueMappedEnum, utils
 └── infrastructure/                # Technical concerns
-    ├── ai/                        # AiConfig, AiProperties
+    ├── ai/                        # AiConfig, AiProperties, AiEncryptionConverter
     ├── fingerprint/               # BrowserFingerprint, FingerprintProvider, ScrapeOpsProperties
     ├── proxy/                     # WebshareClient, WebshareConfig + model/ for DTOs
     ├── ratelimit/                 # RateLimitFilter
@@ -154,7 +155,12 @@ Controller → Service → Facade → Repository
 | `GET` | `/criteria?source={SOURCE}` | `read:criteria` | Aggregated search criteria for n8n |
 | `GET` | `/preferences` | `read:preferences` | User preferences |
 | `PUT` | `/preferences` | `write:preferences` | Save preferences |
-| `POST` | `/preferences/normalize` | `write:preferences` | AI-normalize raw text |
+| `POST` | `/preferences/normalize` | `write:preferences` | AI-normalize raw text (uses user's AI) |
+| `POST` | `/preferences/normalize/file` | `write:preferences` | AI-normalize from PDF/DOCX (uses user's AI) |
+| `GET` | `/settings/ai-providers` | `read:settings` | Static AI model catalog |
+| `GET` | `/settings/ai` | `read:settings` | User's AI settings (masked key) |
+| `PUT` | `/settings/ai` | `write:settings` | Save user's AI settings (API key + model) |
+| `GET` | `/profile` | `read:profile` | User profile with warnings |
 
 ---
 

@@ -5,6 +5,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties
 @ConfigurationProperties(prefix = "jobhunter.ai")
 data class AiProperties(
     val matching: MatchingProperties = MatchingProperties(),
+    val encryptionKey: String = "",
 ) {
     data class MatchingProperties(
         val concurrency: Int = 10,

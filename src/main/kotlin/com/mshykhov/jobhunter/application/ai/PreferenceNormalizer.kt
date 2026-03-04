@@ -7,10 +7,11 @@ import org.springframework.ai.chat.client.entity
 import org.springframework.stereotype.Service
 
 @Service
-class PreferenceNormalizer(
-    private val chatClient: ChatClient,
-) {
-    fun normalize(rawInput: String): NormalizedPreferences =
+class PreferenceNormalizer {
+    fun normalize(
+        rawInput: String,
+        chatClient: ChatClient,
+    ): NormalizedPreferences =
         try {
             chatClient
                 .prompt()
@@ -33,7 +34,6 @@ private val SYSTEM_PROMPT =
     - keywords: relevant skill/framework keywords for job matching (e.g. spring, react, kubernetes, microservices)
     - excludedKeywords: technologies or domains the user wants to avoid
     - locations: countries or regions to search jobs in (e.g. Ukraine, United States, Worldwide). Empty means no preference (use default).
-    - languages: human (spoken) languages the user can work in (e.g. English, Ukrainian, German). Only add if explicitly mentioned.
     - remoteOnly: whether user wants only remote positions (true/false)
     - disabledSources: job source names the user explicitly wants to exclude from search. Empty by default (all sources active). Only add a source if the user explicitly says they don't want it.
     """.trimIndent()

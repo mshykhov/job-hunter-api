@@ -1,7 +1,6 @@
 package com.mshykhov.jobhunter.application.user
 
 import jakarta.persistence.Column
-import jakarta.persistence.Embedded
 import jakarta.persistence.Entity
 import jakarta.persistence.EntityListeners
 import jakarta.persistence.Id
@@ -24,8 +23,6 @@ class UserEntity(
     private val id: UUID = UUID.randomUUID(),
     @Column(name = "auth0_sub", unique = true, nullable = false)
     val auth0Sub: String,
-    @Embedded
-    var telegram: Telegram = Telegram(),
     @CreatedDate
     @Column(name = "created_at", insertable = false, updatable = false)
     val createdAt: Instant? = null,

@@ -1,6 +1,8 @@
 package com.mshykhov.jobhunter.application.matching
 
+import com.mshykhov.jobhunter.application.ai.ChatClientFactory
 import com.mshykhov.jobhunter.application.ai.JobRelevanceEvaluator
+import com.mshykhov.jobhunter.application.ai.UserAiSettingsFacade
 import com.mshykhov.jobhunter.application.job.JobEntity
 import com.mshykhov.jobhunter.application.job.JobFacade
 import com.mshykhov.jobhunter.application.preference.UserPreferenceEntity
@@ -15,11 +17,13 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
+import org.springframework.ai.chat.client.ChatClient
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
 import java.time.Instant
+import java.util.UUID
 
 private val logger = KotlinLogging.logger {}
 
@@ -28,7 +32,9 @@ class JobMatchingService(
     private val jobFacade: JobFacade,
     private val userPreferenceFacade: UserPreferenceFacade,
     private val userJobFacade: UserJobFacade,
+    private val userAiSettingsFacade: UserAiSettingsFacade,
     private val jobRelevanceEvaluator: JobRelevanceEvaluator,
+    private val chatClientFactory: ChatClientFactory,
     private val aiProperties: AiProperties,
     private val clock: Clock,
 ) {
@@ -43,7 +49,14 @@ class JobMatchingService(
             return
         }
 
-        logger.info { "Matching ${jobs.size} jobs against ${preferences.size} user preferences" }
+        val userChatClients = buildUserChatClients(preferences)
+        val eligiblePreferences = preferences.filter { it.user.id in userChatClients }
+        if (eligiblePreferences.isEmpty()) {
+            markMatched(jobs)
+            return
+        }
+
+        logger.info { "Matching ${jobs.size} jobs against ${eligiblePreferences.size} user preferences" }
 
         val semaphore = Semaphore(aiProperties.matching.concurrency)
         val results =
@@ -53,7 +66,7 @@ class JobMatchingService(
                         async {
                             semaphore.withPermit {
                                 try {
-                                    matchJobToUsers(job, preferences)
+                                    matchJobToUsers(job, eligiblePreferences, userChatClients)
                                     MatchResult.Success(job)
                                 } catch (e: Exception) {
                                     logger.error(e) { "AI evaluation failed for job '${job.title}', skipping" }
@@ -73,9 +86,25 @@ class JobMatchingService(
         logger.info { "Matching complete: ${matched.size} processed, $failedCount failed" }
     }
 
+    private fun buildUserChatClients(preferences: List<UserPreferenceEntity>): Map<UUID, ChatClient> =
+        preferences
+            .filter { it.matching.matchWithAi }
+            .map { it.user.id }
+            .distinct()
+            .mapNotNull { userId ->
+                val settings = userAiSettingsFacade.findByUserId(userId)
+                if (settings == null) {
+                    logger.warn { "User $userId has no AI settings, skipping in matching" }
+                    null
+                } else {
+                    userId to chatClientFactory.createForUser(settings)
+                }
+            }.toMap()
+
     private fun matchJobToUsers(
         job: JobEntity,
         preferences: List<UserPreferenceEntity>,
+        userChatClients: Map<UUID, ChatClient>,
     ) {
         val coldMatches = preferences.filter { coldFilterMatches(job, it) }
         if (coldMatches.isEmpty()) return
@@ -86,8 +115,9 @@ class JobMatchingService(
 
         val userJobs =
             newMatches.mapNotNull { preference ->
-                val aiResult = jobRelevanceEvaluator.evaluate(job, preference)
-                if (preference.remoteOnly && !aiResult.inferredRemote) return@mapNotNull null
+                val chatClient = userChatClients[preference.user.id] ?: return@mapNotNull null
+                val aiResult = jobRelevanceEvaluator.evaluate(job, preference, chatClient)
+                if (preference.search.remoteOnly && !aiResult.inferredRemote) return@mapNotNull null
                 UserJobEntity(
                     user = preference.user,
                     job = job,
@@ -143,21 +173,23 @@ class JobMatchingService(
         isSourceAllowed(job, preference) &&
             isRemoteMatch(job, preference) &&
             hasNoExcludedKeywords(job, preference) &&
+            hasNoExcludedTitleKeywords(job, preference) &&
+            isCompanyAllowed(job, preference) &&
             matchesCategories(job, preference)
 
     private fun isSourceAllowed(
         job: JobEntity,
         preference: UserPreferenceEntity,
     ): Boolean {
-        if (preference.disabledSources.isEmpty()) return true
-        return job.source !in preference.disabledSources
+        if (preference.matching.disabledSources.isEmpty()) return true
+        return job.source !in preference.matching.disabledSources
     }
 
     private fun isRemoteMatch(
         job: JobEntity,
         preference: UserPreferenceEntity,
     ): Boolean {
-        if (!preference.remoteOnly) return true
+        if (!preference.search.remoteOnly) return true
         return job.remote != false
     }
 
@@ -165,10 +197,32 @@ class JobMatchingService(
         job: JobEntity,
         preference: UserPreferenceEntity,
     ): Boolean {
-        if (preference.excludedKeywords.isEmpty()) return true
+        if (preference.matching.excludedKeywords.isEmpty()) return true
         val searchText = buildSearchText(job)
-        return preference.excludedKeywords.none { keyword ->
+        return preference.matching.excludedKeywords.none { keyword ->
             searchText.contains(keyword.lowercase())
+        }
+    }
+
+    private fun hasNoExcludedTitleKeywords(
+        job: JobEntity,
+        preference: UserPreferenceEntity,
+    ): Boolean {
+        if (preference.matching.excludedTitleKeywords.isEmpty()) return true
+        val titleText = job.title.lowercase()
+        return preference.matching.excludedTitleKeywords.none { keyword ->
+            titleText.contains(keyword.lowercase())
+        }
+    }
+
+    private fun isCompanyAllowed(
+        job: JobEntity,
+        preference: UserPreferenceEntity,
+    ): Boolean {
+        if (preference.matching.excludedCompanies.isEmpty()) return true
+        val company = job.company?.lowercase() ?: return true
+        return preference.matching.excludedCompanies.none { excluded ->
+            company.contains(excluded.lowercase())
         }
     }
 
@@ -176,9 +230,9 @@ class JobMatchingService(
         job: JobEntity,
         preference: UserPreferenceEntity,
     ): Boolean {
-        if (preference.categories.isEmpty()) return true
+        if (preference.search.categories.isEmpty()) return true
         val searchText = buildSearchText(job)
-        return preference.categories.any { category ->
+        return preference.search.categories.any { category ->
             searchText.contains(category.lowercase())
         }
     }

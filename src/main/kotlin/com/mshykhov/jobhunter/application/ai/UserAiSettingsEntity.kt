@@ -1,8 +1,9 @@
-package com.mshykhov.jobhunter.application.preference
+package com.mshykhov.jobhunter.application.ai
 
 import com.mshykhov.jobhunter.application.user.UserEntity
+import com.mshykhov.jobhunter.infrastructure.ai.AiEncryptionConverter
 import jakarta.persistence.Column
-import jakarta.persistence.Embedded
+import jakarta.persistence.Convert
 import jakarta.persistence.Entity
 import jakarta.persistence.EntityListeners
 import jakarta.persistence.FetchType
@@ -21,20 +22,19 @@ import java.time.Instant
 import java.util.UUID
 
 @Entity
-@Table(name = "user_preferences")
+@Table(name = "user_ai_settings")
 @EntityListeners(AuditingEntityListener::class)
-class UserPreferenceEntity(
+class UserAiSettingsEntity(
     @Id
     private val id: UUID = UUID.randomUUID(),
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", unique = true, nullable = false)
     val user: UserEntity,
-    @Embedded
-    var search: SearchPreferences = SearchPreferences(),
-    @Embedded
-    var matching: MatchingPreferences = MatchingPreferences(),
-    @Embedded
-    var telegram: TelegramPreferences = TelegramPreferences(),
+    @Convert(converter = AiEncryptionConverter::class)
+    @Column(name = "api_key_encrypted", nullable = false)
+    var apiKey: String,
+    @Column(name = "model_id", nullable = false, length = 100)
+    var modelId: String,
     @CreatedDate
     @Column(name = "created_at", insertable = false, updatable = false)
     val createdAt: Instant? = null,

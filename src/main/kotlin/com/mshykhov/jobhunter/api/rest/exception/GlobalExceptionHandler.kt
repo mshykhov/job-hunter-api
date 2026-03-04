@@ -1,5 +1,6 @@
 package com.mshykhov.jobhunter.api.rest.exception
 
+import com.mshykhov.jobhunter.application.common.AiNotConfiguredException
 import com.mshykhov.jobhunter.application.common.NotFoundException
 import com.mshykhov.jobhunter.application.common.ServiceUnavailableException
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -54,6 +55,14 @@ class GlobalExceptionHandler : ResponseEntityExceptionHandler() {
         return ResponseEntity
             .status(HttpStatus.NOT_FOUND)
             .body(ErrorResponse(ex.message ?: "Not found", "NOT_FOUND"))
+    }
+
+    @ExceptionHandler(AiNotConfiguredException::class)
+    fun handleAiNotConfigured(ex: AiNotConfiguredException): ResponseEntity<ErrorResponse> {
+        log.warn { "AI not configured: ${ex.message}" }
+        return ResponseEntity
+            .status(HttpStatus.UNPROCESSABLE_ENTITY)
+            .body(ErrorResponse(ex.message ?: "AI not configured", "AI_NOT_CONFIGURED"))
     }
 
     @ExceptionHandler(ServiceUnavailableException::class)

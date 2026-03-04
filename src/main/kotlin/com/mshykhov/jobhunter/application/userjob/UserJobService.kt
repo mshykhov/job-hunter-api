@@ -36,7 +36,7 @@ class UserJobService(
 
         val effectiveMinScore =
             filter.minScore
-                ?: userPreferenceFacade.findByUserId(user.id)?.minScore
+                ?: userPreferenceFacade.findByUserId(user.id)?.matching?.minScore
                 ?: 0
 
         val baseSpec = buildBaseSpec(user.id, effectiveMinScore, filter)
