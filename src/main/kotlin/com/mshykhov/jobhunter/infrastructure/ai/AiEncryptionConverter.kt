@@ -1,5 +1,6 @@
 package com.mshykhov.jobhunter.infrastructure.ai
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.persistence.AttributeConverter
 import jakarta.persistence.Converter
 import org.springframework.stereotype.Component
@@ -8,6 +9,8 @@ import java.util.Base64
 import javax.crypto.Cipher
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
+
+private val logger = KotlinLogging.logger {}
 
 @Component
 @Converter
@@ -46,7 +49,8 @@ class AiEncryptionConverter(
                 }
             String(cipher.doFinal(ciphertext), Charsets.UTF_8)
         } catch (e: Exception) {
-            throw IllegalStateException("Failed to decrypt API key — possible key rotation or data corruption", e)
+            logger.warn(e) { "Failed to decrypt API key — possible key rotation or data corruption. Key will be overwritten on next save." }
+            ""
         }
     }
 
