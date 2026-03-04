@@ -18,10 +18,10 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import org.springframework.ai.chat.client.ChatClient
-import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
+import java.time.Duration
 import java.time.Instant
 import java.util.UUID
 
@@ -38,7 +38,6 @@ class JobMatchingService(
     private val aiProperties: AiProperties,
     private val clock: Clock,
 ) {
-    @Scheduled(fixedDelayString = "\${jobhunter.matching.interval-ms:60000}")
     fun processUnmatchedJobs() {
         val jobs = jobFacade.findUnmatched()
         if (jobs.isEmpty()) return
@@ -134,23 +133,24 @@ class JobMatchingService(
 
     @Transactional
     fun rematch(since: Instant?): Int {
-        val jobs =
-            if (since != null) {
-                jobFacade.findMatchedSince(since)
-            } else {
-                jobFacade.findAllMatched()
+        val maxSince = Instant.now(clock).minus(MAX_REMATCH_PERIOD)
+        val effectiveSince =
+            when {
+                since == null -> maxSince
+                since.isBefore(maxSince) -> maxSince
+                else -> since
             }
+        val jobs = jobFacade.findMatchedSince(effectiveSince)
         if (jobs.isEmpty()) return 0
 
         val jobIds = jobs.map { it.id }
         userJobFacade.deleteByJobIds(jobIds)
         jobFacade.updateMatchedAt(jobIds, null)
 
-        logger.info { "Rematch queued: ${jobs.size} jobs reset (since=${since ?: "all"})" }
+        logger.info { "Rematch queued: ${jobs.size} jobs reset (since=$effectiveSince)" }
         return jobs.size
     }
 
-    @Transactional
     private fun markMatched(jobs: List<JobEntity>) {
         val ids = jobs.map { it.id }
         jobFacade.updateMatchedAt(ids, Instant.now(clock))
@@ -241,4 +241,8 @@ class JobMatchingService(
         listOfNotNull(job.title, job.company, job.description, job.location, job.salary)
             .joinToString(" ")
             .lowercase()
+
+    companion object {
+        private val MAX_REMATCH_PERIOD = Duration.ofDays(3)
+    }
 }

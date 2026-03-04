@@ -25,24 +25,26 @@ data class UserJobDetailResponse(
     val updatedAt: Instant?,
 ) {
     companion object {
-        fun from(entity: UserJobEntity): UserJobDetailResponse =
-            UserJobDetailResponse(
-                id = entity.id,
-                jobId = entity.job.id,
-                title = entity.job.title,
-                company = entity.job.company,
-                url = entity.job.url,
+        fun from(entity: UserJobEntity): UserJobDetailResponse {
+            val base = UserJobResponse.from(entity)
+            return UserJobDetailResponse(
+                id = base.id,
+                jobId = base.jobId,
+                title = base.title,
+                company = base.company,
+                url = base.url,
                 description = entity.job.description,
-                source = entity.job.source,
-                salary = entity.job.salary,
-                location = entity.job.location,
-                remote = entity.job.remote ?: entity.aiInferredRemote,
-                status = entity.status,
-                aiRelevanceScore = entity.aiRelevanceScore,
+                source = base.source,
+                salary = base.salary,
+                location = base.location,
+                remote = base.remote,
+                status = base.status,
+                aiRelevanceScore = base.aiRelevanceScore,
                 aiReasoning = entity.aiReasoning,
-                publishedAt = entity.job.publishedAt,
-                matchedAt = entity.createdAt,
-                updatedAt = entity.job.updatedAt,
+                publishedAt = base.publishedAt,
+                matchedAt = base.matchedAt,
+                updatedAt = base.updatedAt,
             )
+        }
     }
 }

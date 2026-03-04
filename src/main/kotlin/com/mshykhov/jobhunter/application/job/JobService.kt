@@ -92,19 +92,7 @@ class JobService(
         return jobFacade.saveAll(toSave) + unchangedEntities
     }
 
-    private fun createNew(request: JobIngestRequest): JobEntity =
-        JobEntity(
-            title = request.title,
-            company = request.company,
-            url = request.url,
-            description = request.description,
-            source = request.source,
-            rawData = request.rawData,
-            salary = request.salary,
-            location = request.location,
-            remote = request.remote,
-            publishedAt = parsePublishedAt(request.publishedAt),
-        )
+    private fun createNew(request: JobIngestRequest): JobEntity = request.toEntity(parsePublishedAt(request.publishedAt))
 
     /** Returns true if any field changed, false if the job is identical to what we already have. */
     private fun updateExisting(

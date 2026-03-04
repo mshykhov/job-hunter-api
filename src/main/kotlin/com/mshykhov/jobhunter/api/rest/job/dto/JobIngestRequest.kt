@@ -1,7 +1,9 @@
 package com.mshykhov.jobhunter.api.rest.job.dto
 
+import com.mshykhov.jobhunter.application.job.JobEntity
 import com.mshykhov.jobhunter.application.job.JobSource
 import jakarta.validation.constraints.NotBlank
+import java.time.Instant
 
 data class JobIngestRequest(
     @field:NotBlank
@@ -16,4 +18,18 @@ data class JobIngestRequest(
     val remote: Boolean? = null,
     val publishedAt: String? = null,
     val rawData: Map<String, Any?> = emptyMap(),
-)
+) {
+    fun toEntity(parsedPublishedAt: Instant?): JobEntity =
+        JobEntity(
+            title = title,
+            company = company,
+            url = url,
+            description = description,
+            source = source,
+            rawData = rawData,
+            salary = salary,
+            location = location,
+            remote = remote,
+            publishedAt = parsedPublishedAt,
+        )
+}
