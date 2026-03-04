@@ -44,15 +44,8 @@ class PreferenceService(
         request: SearchPreferenceRequest,
     ): SearchPreferenceResponse {
         val entity = findOrCreatePreference(auth0Sub)
-
-        entity.search.rawInput = request.rawInput
-        entity.search.categories = request.categories
-        entity.search.locations = request.locations
-        entity.search.remoteOnly = request.remoteOnly
-        entity.search.disabledSources = request.disabledSources
-
-        val saved = userPreferenceFacade.save(entity)
-        return SearchPreferenceResponse.from(saved.search)
+        request.applyTo(entity.search)
+        return SearchPreferenceResponse.from(userPreferenceFacade.save(entity).search)
     }
 
     @Transactional
@@ -61,18 +54,8 @@ class PreferenceService(
         request: MatchingPreferenceRequest,
     ): MatchingPreferenceResponse {
         val entity = findOrCreatePreference(auth0Sub)
-
-        entity.matching.keywords = request.keywords
-        entity.matching.excludedKeywords = request.excludedKeywords
-        entity.matching.excludedTitleKeywords = request.excludedTitleKeywords
-        entity.matching.excludedCompanies = request.excludedCompanies
-        entity.matching.seniorityLevels = request.seniorityLevels
-        entity.matching.minScore = request.minScore
-        entity.matching.matchWithAi = request.matchWithAi
-        entity.matching.customPrompt = request.customPrompt
-
-        val saved = userPreferenceFacade.save(entity)
-        return MatchingPreferenceResponse.from(saved.matching)
+        request.applyTo(entity.matching)
+        return MatchingPreferenceResponse.from(userPreferenceFacade.save(entity).matching)
     }
 
     @Transactional
@@ -81,14 +64,8 @@ class PreferenceService(
         request: TelegramPreferenceRequest,
     ): TelegramPreferenceResponse {
         val entity = findOrCreatePreference(auth0Sub)
-
-        entity.telegram.chatId = request.chatId
-        entity.telegram.username = request.username
-        entity.telegram.notificationsEnabled = request.notificationsEnabled
-        entity.telegram.notificationSources = request.notificationSources
-
-        val saved = userPreferenceFacade.save(entity)
-        return TelegramPreferenceResponse.from(saved.telegram)
+        request.applyTo(entity.telegram)
+        return TelegramPreferenceResponse.from(userPreferenceFacade.save(entity).telegram)
     }
 
     fun normalizeFile(
