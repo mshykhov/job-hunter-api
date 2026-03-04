@@ -74,6 +74,11 @@ dependencies {
     // AI (Spring AI + OpenAI)
     implementation("org.springframework.ai:spring-ai-starter-model-openai")
 
+    // Document parsing
+    implementation("org.apache.pdfbox:pdfbox:3.0.4")
+    implementation("org.apache.poi:poi-ooxml:5.4.1")
+    implementation("org.apache.poi:poi-scratchpad:5.4.1")
+
     // OpenAPI / Swagger
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.6")
 

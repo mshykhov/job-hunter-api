@@ -6,14 +6,17 @@ import com.mshykhov.jobhunter.application.ai.PreferenceNormalizer
 import com.mshykhov.jobhunter.application.common.NotFoundException
 import com.mshykhov.jobhunter.application.user.UserEntity
 import com.mshykhov.jobhunter.application.user.UserFacade
+import com.mshykhov.jobhunter.infrastructure.document.DocumentParser
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.web.multipart.MultipartFile
 
 @Service
 class PreferenceService(
     private val userFacade: UserFacade,
     private val userPreferenceFacade: UserPreferenceFacade,
     private val preferenceNormalizer: PreferenceNormalizer,
+    private val documentParser: DocumentParser,
 ) {
     @Transactional(readOnly = true)
     fun get(auth0Sub: String): PreferenceResponse {
@@ -42,6 +45,14 @@ class PreferenceService(
             }
 
         return PreferenceResponse.from(userPreferenceFacade.save(entity))
+    }
+
+    fun normalizeFile(file: MultipartFile): PreferenceResponse {
+        val contentType =
+            file.contentType
+                ?: throw IllegalArgumentException("File content type is required")
+        val text = documentParser.extractText(file.inputStream, contentType)
+        return normalize(text)
     }
 
     fun normalize(rawInput: String): PreferenceResponse {
