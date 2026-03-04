@@ -22,10 +22,20 @@ class MatchingPreferences(
     @JdbcTypeCode(SqlTypes.ARRAY)
     @Column(name = "seniority_levels", columnDefinition = "text[]")
     var seniorityLevels: List<String> = emptyList(),
-    @Column(name = "min_score", nullable = false)
-    var minScore: Int = 50,
     @Column(name = "match_with_ai", nullable = false)
     var matchWithAi: Boolean = true,
     @Column(name = "custom_prompt", columnDefinition = "TEXT")
     var customPrompt: String? = null,
-)
+    @Column(name = "weight_technology", nullable = false)
+    var weightTechnology: Int = DEFAULT_WEIGHT_TECHNOLOGY,
+    @Column(name = "weight_seniority", nullable = false)
+    var weightSeniority: Int = DEFAULT_WEIGHT_SENIORITY,
+    @Column(name = "weight_skills", nullable = false)
+    var weightSkills: Int = DEFAULT_WEIGHT_SKILLS,
+) {
+    companion object {
+        const val DEFAULT_WEIGHT_TECHNOLOGY = 45
+        const val DEFAULT_WEIGHT_SENIORITY = 30
+        const val DEFAULT_WEIGHT_SKILLS = 25
+    }
+}

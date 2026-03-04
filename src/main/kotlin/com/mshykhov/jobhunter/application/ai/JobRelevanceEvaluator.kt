@@ -24,76 +24,79 @@ class JobRelevanceEvaluator {
         job: JobEntity,
         preference: UserPreferenceEntity,
     ): String {
-        val basePrompt =
-            """
-            ## Job Posting
-            - Title: ${job.title}
-            - Company: ${job.company ?: "not specified"}
-            - Description: ${job.description.take(3000)}
-            - Location: ${job.location ?: "not specified"}
-            - Remote: ${job.remote ?: "not specified — infer from title and description"}
-            - Salary: ${job.salary ?: "not specified"}
+        val matching = preference.matching
+        val search = preference.search
 
-            ## User Preferences
-            - Target technologies: ${preference.search.categories.joinToString(", ").ifEmpty { "not specified" }}
-            - Seniority levels: ${preference.matching.seniorityLevels.joinToString(", ").ifEmpty { "not specified" }}
-            - Desired skills/frameworks: ${preference.matching.keywords.joinToString(", ").ifEmpty { "not specified" }}
-            - Excluded keywords: ${preference.matching.excludedKeywords.joinToString(", ").ifEmpty { "none" }}
-            - Preferred locations: ${preference.search.locations.joinToString(", ").ifEmpty { "not specified" }}
-            - Remote only: ${preference.search.remoteOnly}
-            """.trimIndent()
+        val prompt =
+            buildString {
+                appendLine("## Job")
+                appendLine("Title: ${job.title}")
+                job.company?.let { appendLine("Company: $it") }
+                appendLine("Description: ${job.description.take(DESCRIPTION_LIMIT)}")
+                job.location?.let { appendLine("Location: $it") }
+                appendLine("Remote: ${job.remote ?: "unknown — infer from description"}")
+                job.salary?.let { appendLine("Salary: $it") }
 
-        val customPrompt = preference.matching.customPrompt
-        if (customPrompt.isNullOrBlank()) return basePrompt
+                appendLine()
+                appendLine("## Preferences")
+                appendLine("Technologies: ${search.categories.joinToString(", ").ifEmpty { "any" }}")
+                appendLine("Seniority: ${matching.seniorityLevels.joinToString(", ").ifEmpty { "any" }}")
+                appendLine("Skills: ${matching.keywords.joinToString(", ").ifEmpty { "any" }}")
 
-        return basePrompt +
-            "\n\n" +
-            """
-            ## Additional user instructions
-            $customPrompt
-            """.trimIndent()
+                appendLine()
+                appendLine("## Weights")
+                appendLine(
+                    "Technology: ${matching.weightTechnology}%, Seniority: ${matching.weightSeniority}%, " +
+                        "Skills: ${matching.weightSkills}%",
+                )
+
+                if (!matching.customPrompt.isNullOrBlank()) {
+                    appendLine()
+                    appendLine("## Custom instructions")
+                    appendLine(matching.customPrompt)
+                }
+            }
+
+        return prompt
+    }
+
+    companion object {
+        private const val DESCRIPTION_LIMIT = 3000
     }
 }
 
 private val SYSTEM_PROMPT =
     """
-    You are a job relevance scoring engine. Given a job posting and user preferences, return a relevance score and reasoning.
+    You are a job relevance scoring engine.
 
-    ## Scoring rules (0–100)
-    - 80–100: Strong match — core technology AND seniority match, no excluded keywords
-    - 60–79: Partial match — related technology or adjacent seniority level
-    - 40–59: Weak match — some keyword overlap but significant mismatches
-    - 0–39: Poor match — wrong domain, wrong seniority, or contains excluded keywords
+    ## Weighted scoring (0–100)
+    Score each component separately, then compute weighted total.
+    The user provides weights (summing to 100%) for these components:
 
-    ## Evaluation criteria (in priority order)
-    1. Technology/category match — does the job require the user's target technologies?
-    2. Seniority level — does the job match the user's experience level?
-    3. Excluded keywords — if ANY excluded keyword appears in the job, score ≤ 30
-    4. Skill/framework overlap — bonus for matching desired skills
+    1. **Technology** — does the job require the user's target technologies?
+       Full points: core tech match. Half: related/adjacent tech. Zero: different domain.
+    2. **Seniority** — does the job match the user's experience level?
+       Full points: exact match. Half: adjacent level (e.g. Senior vs Lead). Zero: 2+ levels off.
+    3. **Skills** — overlap between job requirements and user's desired skills/frameworks.
+       Score proportionally to how many desired skills appear in the job.
 
-    ## inferredRemote field
-    Always return true or false. Never return null. This field must always have a definitive value.
+    Formula: score = (tech_score * tech_weight + seniority_score * seniority_weight + skills_score * skills_weight) / 100
 
-    If remote status is already provided in the job data, echo that value.
+    Each component_score is 0–100. Final score is 0–100.
 
-    If remote is "not specified", infer from title, description, and location:
+    ## inferredRemote
+    Always return true or false. Never null.
 
-    Set to true if any of these signals appear:
-    - Keywords: "remote", "fully remote", "100% remote", "remote-first", "work from home", "WFH", "telecommute", "distributed team"
-    - Phrases: "work from anywhere", "no office required", "remote-friendly", "home office allowed"
-    - Hybrid arrangements: "hybrid", "flexible location", "partial remote" — they offer remote work, count as true
-    - Location lists countries/regions broadly, or says "worldwide", "global", "anywhere"
+    If remote status is provided in job data, echo that value.
 
-    Set to false if any of these signals appear and no remote signals contradict them:
-    - Keywords: "on-site", "in-office", "office-based", "in-person", "no remote option"
-    - Phrases: "must relocate to", "relocation required", "X days per week in office" (without remote option), "presence required"
-    - Location is a specific city (e.g. "Kyiv", "Berlin", "New York") with zero remote mention — city-only location with no remote signal is a strong on-site indicator
+    If remote is "unknown", infer from description:
+    - true ONLY for fully remote positions: "remote", "fully remote", "100% remote", "remote-first", "work from anywhere", "distributed team", "work from home"
+    - false for hybrid, partial remote, flexible office, or any arrangement requiring office presence
+    - false for on-site: "on-site", "in-office", "office-based", "relocation required"
+    - false if no remote signals found (assume on-site)
 
-    If signals are completely absent, default to false (assume on-site).
+    IMPORTANT: hybrid and partial remote count as FALSE. Only pure fully-remote = true.
 
     ## Output
-    Return a JSON object with:
-    - score: integer 0–100
-    - reasoning: 1–2 sentences explaining the score
-    - inferredRemote: boolean (never null) — true if remote/hybrid, false if on-site
+    JSON: { "score": 0-100, "reasoning": "1-2 sentences", "inferredRemote": true/false }
     """.trimIndent()

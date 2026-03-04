@@ -24,4 +24,11 @@ interface JobRepository :
         ids: List<UUID>,
         matchedAt: Instant?,
     )
+
+    @Modifying
+    @Query("UPDATE JobEntity j SET j.remote = :remote WHERE j.id = :id")
+    fun updateRemote(
+        id: UUID,
+        remote: Boolean,
+    )
 }

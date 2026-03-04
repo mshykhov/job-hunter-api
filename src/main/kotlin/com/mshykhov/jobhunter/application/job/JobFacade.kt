@@ -34,4 +34,10 @@ class JobFacade(
         ids: List<UUID>,
         matchedAt: Instant?,
     ) = jobRepository.updateMatchedAt(ids, matchedAt)
+
+    @Transactional
+    fun updateRemote(
+        id: UUID,
+        remote: Boolean,
+    ) = jobRepository.updateRemote(id, remote)
 }

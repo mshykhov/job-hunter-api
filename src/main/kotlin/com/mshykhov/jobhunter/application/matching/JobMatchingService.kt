@@ -38,6 +38,8 @@ class JobMatchingService(
     private val aiProperties: AiProperties,
     private val clock: Clock,
 ) {
+    private val coldFilterChain = ColdFilterChain()
+
     fun processUnmatchedJobs() {
         val jobs = jobFacade.findUnmatched()
         if (jobs.isEmpty()) return
@@ -49,13 +51,11 @@ class JobMatchingService(
         }
 
         val userChatClients = buildUserChatClients(preferences)
-        val eligiblePreferences = preferences.filter { it.user.id in userChatClients }
-        if (eligiblePreferences.isEmpty()) {
-            markMatched(jobs)
-            return
-        }
 
-        logger.info { "Matching ${jobs.size} jobs against ${eligiblePreferences.size} user preferences" }
+        logger.info {
+            "Matching ${jobs.size} jobs against ${preferences.size} user preferences " +
+                "(${userChatClients.size} AI-enabled)"
+        }
 
         val semaphore = Semaphore(aiProperties.matching.concurrency)
         val results =
@@ -64,25 +64,136 @@ class JobMatchingService(
                     .map { job ->
                         async {
                             semaphore.withPermit {
-                                try {
-                                    matchJobToUsers(job, eligiblePreferences, userChatClients)
-                                    MatchResult.Success(job)
-                                } catch (e: Exception) {
-                                    logger.error(e) { "AI evaluation failed for job '${job.title}', skipping" }
-                                    MatchResult.Failure
-                                }
+                                processJob(job, preferences, userChatClients)
                             }
                         }
                     }.awaitAll()
             }
 
-        val matched = results.filterIsInstance<MatchResult.Success>().map { it.job }
+        val successResults = results.filterIsInstance<MatchResult.Success>()
+        val matched = successResults.map { it.job }
         val failedCount = results.count { it is MatchResult.Failure }
+        val totalStats = successResults.fold(MatchingStats()) { acc, r -> acc.merge(r.stats) }
 
-        if (matched.isNotEmpty()) {
-            markMatched(matched)
+        if (matched.isNotEmpty()) markMatched(matched)
+
+        logger.info {
+            "Matching complete: ${matched.size}/${jobs.size} processed, $failedCount failed — ${totalStats.summary()}"
         }
-        logger.info { "Matching complete: ${matched.size} processed, $failedCount failed" }
+        // TODO: [REPORT] if totalStats.aiFailed > threshold or failedCount > 0, notify admin
+    }
+
+    private fun processJob(
+        job: JobEntity,
+        preferences: List<UserPreferenceEntity>,
+        userChatClients: Map<UUID, ChatClient>,
+    ): MatchResult =
+        try {
+            val stats = MatchingStats()
+            val userJobs = matchJobToUsers(job, preferences, userChatClients, stats)
+            if (userJobs.isNotEmpty()) {
+                userJobFacade.saveAll(userJobs)
+                stats.saved += userJobs.size
+                logger.info {
+                    "Job '${job.title}' matched to ${userJobs.size} users (scores: ${userJobs.map { it.aiRelevanceScore }})"
+                }
+            }
+            MatchResult.Success(job, stats)
+        } catch (e: Exception) {
+            logger.error(e) { "Matching failed for job '${job.title}'" }
+            // TODO: [REPORT] persistent failures may indicate API key expiry or rate limit
+            MatchResult.Failure
+        }
+
+    private fun matchJobToUsers(
+        job: JobEntity,
+        preferences: List<UserPreferenceEntity>,
+        userChatClients: Map<UUID, ChatClient>,
+        stats: MatchingStats,
+    ): List<UserJobEntity> {
+        val existingUserIds = userJobFacade.findUserIdsByJobId(job.id)
+        val userJobs = mutableListOf<UserJobEntity>()
+
+        for (preference in preferences) {
+            if (preference.user.id in existingUserIds) {
+                stats.alreadyMatched++
+                continue
+            }
+
+            val filterResult = coldFilterChain.evaluate(job, preference)
+            if (filterResult is FilterResult.Rejected) {
+                logger.debug {
+                    "Job '${job.title}' rejected for user ${preference.user.id} " +
+                        "by [${filterResult.filter}]: ${filterResult.reason}"
+                }
+                stats.coldRejected++
+                continue
+            }
+
+            val chatClient = userChatClients[preference.user.id]
+            if (chatClient != null) {
+                val result = evaluateWithAi(job, preference, chatClient, stats)
+                if (result != null) userJobs += result
+            } else {
+                stats.coldOnly++
+                userJobs +=
+                    UserJobEntity(
+                        user = preference.user,
+                        job = job,
+                        aiRelevanceScore = 0,
+                        aiReasoning = COLD_ONLY_REASONING,
+                    )
+            }
+        }
+
+        return userJobs
+    }
+
+    private fun evaluateWithAi(
+        job: JobEntity,
+        preference: UserPreferenceEntity,
+        chatClient: ChatClient,
+        stats: MatchingStats,
+    ): UserJobEntity? {
+        val aiResult =
+            try {
+                jobRelevanceEvaluator.evaluate(job, preference, chatClient)
+            } catch (e: Exception) {
+                logger.warn(e) { "AI evaluation failed for job '${job.title}', user ${preference.user.id}" }
+                // TODO: [REPORT] AI call failure — may need admin attention
+                stats.aiFailed++
+                return null
+            }
+        stats.aiEvaluated++
+
+        backfillRemoteIfNeeded(job, aiResult.inferredRemote)
+
+        if (preference.search.remoteOnly && !aiResult.inferredRemote) {
+            logger.debug {
+                "Job '${job.title}' post-AI rejected for user ${preference.user.id}: " +
+                    "remoteOnly but inferredRemote=false"
+            }
+            stats.postAiRejected++
+            return null
+        }
+
+        return UserJobEntity(
+            user = preference.user,
+            job = job,
+            aiRelevanceScore = aiResult.score,
+            aiReasoning = aiResult.reasoning,
+            aiInferredRemote = aiResult.inferredRemote,
+        )
+    }
+
+    private fun backfillRemoteIfNeeded(
+        job: JobEntity,
+        inferredRemote: Boolean,
+    ) {
+        if (job.remote != null) return
+        job.remote = inferredRemote
+        jobFacade.updateRemote(job.id, inferredRemote)
+        logger.debug { "Backfilled remote=$inferredRemote for job '${job.title}'" }
     }
 
     private fun buildUserChatClients(preferences: List<UserPreferenceEntity>): Map<UUID, ChatClient> =
@@ -93,43 +204,13 @@ class JobMatchingService(
             .mapNotNull { userId ->
                 val settings = userAiSettingsFacade.findByUserId(userId)
                 if (settings == null) {
-                    logger.warn { "User $userId has no AI settings, skipping in matching" }
+                    logger.warn { "User $userId has matchWithAi=true but no AI settings — falling back to cold-only" }
+                    // TODO: [REPORT] user enabled AI matching without API key — notify user
                     null
                 } else {
                     userId to chatClientFactory.createForUser(settings)
                 }
             }.toMap()
-
-    private fun matchJobToUsers(
-        job: JobEntity,
-        preferences: List<UserPreferenceEntity>,
-        userChatClients: Map<UUID, ChatClient>,
-    ) {
-        val coldMatches = preferences.filter { coldFilterMatches(job, it) }
-        if (coldMatches.isEmpty()) return
-
-        val existingUserIds = userJobFacade.findUserIdsByJobId(job.id)
-        val newMatches = coldMatches.filter { it.user.id !in existingUserIds }
-        if (newMatches.isEmpty()) return
-
-        val userJobs =
-            newMatches.mapNotNull { preference ->
-                val chatClient = userChatClients[preference.user.id] ?: return@mapNotNull null
-                val aiResult = jobRelevanceEvaluator.evaluate(job, preference, chatClient)
-                if (preference.search.remoteOnly && !aiResult.inferredRemote) return@mapNotNull null
-                UserJobEntity(
-                    user = preference.user,
-                    job = job,
-                    aiRelevanceScore = aiResult.score,
-                    aiReasoning = aiResult.reasoning,
-                    aiInferredRemote = aiResult.inferredRemote,
-                )
-            }
-
-        if (userJobs.isEmpty()) return
-        userJobFacade.saveAll(userJobs)
-        logger.info { "Job '${job.title}' evaluated for ${userJobs.size} users (scores: ${userJobs.map { it.aiRelevanceScore }})" }
-    }
 
     @Transactional
     fun rematch(since: Instant?): Int {
@@ -152,97 +233,20 @@ class JobMatchingService(
     }
 
     private fun markMatched(jobs: List<JobEntity>) {
-        val ids = jobs.map { it.id }
-        jobFacade.updateMatchedAt(ids, Instant.now(clock))
+        jobFacade.updateMatchedAt(jobs.map { it.id }, Instant.now(clock))
     }
 
     private sealed interface MatchResult {
         data class Success(
             val job: JobEntity,
+            val stats: MatchingStats,
         ) : MatchResult
 
         data object Failure : MatchResult
     }
 
-    // --- Cold filter ---
-
-    private fun coldFilterMatches(
-        job: JobEntity,
-        preference: UserPreferenceEntity,
-    ): Boolean =
-        isSourceAllowed(job, preference) &&
-            isRemoteMatch(job, preference) &&
-            hasNoExcludedKeywords(job, preference) &&
-            hasNoExcludedTitleKeywords(job, preference) &&
-            isCompanyAllowed(job, preference) &&
-            matchesCategories(job, preference)
-
-    private fun isSourceAllowed(
-        job: JobEntity,
-        preference: UserPreferenceEntity,
-    ): Boolean {
-        if (preference.search.disabledSources.isEmpty()) return true
-        return job.source !in preference.search.disabledSources
-    }
-
-    private fun isRemoteMatch(
-        job: JobEntity,
-        preference: UserPreferenceEntity,
-    ): Boolean {
-        if (!preference.search.remoteOnly) return true
-        return job.remote != false
-    }
-
-    private fun hasNoExcludedKeywords(
-        job: JobEntity,
-        preference: UserPreferenceEntity,
-    ): Boolean {
-        if (preference.matching.excludedKeywords.isEmpty()) return true
-        val searchText = buildSearchText(job)
-        return preference.matching.excludedKeywords.none { keyword ->
-            searchText.contains(keyword.lowercase())
-        }
-    }
-
-    private fun hasNoExcludedTitleKeywords(
-        job: JobEntity,
-        preference: UserPreferenceEntity,
-    ): Boolean {
-        if (preference.matching.excludedTitleKeywords.isEmpty()) return true
-        val titleText = job.title.lowercase()
-        return preference.matching.excludedTitleKeywords.none { keyword ->
-            titleText.contains(keyword.lowercase())
-        }
-    }
-
-    private fun isCompanyAllowed(
-        job: JobEntity,
-        preference: UserPreferenceEntity,
-    ): Boolean {
-        if (preference.matching.excludedCompanies.isEmpty()) return true
-        val company = job.company?.lowercase() ?: return true
-        return preference.matching.excludedCompanies.none { excluded ->
-            company.contains(excluded.lowercase())
-        }
-    }
-
-    private fun matchesCategories(
-        job: JobEntity,
-        preference: UserPreferenceEntity,
-    ): Boolean {
-        if (preference.search.categories.isEmpty()) return true
-        val searchText = buildSearchText(job)
-        return preference.search.categories.any { category ->
-            searchText.contains(category.lowercase())
-        }
-    }
-
-    private fun buildSearchText(job: JobEntity): String =
-        listOfNotNull(job.title, job.company, job.description, job.location, job.salary)
-            .joinToString(" ")
-            .lowercase()
-
     companion object {
         private val MAX_REMATCH_PERIOD = Duration.ofDays(3)
+        private const val COLD_ONLY_REASONING = "Cold filter match only — AI evaluation disabled"
     }
 }

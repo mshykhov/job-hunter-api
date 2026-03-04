@@ -1,6 +1,9 @@
 package com.mshykhov.jobhunter.api.rest.preference.dto
 
 import com.mshykhov.jobhunter.application.preference.MatchingPreferences
+import jakarta.validation.constraints.AssertTrue
+import jakarta.validation.constraints.Max
+import jakarta.validation.constraints.Min
 
 data class MatchingPreferenceRequest(
     val keywords: List<String> = emptyList(),
@@ -8,18 +11,28 @@ data class MatchingPreferenceRequest(
     val excludedTitleKeywords: List<String> = emptyList(),
     val excludedCompanies: List<String> = emptyList(),
     val seniorityLevels: List<String> = emptyList(),
-    val minScore: Int = 50,
     val matchWithAi: Boolean = true,
     val customPrompt: String? = null,
+    @field:Min(0) @field:Max(100)
+    val weightTechnology: Int = MatchingPreferences.DEFAULT_WEIGHT_TECHNOLOGY,
+    @field:Min(0) @field:Max(100)
+    val weightSeniority: Int = MatchingPreferences.DEFAULT_WEIGHT_SENIORITY,
+    @field:Min(0) @field:Max(100)
+    val weightSkills: Int = MatchingPreferences.DEFAULT_WEIGHT_SKILLS,
 ) {
+    @AssertTrue(message = "Scoring weights must sum to 100")
+    fun isWeightsSumValid(): Boolean = weightTechnology + weightSeniority + weightSkills == 100
+
     fun applyTo(target: MatchingPreferences) {
         target.keywords = keywords
         target.excludedKeywords = excludedKeywords
         target.excludedTitleKeywords = excludedTitleKeywords
         target.excludedCompanies = excludedCompanies
         target.seniorityLevels = seniorityLevels
-        target.minScore = minScore
         target.matchWithAi = matchWithAi
         target.customPrompt = customPrompt
+        target.weightTechnology = weightTechnology
+        target.weightSeniority = weightSeniority
+        target.weightSkills = weightSkills
     }
 }

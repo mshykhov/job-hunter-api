@@ -8,9 +8,11 @@ data class MatchingPreferenceResponse(
     val excludedTitleKeywords: List<String>,
     val excludedCompanies: List<String>,
     val seniorityLevels: List<String>,
-    val minScore: Int,
     val matchWithAi: Boolean,
     val customPrompt: String?,
+    val weightTechnology: Int,
+    val weightSeniority: Int,
+    val weightSkills: Int,
 ) {
     companion object {
         fun from(matching: MatchingPreferences): MatchingPreferenceResponse =
@@ -20,9 +22,11 @@ data class MatchingPreferenceResponse(
                 excludedTitleKeywords = matching.excludedTitleKeywords,
                 excludedCompanies = matching.excludedCompanies,
                 seniorityLevels = matching.seniorityLevels,
-                minScore = matching.minScore,
                 matchWithAi = matching.matchWithAi,
                 customPrompt = matching.customPrompt,
+                weightTechnology = matching.weightTechnology,
+                weightSeniority = matching.weightSeniority,
+                weightSkills = matching.weightSkills,
             )
     }
 }
