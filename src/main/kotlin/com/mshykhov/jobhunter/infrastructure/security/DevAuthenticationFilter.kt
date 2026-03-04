@@ -51,7 +51,6 @@ class DevAuthenticationFilter : OncePerRequestFilter() {
                 "read:proxies",
                 "read:settings",
                 "write:settings",
-                "read:profile",
             )
     }
 }

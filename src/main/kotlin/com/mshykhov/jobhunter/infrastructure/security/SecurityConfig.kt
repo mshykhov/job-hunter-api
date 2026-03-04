@@ -46,7 +46,7 @@ class SecurityConfig(
                     .permitAll()
                     .requestMatchers("/swagger-ui/**", "/api-docs/**")
                     .permitAll()
-                    .requestMatchers("/jobs/**", "/criteria/**", "/preferences/**", "/proxies/**", "/settings/**", "/profile/**")
+                    .requestMatchers("/jobs/**", "/criteria/**", "/preferences/**", "/proxies/**", "/settings/**")
                     .authenticated()
                     .anyRequest()
                     .permitAll()
