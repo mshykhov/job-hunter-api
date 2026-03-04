@@ -24,21 +24,11 @@ class UserAiSettingsService(
         request: SaveAiSettingsRequest,
     ): AiSettingsResponse {
         val user = userFacade.findOrCreate(auth0Sub)
-        val existing = userAiSettingsFacade.findByUserId(user.id)
-
         val entity =
-            if (existing != null) {
-                existing.apiKey = request.apiKey
-                existing.modelId = request.modelId
-                existing
-            } else {
-                UserAiSettingsEntity(
-                    user = user,
-                    apiKey = request.apiKey,
-                    modelId = request.modelId,
-                )
-            }
-
+            userAiSettingsFacade
+                .findByUserId(user.id)
+                ?.also { request.applyTo(it) }
+                ?: request.toEntity(user)
         return AiSettingsResponse.from(userAiSettingsFacade.save(entity))
     }
 

@@ -115,6 +115,11 @@ Controller → Service → Facade → Repository
 - Service NEVER accesses Repository directly (only via Facade)
 - Facade is thin: only @Transactional + repository calls
 
+### DTO ↔ Entity Mapping
+- **Response DTOs**: `companion object fun from(entity/embeddable)` — mapping lives in the response DTO
+- **Request DTOs**: `fun applyTo(target)` for updates, `fun toEntity(...)` for creation — mapping lives in the request DTO
+- **Services** must NOT contain field-by-field mapping — delegate to DTO methods
+
 ### File Organization
 - **One class per file** — no multi-class files (except small related sealed interfaces)
 - **Infrastructure models** in `model/` subfolder when a package has external API DTOs
