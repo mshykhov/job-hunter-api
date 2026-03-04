@@ -7,5 +7,6 @@ enum class UserJobSort(
 ) {
     SCORE(Sort.by(Sort.Direction.DESC, "aiRelevanceScore").and(Sort.by(Sort.Direction.DESC, "id"))),
     PUBLISHED(Sort.by(Sort.Direction.DESC, "job.publishedAt").and(Sort.by(Sort.Direction.DESC, "id"))),
+    SCRAPED(Sort.by(Sort.Direction.DESC, "job.updatedAt").and(Sort.by(Sort.Direction.DESC, "id"))),
     MATCHED(Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id"))),
 }

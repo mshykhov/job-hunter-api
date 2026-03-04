@@ -14,9 +14,12 @@ import com.mshykhov.jobhunter.application.ai.UserAiSettingsService
 import com.mshykhov.jobhunter.application.common.NotFoundException
 import com.mshykhov.jobhunter.application.user.UserFacade
 import com.mshykhov.jobhunter.infrastructure.document.DocumentParser
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.multipart.MultipartFile
+
+private val logger = KotlinLogging.logger {}
 
 @Service
 class PreferenceService(
@@ -72,10 +75,12 @@ class PreferenceService(
         auth0Sub: String,
         file: MultipartFile,
     ): NormalizePreferenceResponse {
+        logger.info { "Normalizing file: name=${file.originalFilename}, size=${file.size}, contentType=${file.contentType}" }
         val contentType =
             file.contentType
                 ?: throw IllegalArgumentException("File content type is required")
         val text = documentParser.extractText(file.inputStream, contentType)
+        logger.info { "File parsed, extracted text length: ${text.length}" }
         return normalize(auth0Sub, text)
     }
 
