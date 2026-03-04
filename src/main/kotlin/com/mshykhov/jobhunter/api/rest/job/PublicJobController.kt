@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
+import java.time.Instant
 
 @RestController
 @RequestMapping("/public/jobs")
@@ -24,5 +25,6 @@ class PublicJobController(
         @RequestParam(required = false) search: String?,
         @RequestParam(required = false) source: JobSource?,
         @RequestParam(required = false) remote: Boolean?,
-    ): PublicJobPageResponse = jobService.searchPublic(page, size, search, source, remote)
+        @RequestParam(required = false) publishedAfter: Instant?,
+    ): PublicJobPageResponse = jobService.searchPublic(page, size, search, source, remote, publishedAfter)
 }

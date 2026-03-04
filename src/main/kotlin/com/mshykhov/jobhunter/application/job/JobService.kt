@@ -30,6 +30,7 @@ class JobService(
         search: String?,
         source: JobSource?,
         remote: Boolean?,
+        publishedAfter: Instant?,
     ): PublicJobPageResponse {
         val effectiveSize = size.coerceIn(1, MAX_PAGE_SIZE)
         var spec: Specification<JobEntity> = Specification { _, _, _ -> null }
@@ -42,6 +43,9 @@ class JobService(
         }
         if (remote == true) {
             spec = spec.and(JobSpecifications.remote())
+        }
+        if (publishedAfter != null) {
+            spec = spec.and(JobSpecifications.publishedAfter(publishedAfter))
         }
 
         val pageable =
