@@ -29,7 +29,7 @@ scmVersion {
 }
 
 group = "com.mshykhov"
-version = scmVersion.version
+version = findProperty("appVersion")?.toString()?.takeIf { it.isNotBlank() } ?: scmVersion.version
 
 java {
     toolchain {
