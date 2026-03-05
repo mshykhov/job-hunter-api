@@ -14,9 +14,9 @@ object JobSpecifications {
             )
         }
 
-    fun source(source: JobSource): Specification<JobEntity> =
-        Specification { root, _, cb ->
-            cb.equal(root.get<JobSource>("source"), source)
+    fun sources(sources: List<JobSource>): Specification<JobEntity> =
+        Specification { root, _, _ ->
+            root.get<JobSource>("source").`in`(sources)
         }
 
     fun remote(): Specification<JobEntity> =

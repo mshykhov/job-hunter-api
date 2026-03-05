@@ -24,9 +24,9 @@ class PublicJobController(
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "20") size: Int,
         @RequestParam(required = false) search: String?,
-        @RequestParam(required = false) source: JobSource?,
+        @RequestParam(required = false) sources: List<JobSource>?,
         @RequestParam(required = false) remote: Boolean?,
         @RequestParam(required = false) publishedAfter: Instant?,
         @RequestParam(defaultValue = "PUBLISHED") sortBy: PublicJobSort,
-    ): PublicJobPageResponse = jobService.searchPublic(page, size, search, source, remote, publishedAfter, sortBy)
+    ): PublicJobPageResponse = jobService.searchPublic(page, size, search, sources, remote, publishedAfter, sortBy)
 }

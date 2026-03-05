@@ -27,7 +27,7 @@ class JobService(
         page: Int,
         size: Int,
         search: String?,
-        source: JobSource?,
+        sources: List<JobSource>?,
         remote: Boolean?,
         publishedAfter: Instant?,
         sortBy: PublicJobSort = PublicJobSort.PUBLISHED,
@@ -38,8 +38,8 @@ class JobService(
         if (!search.isNullOrBlank()) {
             spec = spec.and(JobSpecifications.search(search))
         }
-        if (source != null) {
-            spec = spec.and(JobSpecifications.source(source))
+        if (!sources.isNullOrEmpty()) {
+            spec = spec.and(JobSpecifications.sources(sources))
         }
         if (remote == true) {
             spec = spec.and(JobSpecifications.remote())
