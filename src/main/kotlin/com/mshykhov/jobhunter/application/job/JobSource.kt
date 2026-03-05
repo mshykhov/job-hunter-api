@@ -11,6 +11,7 @@ enum class JobSource(
     DJINNI("djinni", "Djinni"),
     LINKEDIN("linkedin", "Linkedin"),
     EUREMOTEJOBS("euremotejobs", "EuRemoteJobs"),
+    WEB3CAREER("web3career", "Web3.career"),
     ;
 
     override fun toString(): String = value
