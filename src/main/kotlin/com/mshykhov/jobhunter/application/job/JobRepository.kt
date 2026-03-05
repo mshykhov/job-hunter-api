@@ -18,6 +18,8 @@ interface JobRepository :
 
     fun findByMatchedAtGreaterThanEqual(since: Instant): List<JobEntity>
 
+    fun findTopBySourceOrderByCreatedAtDesc(source: JobSource): JobEntity?
+
     @Modifying
     @Query("UPDATE JobEntity j SET j.matchedAt = :matchedAt WHERE j.id IN :ids")
     fun updateMatchedAt(

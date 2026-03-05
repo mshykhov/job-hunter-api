@@ -1,8 +1,9 @@
 package com.mshykhov.jobhunter.api.rest.preference
 
+import com.mshykhov.jobhunter.api.rest.preference.dto.AboutRequest
+import com.mshykhov.jobhunter.api.rest.preference.dto.AboutResponse
 import com.mshykhov.jobhunter.api.rest.preference.dto.MatchingPreferenceRequest
 import com.mshykhov.jobhunter.api.rest.preference.dto.MatchingPreferenceResponse
-import com.mshykhov.jobhunter.api.rest.preference.dto.NormalizePreferenceRequest
 import com.mshykhov.jobhunter.api.rest.preference.dto.NormalizePreferenceResponse
 import com.mshykhov.jobhunter.api.rest.preference.dto.PreferenceResponse
 import com.mshykhov.jobhunter.api.rest.preference.dto.SearchPreferenceRequest
@@ -35,6 +36,26 @@ class PreferenceController(
         @AuthenticationPrincipal jwt: Jwt,
     ): PreferenceResponse = preferenceService.get(jwt.subject)
 
+    @PutMapping("/about")
+    @PreAuthorize("hasAuthority('SCOPE_write:preferences')")
+    fun saveAbout(
+        @AuthenticationPrincipal jwt: Jwt,
+        @Valid @RequestBody request: AboutRequest,
+    ): AboutResponse = preferenceService.saveAbout(jwt.subject, request.about)
+
+    @PutMapping("/about/file", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
+    @PreAuthorize("hasAuthority('SCOPE_write:preferences')")
+    fun saveAboutFromFile(
+        @AuthenticationPrincipal jwt: Jwt,
+        @RequestParam("file") file: MultipartFile,
+    ): AboutResponse = preferenceService.saveAboutFromFile(jwt.subject, file)
+
+    @PostMapping("/generate")
+    @PreAuthorize("hasAuthority('SCOPE_write:preferences')")
+    fun generatePreferences(
+        @AuthenticationPrincipal jwt: Jwt,
+    ): NormalizePreferenceResponse = preferenceService.generatePreferences(jwt.subject)
+
     @PutMapping("/search")
     @PreAuthorize("hasAuthority('SCOPE_write:preferences')")
     fun saveSearch(
@@ -55,18 +76,4 @@ class PreferenceController(
         @AuthenticationPrincipal jwt: Jwt,
         @Valid @RequestBody request: TelegramPreferenceRequest,
     ): TelegramPreferenceResponse = preferenceService.saveTelegram(jwt.subject, request)
-
-    @PostMapping("/normalize")
-    @PreAuthorize("hasAuthority('SCOPE_write:preferences')")
-    fun normalize(
-        @AuthenticationPrincipal jwt: Jwt,
-        @Valid @RequestBody request: NormalizePreferenceRequest,
-    ): NormalizePreferenceResponse = preferenceService.normalize(jwt.subject, request.rawInput)
-
-    @PostMapping("/normalize/file", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
-    @PreAuthorize("hasAuthority('SCOPE_write:preferences')")
-    fun normalizeFile(
-        @AuthenticationPrincipal jwt: Jwt,
-        @RequestParam("file") file: MultipartFile,
-    ): NormalizePreferenceResponse = preferenceService.normalizeFile(jwt.subject, file)
 }

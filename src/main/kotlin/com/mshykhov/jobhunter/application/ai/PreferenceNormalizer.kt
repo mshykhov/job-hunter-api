@@ -24,7 +24,10 @@ class PreferenceNormalizer {
                     .user(rawInput)
                     .call()
                     .entity<NormalizedPreferences>()
-            logger.info { "Normalization complete: ${result.categories.size} categories, ${result.keywords.size} keywords, ${result.seniorityLevels.size} seniority levels" }
+            logger.info {
+                "Normalization complete: ${result.categories.size} categories, " +
+                    "${result.keywords.size} keywords, ${result.seniorityLevels.size} seniority levels"
+            }
             result
         } catch (e: Exception) {
             logger.error(e) { "AI normalization failed" }

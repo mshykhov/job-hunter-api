@@ -4,7 +4,6 @@ import com.mshykhov.jobhunter.application.ai.dto.NormalizedPreferences
 import com.mshykhov.jobhunter.application.job.JobSource
 
 data class NormalizePreferenceResponse(
-    val rawInput: String,
     val categories: List<String>,
     val seniorityLevels: List<String>,
     val keywords: List<String>,
@@ -14,12 +13,8 @@ data class NormalizePreferenceResponse(
     val disabledSources: List<JobSource>,
 ) {
     companion object {
-        fun from(
-            rawInput: String,
-            result: NormalizedPreferences,
-        ): NormalizePreferenceResponse =
+        fun from(result: NormalizedPreferences): NormalizePreferenceResponse =
             NormalizePreferenceResponse(
-                rawInput = rawInput,
                 categories = result.categories,
                 seniorityLevels = result.seniorityLevels,
                 keywords = result.keywords,

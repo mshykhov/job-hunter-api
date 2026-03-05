@@ -29,6 +29,8 @@ class UserPreferenceEntity(
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", unique = true, nullable = false)
     val user: UserEntity,
+    @Column(name = "about", columnDefinition = "TEXT")
+    var about: String? = null,
     @Embedded
     var search: SearchPreferences = SearchPreferences(),
     @Embedded

@@ -26,6 +26,8 @@ class JobFacade(
 
     fun findMatchedSince(since: Instant): List<JobEntity> = jobRepository.findByMatchedAtGreaterThanEqual(since)
 
+    fun findTopBySourceOrderByCreatedAtDesc(source: JobSource): JobEntity? = jobRepository.findTopBySourceOrderByCreatedAtDesc(source)
+
     @Transactional
     fun saveAll(entities: List<JobEntity>): List<JobEntity> = jobRepository.saveAll(entities)
 

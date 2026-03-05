@@ -1,5 +1,6 @@
 package com.mshykhov.jobhunter.application.preference
 
+import com.mshykhov.jobhunter.api.rest.preference.dto.AboutResponse
 import com.mshykhov.jobhunter.api.rest.preference.dto.MatchingPreferenceRequest
 import com.mshykhov.jobhunter.api.rest.preference.dto.MatchingPreferenceResponse
 import com.mshykhov.jobhunter.api.rest.preference.dto.NormalizePreferenceResponse
@@ -42,6 +43,46 @@ class PreferenceService(
     }
 
     @Transactional
+    fun saveAbout(
+        auth0Sub: String,
+        about: String,
+    ): AboutResponse {
+        val entity = findOrCreatePreference(auth0Sub)
+        entity.about = about
+        return AboutResponse(userPreferenceFacade.save(entity).about)
+    }
+
+    @Transactional
+    fun saveAboutFromFile(
+        auth0Sub: String,
+        file: MultipartFile,
+    ): AboutResponse {
+        logger.info { "Parsing file for about: name=${file.originalFilename}, size=${file.size}" }
+        val contentType =
+            file.contentType
+                ?: throw IllegalArgumentException("File content type is required")
+        val text = documentParser.extractText(file.inputStream, contentType)
+        logger.info { "File parsed, extracted text length: ${text.length}" }
+        return saveAbout(auth0Sub, text)
+    }
+
+    fun generatePreferences(auth0Sub: String): NormalizePreferenceResponse {
+        val user =
+            userFacade.findByAuth0Sub(auth0Sub)
+                ?: throw NotFoundException("User not found")
+        val preference =
+            userPreferenceFacade.findByUserId(user.id)
+                ?: throw NotFoundException("Preferences not found")
+        val about =
+            preference.about
+                ?: throw NotFoundException("About is empty — fill it first")
+        val settings = userAiSettingsService.resolveForUser(auth0Sub)
+        val chatClient = chatClientFactory.createForUser(settings)
+        val result = preferenceNormalizer.normalize(about, chatClient)
+        return NormalizePreferenceResponse.from(result)
+    }
+
+    @Transactional
     fun saveSearch(
         auth0Sub: String,
         request: SearchPreferenceRequest,
@@ -69,29 +110,6 @@ class PreferenceService(
         val entity = findOrCreatePreference(auth0Sub)
         request.applyTo(entity.telegram)
         return TelegramPreferenceResponse.from(userPreferenceFacade.save(entity).telegram)
-    }
-
-    fun normalizeFile(
-        auth0Sub: String,
-        file: MultipartFile,
-    ): NormalizePreferenceResponse {
-        logger.info { "Normalizing file: name=${file.originalFilename}, size=${file.size}, contentType=${file.contentType}" }
-        val contentType =
-            file.contentType
-                ?: throw IllegalArgumentException("File content type is required")
-        val text = documentParser.extractText(file.inputStream, contentType)
-        logger.info { "File parsed, extracted text length: ${text.length}" }
-        return normalize(auth0Sub, text)
-    }
-
-    fun normalize(
-        auth0Sub: String,
-        rawInput: String,
-    ): NormalizePreferenceResponse {
-        val settings = userAiSettingsService.resolveForUser(auth0Sub)
-        val chatClient = chatClientFactory.createForUser(settings)
-        val result = preferenceNormalizer.normalize(rawInput, chatClient)
-        return NormalizePreferenceResponse.from(rawInput, result)
     }
 
     private fun findOrCreatePreference(auth0Sub: String): UserPreferenceEntity {

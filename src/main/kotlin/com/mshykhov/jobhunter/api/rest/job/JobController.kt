@@ -1,10 +1,12 @@
 package com.mshykhov.jobhunter.api.rest.job
 
+import com.mshykhov.jobhunter.api.rest.job.dto.CoverLetterResponse
 import com.mshykhov.jobhunter.api.rest.job.dto.JobCheckRequest
 import com.mshykhov.jobhunter.api.rest.job.dto.JobCheckResponse
 import com.mshykhov.jobhunter.api.rest.job.dto.JobIngestRequest
 import com.mshykhov.jobhunter.api.rest.job.dto.JobResponse
 import com.mshykhov.jobhunter.api.rest.job.dto.PaginatedUserJobResponse
+import com.mshykhov.jobhunter.api.rest.job.dto.RecruiterMessageResponse
 import com.mshykhov.jobhunter.api.rest.job.dto.RematchResponse
 import com.mshykhov.jobhunter.api.rest.job.dto.UpdateJobStatusRequest
 import com.mshykhov.jobhunter.api.rest.job.dto.UserJobDetailResponse
@@ -12,6 +14,7 @@ import com.mshykhov.jobhunter.api.rest.job.dto.UserJobFilterRequest
 import com.mshykhov.jobhunter.api.rest.job.dto.UserJobResponse
 import com.mshykhov.jobhunter.application.job.JobService
 import com.mshykhov.jobhunter.application.matching.JobMatchingService
+import com.mshykhov.jobhunter.application.outreach.OutreachService
 import com.mshykhov.jobhunter.application.userjob.UserJobService
 import jakarta.validation.Valid
 import org.springframework.security.access.prepost.PreAuthorize
@@ -34,6 +37,7 @@ class JobController(
     private val jobService: JobService,
     private val userJobService: UserJobService,
     private val jobMatchingService: JobMatchingService,
+    private val outreachService: OutreachService,
 ) {
     @PostMapping("/ingest")
     @PreAuthorize("hasAuthority('SCOPE_write:jobs')")
@@ -68,6 +72,20 @@ class JobController(
         @PathVariable jobId: UUID,
         @Valid @RequestBody request: UpdateJobStatusRequest,
     ): UserJobResponse = UserJobResponse.from(userJobService.updateStatus(jwt.subject, jobId, request.status))
+
+    @PostMapping("/{jobId}/outreach/cover-letter")
+    @PreAuthorize("hasAuthority('SCOPE_write:jobs')")
+    fun generateCoverLetter(
+        @AuthenticationPrincipal jwt: Jwt,
+        @PathVariable jobId: UUID,
+    ): CoverLetterResponse = outreachService.generateCoverLetter(jwt.subject, jobId)
+
+    @PostMapping("/{jobId}/outreach/recruiter-message")
+    @PreAuthorize("hasAuthority('SCOPE_write:jobs')")
+    fun generateRecruiterMessage(
+        @AuthenticationPrincipal jwt: Jwt,
+        @PathVariable jobId: UUID,
+    ): RecruiterMessageResponse = outreachService.generateRecruiterMessage(jwt.subject, jobId)
 
     @PostMapping("/rematch")
     @PreAuthorize("hasAuthority('SCOPE_write:jobs')")

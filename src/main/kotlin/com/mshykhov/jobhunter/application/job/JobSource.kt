@@ -10,6 +10,7 @@ enum class JobSource(
     DOU("dou", "DOU"),
     DJINNI("djinni", "Djinni"),
     LINKEDIN("linkedin", "Linkedin"),
+    EUREMOTEJOBS("euremotejobs", "EuRemoteJobs"),
     ;
 
     override fun toString(): String = value

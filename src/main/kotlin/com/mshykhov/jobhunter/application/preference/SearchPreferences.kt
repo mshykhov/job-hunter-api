@@ -10,8 +10,6 @@ import org.hibernate.type.SqlTypes
 
 @Embeddable
 class SearchPreferences(
-    @Column(name = "raw_input", columnDefinition = "TEXT")
-    var rawInput: String? = null,
     @JdbcTypeCode(SqlTypes.ARRAY)
     @Column(name = "categories", columnDefinition = "text[]")
     var categories: List<String> = emptyList(),
