@@ -12,6 +12,7 @@ object DateTimeParser {
         listOf(
             { raw -> tryParse { Instant.parse(raw) } },
             { raw -> tryParse { DateTimeFormatter.RFC_1123_DATE_TIME.parse(raw, Instant::from) } },
+            { raw -> tryParse { DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss Z").parse(raw, Instant::from) } },
             { raw -> tryParse { LocalDateTime.parse(raw).toInstant(ZoneOffset.UTC) } },
             { raw -> tryParse { LocalDate.parse(raw).atStartOfDay().toInstant(ZoneOffset.UTC) } },
         )
