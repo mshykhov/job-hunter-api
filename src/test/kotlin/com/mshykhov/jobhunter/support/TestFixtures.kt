@@ -67,6 +67,7 @@ object TestFixtures {
         remoteOnly: Boolean = false,
         disabledSources: List<JobSource> = emptyList(),
         categories: List<String> = emptyList(),
+        locations: List<String> = emptyList(),
         keywords: List<String> = listOf("Kotlin", "Spring"),
         excludedKeywords: List<String> = emptyList(),
         excludedTitleKeywords: List<String> = emptyList(),
@@ -81,6 +82,7 @@ object TestFixtures {
                     remoteOnly = remoteOnly,
                     disabledSources = disabledSources,
                     categories = categories,
+                    locations = locations,
                 ),
             matching =
                 MatchingPreferences(
