@@ -183,7 +183,7 @@ class SettingsControllerIntegrationTest : AbstractIntegrationTest() {
             mockMvc
                 .post("/settings/outreach/test/cover-letter") {
                     contentType = APPLICATION_JSON
-                    content = """{"source": "${JobSource.DOU.value}"}"""
+                    content = """{"source": "${JobSource.WEB3CAREER.value}"}"""
                 }.andExpect {
                     status { isNotFound() }
                 }
@@ -194,7 +194,7 @@ class SettingsControllerIntegrationTest : AbstractIntegrationTest() {
             mockMvc
                 .post("/settings/outreach/test/recruiter-message") {
                     contentType = APPLICATION_JSON
-                    content = """{"source": "${JobSource.DOU.value}"}"""
+                    content = """{"source": "${JobSource.WEB3CAREER.value}"}"""
                 }.andExpect {
                     status { isNotFound() }
                 }
