@@ -1,12 +1,9 @@
 package com.mshykhov.jobhunter
 
+import com.mshykhov.jobhunter.support.AbstractIntegrationTest
 import org.junit.jupiter.api.Test
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.test.context.ActiveProfiles
 
-@SpringBootTest
-@ActiveProfiles("test")
-class JobHunterApiApplicationTests {
+class JobHunterApiApplicationTests : AbstractIntegrationTest() {
     @Test
     fun contextLoads() {
     }

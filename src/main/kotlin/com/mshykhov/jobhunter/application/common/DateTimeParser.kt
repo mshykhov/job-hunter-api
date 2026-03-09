@@ -8,11 +8,14 @@ import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 
 object DateTimeParser {
+    private val SPACE_SEPARATED_OFFSET: DateTimeFormatter =
+        DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss Z")
+
     private val INSTANT_PARSERS: List<(String) -> Instant?> =
         listOf(
             { raw -> tryParse { Instant.parse(raw) } },
             { raw -> tryParse { DateTimeFormatter.RFC_1123_DATE_TIME.parse(raw, Instant::from) } },
-            { raw -> tryParse { DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss Z").parse(raw, Instant::from) } },
+            { raw -> tryParse { SPACE_SEPARATED_OFFSET.parse(raw, Instant::from) } },
             { raw -> tryParse { LocalDateTime.parse(raw).toInstant(ZoneOffset.UTC) } },
             { raw -> tryParse { LocalDate.parse(raw).atStartOfDay().toInstant(ZoneOffset.UTC) } },
         )

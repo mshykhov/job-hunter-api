@@ -141,9 +141,16 @@ Controller → Service → Facade → Repository
 - **JPA Auditing** — `@CreatedDate`/`@LastModifiedDate` with custom `Clock` bean
 
 ### Testing
-- **Unit tests** — MockK for mocking, JUnit 5
-- **Integration tests** — Testcontainers with real PostgreSQL
-- **Test profile** — `application-test.yml` disables Flyway, uses `ddl-auto: create-drop`
+- **Integration tests** — `AbstractIntegrationTest` base class with Testcontainers PostgreSQL (singleton container)
+- **Unit tests** — MockK for mocking, JUnit 5, no Spring context
+- **Test profile** — `src/test/resources/application-test.yml` (Flyway enabled, Hibernate validates, auth disabled)
+- **Test fixtures** — `TestFixtures` object with factory methods for entities and DTOs
+- **Parameterized tests** — `@ParameterizedTest` with `@CsvSource`/`@EnumSource` for combinatorial logic
+- **Structure**: `@Nested` inner classes to group tests by endpoint/method, including `ErrorHandling` section
+- **Naming**: `{Controller}IntegrationTest` for endpoints, `{Class}Test` for unit tests
+- **Test location mirrors source**: `api/rest/{feature}/` for endpoint tests, `application/{feature}/` for service/logic tests
+- **What to test**: endpoints (happy + error), service orchestration (MockK), pure logic (filters, parsers, utils)
+- **What to skip**: Facades (thin wrappers), Entities (JPA), DTO mapping (covered by endpoint tests)
 
 ---
 
