@@ -1,54 +1,302 @@
 package com.mshykhov.jobhunter.api.rest.preference
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.mshykhov.jobhunter.application.job.JobSource
 import com.mshykhov.jobhunter.support.AbstractIntegrationTest
+import org.hamcrest.Matchers.equalTo
+import org.hamcrest.Matchers.hasSize
+import org.junit.jupiter.api.Nested
+import org.junit.jupiter.api.Test
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.http.MediaType.APPLICATION_JSON
+import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.get
+import org.springframework.test.web.servlet.post
+import org.springframework.test.web.servlet.put
 
-/**
- * Integration tests for PreferenceController (/preferences).
- *
- * == GET /preferences ==
- * - should return default preferences for new user (auto-created)
- * - should return saved preferences after updates
- *
- * == PUT /preferences/about ==
- * - should save about text and return it
- * - should overwrite previous about text
- * - should return 400 when about is blank (@NotBlank)
- * - should return 400 when about is missing from body
- *
- * == PUT /preferences/about/file ==
- * - should extract text from PDF and save as about
- * - should extract text from DOCX and save as about
- * - should return 400 for unsupported file type (e.g. .txt, .jpg)
- * - should return 400 when no file provided
- *
- * == POST /preferences/generate ==
- * - should return 422 (AI_NOT_CONFIGURED) when user has no AI settings
- * - should return 404 when about is empty (nothing to normalize)
- * (AI-dependent tests are better suited for service-level mocking)
- *
- * == PUT /preferences/search ==
- * - should save search preferences (categories, locations, remoteOnly, disabledSources)
- * - should overwrite previous search preferences
- * - should accept empty lists as valid input
- * - should accept all JobSource values in disabledSources
- *
- * == PUT /preferences/matching ==
- * - should save matching preferences with valid weights (sum=100)
- * - should return 400 when weights don't sum to 100
- * - should return 400 when weight exceeds 100
- * - should return 400 when weight is negative
- * - should save with edge weights (100/0/0, 0/0/100, etc.)
- * - should save keywords, excluded keywords, seniority levels
- * - should save custom prompt
- * - should toggle matchWithAi flag
- *
- * == PUT /preferences/telegram ==
- * - should save telegram preferences (chatId, username, notifications)
- * - should accept null chatId and username
- * - should toggle notificationsEnabled
- *
- * == Cross-cutting ==
- * - should create user and preference on first write (findOrCreate pattern)
- * - subsequent reads should reflect latest saved data
- */
-class PreferenceControllerIntegrationTest : AbstractIntegrationTest()
+class PreferenceControllerIntegrationTest : AbstractIntegrationTest() {
+    @Autowired
+    lateinit var mockMvc: MockMvc
+
+    @Autowired
+    lateinit var objectMapper: ObjectMapper
+
+    @Nested
+    inner class SaveAbout {
+        @Test
+        fun `should save about text and return it`() {
+            mockMvc
+                .put("/preferences/about") {
+                    contentType = APPLICATION_JSON
+                    content = """{"about": "Experienced Kotlin developer"}"""
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.about", equalTo("Experienced Kotlin developer"))
+                }
+        }
+
+        @Test
+        fun `should overwrite previous about text`() {
+            mockMvc
+                .put("/preferences/about") {
+                    contentType = APPLICATION_JSON
+                    content = """{"about": "First version"}"""
+                }.andExpect { status { isOk() } }
+
+            mockMvc
+                .put("/preferences/about") {
+                    contentType = APPLICATION_JSON
+                    content = """{"about": "Updated version"}"""
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.about", equalTo("Updated version"))
+                }
+        }
+
+        @Test
+        fun `should return 400 when about is blank`() {
+            mockMvc
+                .put("/preferences/about") {
+                    contentType = APPLICATION_JSON
+                    content = """{"about": ""}"""
+                }.andExpect {
+                    status { isBadRequest() }
+                }
+        }
+    }
+
+    @Nested
+    inner class SaveSearch {
+        @Test
+        fun `should save search preferences`() {
+            val body =
+                mapOf(
+                    "categories" to listOf("Backend", "DevOps"),
+                    "locations" to listOf("Kyiv", "Remote"),
+                    "remoteOnly" to true,
+                    "disabledSources" to listOf(JobSource.LINKEDIN.value),
+                )
+
+            mockMvc
+                .put("/preferences/search") {
+                    contentType = APPLICATION_JSON
+                    content = objectMapper.writeValueAsString(body)
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.categories", hasSize<Any>(2))
+                    jsonPath("$.locations", hasSize<Any>(2))
+                    jsonPath("$.remoteOnly", equalTo(true))
+                    jsonPath("$.disabledSources", hasSize<Any>(1))
+                }
+        }
+
+        @Test
+        fun `should overwrite previous search preferences`() {
+            mockMvc
+                .put("/preferences/search") {
+                    contentType = APPLICATION_JSON
+                    content = """{"categories": ["Backend"], "locations": ["Kyiv"], "remoteOnly": true, "disabledSources": []}"""
+                }.andExpect { status { isOk() } }
+
+            mockMvc
+                .put("/preferences/search") {
+                    contentType = APPLICATION_JSON
+                    content = """{"categories": ["Frontend"], "locations": [], "remoteOnly": false, "disabledSources": []}"""
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.categories[0]", equalTo("Frontend"))
+                    jsonPath("$.locations", hasSize<Any>(0))
+                    jsonPath("$.remoteOnly", equalTo(false))
+                }
+        }
+
+        @Test
+        fun `should accept empty lists as valid input`() {
+            mockMvc
+                .put("/preferences/search") {
+                    contentType = APPLICATION_JSON
+                    content = """{"categories": [], "locations": [], "remoteOnly": false, "disabledSources": []}"""
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.categories", hasSize<Any>(0))
+                }
+        }
+    }
+
+    @Nested
+    inner class SaveMatching {
+        @Test
+        fun `should save matching preferences with valid weights`() {
+            val body =
+                mapOf(
+                    "keywords" to listOf("Kotlin", "Spring"),
+                    "excludedKeywords" to listOf("PHP"),
+                    "excludedTitleKeywords" to listOf("Junior"),
+                    "excludedCompanies" to listOf("BadCorp"),
+                    "seniorityLevels" to listOf("Senior", "Lead"),
+                    "matchWithAi" to true,
+                    "weightKeywords" to 40,
+                    "weightSeniority" to 30,
+                    "weightCategories" to 30,
+                )
+
+            mockMvc
+                .put("/preferences/matching") {
+                    contentType = APPLICATION_JSON
+                    content = objectMapper.writeValueAsString(body)
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.keywords", hasSize<Any>(2))
+                    jsonPath("$.excludedKeywords", hasSize<Any>(1))
+                    jsonPath("$.matchWithAi", equalTo(true))
+                    jsonPath("$.weightKeywords", equalTo(40))
+                }
+        }
+
+        @Test
+        fun `should return 400 when weights do not sum to 100`() {
+            val body =
+                mapOf(
+                    "keywords" to emptyList<String>(),
+                    "weightKeywords" to 50,
+                    "weightSeniority" to 30,
+                    "weightCategories" to 10,
+                )
+
+            mockMvc
+                .put("/preferences/matching") {
+                    contentType = APPLICATION_JSON
+                    content = objectMapper.writeValueAsString(body)
+                }.andExpect {
+                    status { isBadRequest() }
+                }
+        }
+
+        @Test
+        fun `should save with edge weights`() {
+            val body =
+                mapOf(
+                    "weightKeywords" to 100,
+                    "weightSeniority" to 0,
+                    "weightCategories" to 0,
+                )
+
+            mockMvc
+                .put("/preferences/matching") {
+                    contentType = APPLICATION_JSON
+                    content = objectMapper.writeValueAsString(body)
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.weightKeywords", equalTo(100))
+                    jsonPath("$.weightSeniority", equalTo(0))
+                    jsonPath("$.weightCategories", equalTo(0))
+                }
+        }
+
+        @Test
+        fun `should save custom prompt`() {
+            val body =
+                mapOf(
+                    "customPrompt" to "Focus on Kotlin and remote positions",
+                    "weightKeywords" to 40,
+                    "weightSeniority" to 30,
+                    "weightCategories" to 30,
+                )
+
+            mockMvc
+                .put("/preferences/matching") {
+                    contentType = APPLICATION_JSON
+                    content = objectMapper.writeValueAsString(body)
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.customPrompt", equalTo("Focus on Kotlin and remote positions"))
+                }
+        }
+    }
+
+    @Nested
+    inner class SaveTelegram {
+        @Test
+        fun `should save telegram preferences`() {
+            val body =
+                mapOf(
+                    "chatId" to "123456",
+                    "username" to "testuser",
+                    "notificationsEnabled" to true,
+                    "notificationSources" to listOf("dou", "djinni"),
+                )
+
+            mockMvc
+                .put("/preferences/telegram") {
+                    contentType = APPLICATION_JSON
+                    content = objectMapper.writeValueAsString(body)
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.chatId", equalTo("123456"))
+                    jsonPath("$.username", equalTo("testuser"))
+                    jsonPath("$.notificationsEnabled", equalTo(true))
+                }
+        }
+
+        @Test
+        fun `should accept null chatId and username`() {
+            val body =
+                mapOf(
+                    "chatId" to null,
+                    "username" to null,
+                    "notificationsEnabled" to false,
+                    "notificationSources" to emptyList<String>(),
+                )
+
+            mockMvc
+                .put("/preferences/telegram") {
+                    contentType = APPLICATION_JSON
+                    content = objectMapper.writeValueAsString(body)
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.notificationsEnabled", equalTo(false))
+                }
+        }
+    }
+
+    @Nested
+    inner class GetPreferences {
+        @Test
+        fun `should return saved preferences after updates`() {
+            mockMvc
+                .put("/preferences/about") {
+                    contentType = APPLICATION_JSON
+                    content = """{"about": "My about text"}"""
+                }.andExpect { status { isOk() } }
+
+            mockMvc
+                .put("/preferences/search") {
+                    contentType = APPLICATION_JSON
+                    content = """{"categories": ["Backend"], "locations": [], "remoteOnly": true, "disabledSources": []}"""
+                }.andExpect { status { isOk() } }
+
+            mockMvc.get("/preferences").andExpect {
+                status { isOk() }
+                jsonPath("$.about", equalTo("My about text"))
+                jsonPath("$.search.categories[0]", equalTo("Backend"))
+                jsonPath("$.search.remoteOnly", equalTo(true))
+            }
+        }
+    }
+
+    @Nested
+    inner class GeneratePreferences {
+        @Test
+        fun `should return 422 when user has no AI settings`() {
+            mockMvc
+                .put("/preferences/about") {
+                    contentType = APPLICATION_JSON
+                    content = """{"about": "Some about text"}"""
+                }.andExpect { status { isOk() } }
+
+            mockMvc.post("/preferences/generate").andExpect {
+                status { isEqualTo(422) }
+            }
+        }
+    }
+}
