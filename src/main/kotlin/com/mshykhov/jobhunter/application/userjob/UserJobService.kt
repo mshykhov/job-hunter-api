@@ -116,6 +116,18 @@ class UserJobService(
         return userJobFacade.save(userJob)
     }
 
+    @Transactional
+    fun bulkUpdateStatus(
+        auth0Sub: String,
+        jobIds: List<UUID>,
+        status: UserJobStatus,
+    ): List<UserJobEntity> {
+        val user = findUser(auth0Sub)
+        val userJobs = userJobFacade.findByUserIdAndJobIds(user.id, jobIds)
+        userJobs.forEach { it.status = status }
+        return userJobFacade.saveAll(userJobs)
+    }
+
     private fun findUser(auth0Sub: String) =
         userFacade.findByAuth0Sub(auth0Sub)
             ?: throw NotFoundException("User not found: $auth0Sub")

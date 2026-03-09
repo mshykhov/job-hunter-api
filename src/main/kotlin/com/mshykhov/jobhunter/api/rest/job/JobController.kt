@@ -1,5 +1,6 @@
 package com.mshykhov.jobhunter.api.rest.job
 
+import com.mshykhov.jobhunter.api.rest.job.dto.BulkUpdateStatusRequest
 import com.mshykhov.jobhunter.api.rest.job.dto.CoverLetterResponse
 import com.mshykhov.jobhunter.api.rest.job.dto.JobCheckRequest
 import com.mshykhov.jobhunter.api.rest.job.dto.JobCheckResponse
@@ -72,6 +73,16 @@ class JobController(
         @PathVariable jobId: UUID,
         @Valid @RequestBody request: UpdateJobStatusRequest,
     ): UserJobResponse = UserJobResponse.from(userJobService.updateStatus(jwt.subject, jobId, request.status))
+
+    @PatchMapping("/status")
+    @PreAuthorize("hasAuthority('SCOPE_write:jobs')")
+    fun bulkUpdateStatus(
+        @AuthenticationPrincipal jwt: Jwt,
+        @Valid @RequestBody request: BulkUpdateStatusRequest,
+    ): List<UserJobResponse> =
+        userJobService
+            .bulkUpdateStatus(jwt.subject, request.jobIds, request.status)
+            .map { UserJobResponse.from(it) }
 
     @PostMapping("/{jobId}/outreach/cover-letter")
     @PreAuthorize("hasAuthority('SCOPE_write:jobs')")

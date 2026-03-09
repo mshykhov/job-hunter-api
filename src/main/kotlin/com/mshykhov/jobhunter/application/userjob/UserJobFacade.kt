@@ -21,6 +21,11 @@ class UserJobFacade(
         jobId: UUID,
     ): UserJobEntity? = userJobRepository.findByUserIdAndJobId(userId, jobId)
 
+    fun findByUserIdAndJobIds(
+        userId: UUID,
+        jobIds: List<UUID>,
+    ): List<UserJobEntity> = userJobRepository.findByUserIdAndJobIdIn(userId, jobIds)
+
     fun findAll(
         spec: Specification<UserJobEntity>,
         pageable: Pageable,
