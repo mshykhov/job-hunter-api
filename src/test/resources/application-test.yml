@@ -20,7 +20,7 @@ jobhunter:
   auth0:
     enabled: false
   ai:
-    encryption-key: test-encryption-key-32chars!!!!
+    encryption-key: CSu23FAzyV9SgyFGddYe1Pshd5v91WyshJxMog1aRsU=
     matching:
       concurrency: 2
   rate-limit:
