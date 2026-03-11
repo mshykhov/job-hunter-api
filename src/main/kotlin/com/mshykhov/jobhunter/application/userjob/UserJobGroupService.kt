@@ -144,6 +144,9 @@ class UserJobGroupService(
         if (filter.remote == true) {
             spec = spec.and(UserJobGroupSpecifications.remote())
         }
+        if (!filter.sources.isNullOrEmpty()) {
+            spec = spec.and(UserJobGroupSpecifications.sources(filter.sources))
+        }
         if (!filter.search.isNullOrBlank()) {
             spec = spec.and(UserJobGroupSpecifications.search(filter.search))
         }

@@ -1,11 +1,13 @@
 package com.mshykhov.jobhunter.api.rest.job.dto
 
+import com.mshykhov.jobhunter.application.job.JobSource
 import com.mshykhov.jobhunter.application.userjob.UserJobGroupSort
 import com.mshykhov.jobhunter.application.userjob.UserJobStatus
 import java.time.Instant
 
 data class UserJobGroupFilterRequest(
     val statuses: List<UserJobStatus>? = null,
+    val sources: List<JobSource>? = null,
     val matchedAfter: Instant? = null,
     val search: String? = null,
     val remote: Boolean? = null,

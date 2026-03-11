@@ -522,6 +522,55 @@ class JobControllerIntegrationTest : AbstractIntegrationTest() {
                     jsonPath("$.content", hasSize<Any>(1))
                 }
         }
+
+        @Test
+        fun `should filter groups by sources`() {
+            val user = getOrCreateDevUser()
+            val suffix = System.nanoTime()
+
+            val requests =
+                listOf(
+                    TestFixtures.jobIngestRequest(
+                        title = "SourceFilter $suffix",
+                        url = "https://example.com/source-filter-$suffix",
+                        source = DJINNI,
+                    ),
+                )
+            mockMvc
+                .post("/jobs/ingest") {
+                    contentType = APPLICATION_JSON
+                    content = objectMapper.writeValueAsString(requests)
+                }.andExpect { status { isOk() } }
+
+            val group = jobGroupRepository.findAll().first { it.title == "SourceFilter $suffix" }
+            userJobGroupRepository.save(
+                UserJobGroupEntity(
+                    user = user,
+                    group = group,
+                    status = UserJobStatus.NEW,
+                    aiRelevanceScore = 75,
+                    aiReasoning = "Match",
+                ),
+            )
+
+            mockMvc
+                .post("/jobs/search") {
+                    contentType = APPLICATION_JSON
+                    content = """{"sources": ["${DJINNI.value}"], "search": "SourceFilter $suffix"}"""
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.content", hasSize<Any>(1))
+                }
+
+            mockMvc
+                .post("/jobs/search") {
+                    contentType = APPLICATION_JSON
+                    content = """{"sources": ["${DOU.value}"], "search": "SourceFilter $suffix"}"""
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.content", hasSize<Any>(0))
+                }
+        }
     }
 
     @Nested

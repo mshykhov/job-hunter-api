@@ -2,6 +2,7 @@ package com.mshykhov.jobhunter.application.userjob
 
 import com.mshykhov.jobhunter.application.job.JobEntity
 import com.mshykhov.jobhunter.application.job.JobGroupEntity
+import com.mshykhov.jobhunter.application.job.JobSource
 import com.mshykhov.jobhunter.application.user.UserEntity
 import jakarta.persistence.criteria.JoinType
 import org.springframework.data.jpa.domain.Specification
@@ -33,6 +34,20 @@ object UserJobGroupSpecifications {
                 cb.and(
                     cb.equal(job.get<JobGroupEntity>("group").get<UUID>("id"), root.get<JobGroupEntity>("group").get<UUID>("id")),
                     cb.equal(job.get<Boolean>("remote"), true),
+                ),
+            )
+            cb.exists(subquery)
+        }
+
+    fun sources(sources: List<JobSource>): Specification<UserJobGroupEntity> =
+        Specification { root, query, cb ->
+            val subquery = query!!.subquery(UUID::class.java)
+            val job = subquery.from(JobEntity::class.java)
+            subquery.select(job.get<JobGroupEntity>("group").get("id"))
+            subquery.where(
+                cb.and(
+                    cb.equal(job.get<JobGroupEntity>("group").get<UUID>("id"), root.get<JobGroupEntity>("group").get<UUID>("id")),
+                    job.get<JobSource>("source").`in`(sources),
                 ),
             )
             cb.exists(subquery)
