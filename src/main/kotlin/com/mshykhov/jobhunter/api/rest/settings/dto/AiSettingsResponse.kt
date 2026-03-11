@@ -2,10 +2,7 @@ package com.mshykhov.jobhunter.api.rest.settings.dto
 
 import com.mshykhov.jobhunter.application.ai.UserAiSettingsEntity
 
-data class AiSettingsResponse(
-    val modelId: String,
-    val apiKeyHint: String,
-) {
+data class AiSettingsResponse(val modelId: String, val apiKeyHint: String) {
     companion object {
         fun from(entity: UserAiSettingsEntity): AiSettingsResponse =
             AiSettingsResponse(

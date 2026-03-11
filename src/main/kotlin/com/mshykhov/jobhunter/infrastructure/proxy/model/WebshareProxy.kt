@@ -6,11 +6,4 @@ import com.fasterxml.jackson.databind.annotation.JsonNaming
 
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 @JsonIgnoreProperties(ignoreUnknown = true)
-data class WebshareProxy(
-    val proxyAddress: String,
-    val port: Int,
-    val username: String,
-    val password: String,
-    val countryCode: String,
-    val valid: Boolean,
-)
+data class WebshareProxy(val proxyAddress: String, val port: Int, val username: String, val password: String, val countryCode: String, val valid: Boolean)

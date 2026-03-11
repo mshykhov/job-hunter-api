@@ -6,11 +6,17 @@ import java.time.Instant
 object JobSpecifications {
     fun search(query: String): Specification<JobEntity> =
         Specification { root, _, cb ->
-            val pattern = "%${query.lowercase()}%"
+            val escaped =
+                query
+                    .lowercase()
+                    .replace("\\", "\\\\")
+                    .replace("%", "\\%")
+                    .replace("_", "\\_")
+            val pattern = "%$escaped%"
             cb.or(
-                cb.like(cb.lower(root.get("title")), pattern),
-                cb.like(cb.lower(root.get("company")), pattern),
-                cb.like(cb.lower(root.get("location")), pattern),
+                cb.like(cb.lower(root.get("title")), pattern, '\\'),
+                cb.like(cb.lower(root.get("company")), pattern, '\\'),
+                cb.like(cb.lower(root.get("location")), pattern, '\\'),
             )
         }
 

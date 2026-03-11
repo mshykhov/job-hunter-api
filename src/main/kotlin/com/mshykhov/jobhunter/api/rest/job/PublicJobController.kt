@@ -2,9 +2,11 @@ package com.mshykhov.jobhunter.api.rest.job
 
 import com.mshykhov.jobhunter.api.rest.job.dto.JobSourceResponse
 import com.mshykhov.jobhunter.api.rest.job.dto.PublicJobPageResponse
+import com.mshykhov.jobhunter.api.rest.job.dto.UserJobStatusResponse
 import com.mshykhov.jobhunter.application.job.JobService
 import com.mshykhov.jobhunter.application.job.JobSource
 import com.mshykhov.jobhunter.application.job.PublicJobSort
+import com.mshykhov.jobhunter.application.userjob.UserJobStatus
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
@@ -13,11 +15,12 @@ import java.time.Instant
 
 @RestController
 @RequestMapping("/public/jobs")
-class PublicJobController(
-    private val jobService: JobService,
-) {
+class PublicJobController(private val jobService: JobService) {
     @GetMapping("/sources")
     fun getSources(): List<JobSourceResponse> = JobSource.entries.map { JobSourceResponse.from(it) }
+
+    @GetMapping("/statuses")
+    fun getStatuses(): List<UserJobStatusResponse> = UserJobStatus.entries.map { UserJobStatusResponse.from(it) }
 
     @GetMapping
     fun search(

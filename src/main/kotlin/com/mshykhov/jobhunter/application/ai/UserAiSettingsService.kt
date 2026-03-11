@@ -8,10 +8,7 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 @Service
-class UserAiSettingsService(
-    private val userFacade: UserFacade,
-    private val userAiSettingsFacade: UserAiSettingsFacade,
-) {
+class UserAiSettingsService(private val userFacade: UserFacade, private val userAiSettingsFacade: UserAiSettingsFacade) {
     @Transactional(readOnly = true)
     fun get(auth0Sub: String): AiSettingsResponse {
         val settings = resolveForUser(auth0Sub)

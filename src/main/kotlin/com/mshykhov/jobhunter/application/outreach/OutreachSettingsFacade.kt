@@ -6,9 +6,7 @@ import java.util.UUID
 
 @Component
 @Transactional(readOnly = true)
-class OutreachSettingsFacade(
-    private val outreachSettingsRepository: OutreachSettingsRepository,
-) {
+class OutreachSettingsFacade(private val outreachSettingsRepository: OutreachSettingsRepository) {
     fun findByUserId(userId: UUID): OutreachSettingsEntity? = outreachSettingsRepository.findByUserId(userId)
 
     @Transactional

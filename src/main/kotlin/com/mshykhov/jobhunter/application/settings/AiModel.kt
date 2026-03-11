@@ -1,10 +1,6 @@
 package com.mshykhov.jobhunter.application.settings
 
-enum class AiProvider(
-    val id: String,
-    val displayName: String,
-    val recommended: Boolean = false,
-) {
+enum class AiProvider(val id: String, val displayName: String, val recommended: Boolean = false) {
     OPENAI("openai", "OpenAI", recommended = true),
 }
 

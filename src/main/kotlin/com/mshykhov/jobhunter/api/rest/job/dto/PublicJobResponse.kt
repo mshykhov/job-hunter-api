@@ -31,7 +31,7 @@ data class PublicJobResponse(
                 location = entity.location,
                 remote = entity.remote,
                 publishedAt = entity.publishedAt,
-                scrapedAt = entity.updatedAt,
+                scrapedAt = entity.createdAt,
             )
     }
 }

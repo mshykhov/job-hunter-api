@@ -11,9 +11,7 @@ import org.springframework.web.bind.annotation.RestController
 
 @RestController
 @RequestMapping("/criteria")
-class SearchCriteriaController(
-    private val searchCriteriaService: SearchCriteriaService,
-) {
+class SearchCriteriaController(private val searchCriteriaService: SearchCriteriaService) {
     @GetMapping
     @PreAuthorize("hasAuthority('SCOPE_read:criteria')")
     fun get(

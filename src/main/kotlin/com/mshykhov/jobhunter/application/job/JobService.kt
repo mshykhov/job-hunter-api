@@ -6,6 +6,7 @@ import com.mshykhov.jobhunter.api.rest.job.dto.JobIngestRequest
 import com.mshykhov.jobhunter.api.rest.job.dto.PublicJobPageResponse
 import com.mshykhov.jobhunter.api.rest.job.dto.PublicJobResponse
 import com.mshykhov.jobhunter.application.common.DateTimeParser
+import com.mshykhov.jobhunter.application.common.PaginationConstants
 import com.mshykhov.jobhunter.infrastructure.config.CacheConfig
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.cache.annotation.Cacheable
@@ -18,9 +19,7 @@ import java.time.Instant
 private val logger = KotlinLogging.logger {}
 
 @Service
-class JobService(
-    private val jobFacade: JobFacade,
-) {
+class JobService(private val jobFacade: JobFacade, private val jobGroupFacade: JobGroupFacade) {
     @Cacheable(CacheConfig.PUBLIC_JOBS_CACHE)
     @Transactional(readOnly = true)
     fun searchPublic(
@@ -32,7 +31,7 @@ class JobService(
         publishedAfter: Instant?,
         sortBy: PublicJobSort = PublicJobSort.PUBLISHED,
     ): PublicJobPageResponse {
-        val effectiveSize = size.coerceIn(1, MAX_PAGE_SIZE)
+        val effectiveSize = size.coerceIn(1, PaginationConstants.MAX_PAGE_SIZE)
         var spec: Specification<JobEntity> = Specification { _, _, _ -> null }
 
         if (!search.isNullOrBlank()) {
@@ -66,6 +65,9 @@ class JobService(
         val urls = uniqueRequests.map { it.url }
         val existingByUrl = jobFacade.findByUrls(urls).associateBy { it.url }
 
+        val groupKeys = uniqueRequests.map { JobGroupKeyComputer.compute(it.title, it.company) }.distinct()
+        val groupsByKey = jobGroupFacade.findByGroupKeys(groupKeys).associateBy { it.groupKey }.toMutableMap()
+
         val toSave = mutableListOf<JobEntity>()
         val unchangedEntities = mutableListOf<JobEntity>()
 
@@ -74,7 +76,8 @@ class JobService(
             if (existing != null) {
                 if (updateExisting(existing, request)) toSave.add(existing) else unchangedEntities.add(existing)
             } else {
-                toSave.add(createNew(request))
+                val group = findOrCreateGroup(request, groupsByKey)
+                toSave.add(createNew(request, group))
             }
         }
 
@@ -88,7 +91,24 @@ class JobService(
         return jobFacade.saveAll(toSave) + unchangedEntities
     }
 
-    private fun createNew(request: JobIngestRequest): JobEntity = request.toEntity(parsePublishedAt(request.publishedAt))
+    private fun findOrCreateGroup(
+        request: JobIngestRequest,
+        groupsByKey: MutableMap<String, JobGroupEntity>,
+    ): JobGroupEntity {
+        val groupKey = JobGroupKeyComputer.compute(request.title, request.company)
+        groupsByKey[groupKey]?.let {
+            jobGroupFacade.incrementJobCount(it.id)
+            return it
+        }
+        val group = jobGroupFacade.findOrCreate(groupKey, request.title, request.company)
+        groupsByKey[groupKey] = group
+        return group
+    }
+
+    private fun createNew(
+        request: JobIngestRequest,
+        group: JobGroupEntity,
+    ): JobEntity = request.toEntity(parsePublishedAt(request.publishedAt), group)
 
     /** Returns true if any field changed, false if the job is identical to what we already have. */
     private fun updateExisting(
@@ -162,9 +182,5 @@ class JobService(
             logger.warn { "Failed to parse publishedAt: $raw" }
         }
         return parsed
-    }
-
-    companion object {
-        private const val MAX_PAGE_SIZE = 100
     }
 }

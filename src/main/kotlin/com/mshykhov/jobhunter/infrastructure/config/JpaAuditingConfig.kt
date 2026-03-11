@@ -10,9 +10,7 @@ import java.util.Optional
 
 @Configuration
 @EnableJpaAuditing(dateTimeProviderRef = "dateTimeProvider")
-class JpaAuditingConfig(
-    private val clock: Clock,
-) {
+class JpaAuditingConfig(private val clock: Clock) {
     @Bean
     fun dateTimeProvider(): DateTimeProvider =
         DateTimeProvider {

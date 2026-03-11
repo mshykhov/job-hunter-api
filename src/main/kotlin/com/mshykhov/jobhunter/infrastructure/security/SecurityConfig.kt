@@ -24,10 +24,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @Configuration
 @EnableWebSecurity
 @EnableConfigurationProperties(Auth0Properties::class)
-class SecurityConfig(
-    private val auth0Properties: Auth0Properties,
-    private val objectMapper: ObjectMapper,
-) {
+class SecurityConfig(private val auth0Properties: Auth0Properties, private val objectMapper: ObjectMapper) {
     @Bean
     @ConditionalOnProperty(
         prefix = "jobhunter.auth0",

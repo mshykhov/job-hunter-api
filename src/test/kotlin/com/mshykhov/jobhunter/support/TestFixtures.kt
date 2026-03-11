@@ -2,6 +2,8 @@ package com.mshykhov.jobhunter.support
 
 import com.mshykhov.jobhunter.api.rest.job.dto.JobIngestRequest
 import com.mshykhov.jobhunter.application.job.JobEntity
+import com.mshykhov.jobhunter.application.job.JobGroupEntity
+import com.mshykhov.jobhunter.application.job.JobGroupKeyComputer
 import com.mshykhov.jobhunter.application.job.JobSource
 import com.mshykhov.jobhunter.application.preference.MatchingPreferences
 import com.mshykhov.jobhunter.application.preference.SearchPreferences
@@ -9,6 +11,7 @@ import com.mshykhov.jobhunter.application.preference.TelegramPreferences
 import com.mshykhov.jobhunter.application.preference.UserPreferenceEntity
 import com.mshykhov.jobhunter.application.user.UserEntity
 import com.mshykhov.jobhunter.application.userjob.UserJobEntity
+import com.mshykhov.jobhunter.application.userjob.UserJobGroupEntity
 import com.mshykhov.jobhunter.application.userjob.UserJobStatus
 import java.util.UUID
 
@@ -38,9 +41,22 @@ object TestFixtures {
             rawData = rawData,
         )
 
+    fun jobGroupEntity(
+        title: String = "Senior Kotlin Developer",
+        company: String? = "TechCorp",
+        jobCount: Int = 1,
+    ): JobGroupEntity =
+        JobGroupEntity(
+            groupKey = JobGroupKeyComputer.compute(title, company),
+            title = title,
+            company = company,
+            jobCount = jobCount,
+        )
+
     fun jobEntity(
         title: String = "Senior Kotlin Developer",
         company: String? = "TechCorp",
+        group: JobGroupEntity = jobGroupEntity(title, company),
         url: String = "https://example.com/jobs/${UUID.randomUUID()}",
         description: String = "Looking for a senior Kotlin developer with Spring Boot experience",
         source: JobSource = JobSource.DOU,
@@ -51,6 +67,7 @@ object TestFixtures {
         JobEntity(
             title = title,
             company = company,
+            group = group,
             url = url,
             description = description,
             source = source,
@@ -78,37 +95,44 @@ object TestFixtures {
             user = user,
             about = about,
             search =
-                SearchPreferences(
-                    remoteOnly = remoteOnly,
-                    disabledSources = disabledSources,
-                    categories = categories,
-                    locations = locations,
-                ),
+            SearchPreferences(
+                remoteOnly = remoteOnly,
+                disabledSources = disabledSources,
+                categories = categories,
+                locations = locations,
+            ),
             matching =
-                MatchingPreferences(
-                    keywords = keywords,
-                    excludedKeywords = excludedKeywords,
-                    excludedTitleKeywords = excludedTitleKeywords,
-                    excludedCompanies = excludedCompanies,
-                    matchWithAi = matchWithAi,
-                ),
+            MatchingPreferences(
+                keywords = keywords,
+                excludedKeywords = excludedKeywords,
+                excludedTitleKeywords = excludedTitleKeywords,
+                excludedCompanies = excludedCompanies,
+                matchWithAi = matchWithAi,
+            ),
             telegram = TelegramPreferences(),
+        )
+
+    fun userJobGroupEntity(
+        user: UserEntity = userEntity(),
+        group: JobGroupEntity = jobGroupEntity(),
+        status: UserJobStatus = UserJobStatus.NEW,
+        aiRelevanceScore: Int = 75,
+        aiReasoning: String = "Good match for Kotlin developer",
+    ): UserJobGroupEntity =
+        UserJobGroupEntity(
+            user = user,
+            group = group,
+            status = status,
+            aiRelevanceScore = aiRelevanceScore,
+            aiReasoning = aiReasoning,
         )
 
     fun userJobEntity(
         user: UserEntity = userEntity(),
         job: JobEntity = jobEntity(),
-        status: UserJobStatus = UserJobStatus.NEW,
-        aiRelevanceScore: Int = 75,
-        aiReasoning: String = "Good match for Kotlin developer",
-        aiInferredRemote: Boolean? = true,
     ): UserJobEntity =
         UserJobEntity(
             user = user,
             job = job,
-            status = status,
-            aiRelevanceScore = aiRelevanceScore,
-            aiReasoning = aiReasoning,
-            aiInferredRemote = aiInferredRemote,
         )
 }

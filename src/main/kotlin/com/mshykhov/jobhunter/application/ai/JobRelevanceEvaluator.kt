@@ -60,11 +60,7 @@ class JobRelevanceEvaluator {
     }
 }
 
-private data class ScoringComponent(
-    val name: String,
-    val value: String,
-    val weight: Int,
-)
+private data class ScoringComponent(val name: String, val value: String, val weight: Int)
 
 private fun buildScoringComponents(
     matching: MatchingPreferences,

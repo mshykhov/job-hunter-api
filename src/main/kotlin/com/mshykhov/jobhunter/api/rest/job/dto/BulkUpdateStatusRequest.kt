@@ -6,6 +6,6 @@ import java.util.UUID
 
 data class BulkUpdateStatusRequest(
     @field:NotEmpty
-    val jobIds: List<UUID>,
+    val groupIds: List<UUID>,
     val status: UserJobStatus,
 )

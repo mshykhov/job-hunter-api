@@ -4,19 +4,19 @@ import com.mshykhov.jobhunter.api.rest.job.dto.BulkUpdateStatusRequest
 import com.mshykhov.jobhunter.api.rest.job.dto.CoverLetterResponse
 import com.mshykhov.jobhunter.api.rest.job.dto.JobCheckRequest
 import com.mshykhov.jobhunter.api.rest.job.dto.JobCheckResponse
+import com.mshykhov.jobhunter.api.rest.job.dto.JobGroupDetailResponse
 import com.mshykhov.jobhunter.api.rest.job.dto.JobIngestRequest
 import com.mshykhov.jobhunter.api.rest.job.dto.JobResponse
-import com.mshykhov.jobhunter.api.rest.job.dto.PaginatedUserJobResponse
+import com.mshykhov.jobhunter.api.rest.job.dto.PaginatedUserJobGroupResponse
 import com.mshykhov.jobhunter.api.rest.job.dto.RecruiterMessageResponse
 import com.mshykhov.jobhunter.api.rest.job.dto.RematchResponse
 import com.mshykhov.jobhunter.api.rest.job.dto.UpdateJobStatusRequest
-import com.mshykhov.jobhunter.api.rest.job.dto.UserJobDetailResponse
-import com.mshykhov.jobhunter.api.rest.job.dto.UserJobFilterRequest
-import com.mshykhov.jobhunter.api.rest.job.dto.UserJobResponse
+import com.mshykhov.jobhunter.api.rest.job.dto.UserJobGroupFilterRequest
+import com.mshykhov.jobhunter.api.rest.job.dto.UserJobGroupResponse
 import com.mshykhov.jobhunter.application.job.JobService
 import com.mshykhov.jobhunter.application.matching.JobMatchingService
 import com.mshykhov.jobhunter.application.outreach.OutreachService
-import com.mshykhov.jobhunter.application.userjob.UserJobService
+import com.mshykhov.jobhunter.application.userjob.UserJobGroupService
 import jakarta.validation.Valid
 import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.security.core.annotation.AuthenticationPrincipal
@@ -36,7 +36,7 @@ import java.util.UUID
 @RequestMapping("/jobs")
 class JobController(
     private val jobService: JobService,
-    private val userJobService: UserJobService,
+    private val userJobGroupService: UserJobGroupService,
     private val jobMatchingService: JobMatchingService,
     private val outreachService: OutreachService,
 ) {
@@ -56,33 +56,30 @@ class JobController(
     @PreAuthorize("hasAuthority('SCOPE_read:jobs')")
     fun search(
         @AuthenticationPrincipal jwt: Jwt,
-        @RequestBody filter: UserJobFilterRequest,
-    ): PaginatedUserJobResponse = userJobService.search(jwt.subject, filter)
+        @RequestBody filter: UserJobGroupFilterRequest,
+    ): PaginatedUserJobGroupResponse = userJobGroupService.search(jwt.subject, filter)
 
-    @GetMapping("/{jobId}")
+    @GetMapping("/groups/{groupId}")
     @PreAuthorize("hasAuthority('SCOPE_read:jobs')")
-    fun getDetail(
+    fun getGroupDetail(
         @AuthenticationPrincipal jwt: Jwt,
-        @PathVariable jobId: UUID,
-    ): UserJobDetailResponse = UserJobDetailResponse.from(userJobService.getDetail(jwt.subject, jobId))
+        @PathVariable groupId: UUID,
+    ): JobGroupDetailResponse = userJobGroupService.getGroupDetail(jwt.subject, groupId)
 
-    @PatchMapping("/{jobId}/status")
+    @PatchMapping("/groups/{groupId}/status")
     @PreAuthorize("hasAuthority('SCOPE_write:jobs')")
-    fun updateStatus(
+    fun updateGroupStatus(
         @AuthenticationPrincipal jwt: Jwt,
-        @PathVariable jobId: UUID,
+        @PathVariable groupId: UUID,
         @Valid @RequestBody request: UpdateJobStatusRequest,
-    ): UserJobResponse = UserJobResponse.from(userJobService.updateStatus(jwt.subject, jobId, request.status))
+    ): UserJobGroupResponse = userJobGroupService.updateGroupStatus(jwt.subject, groupId, request.status)
 
-    @PatchMapping("/status")
+    @PatchMapping("/groups/status")
     @PreAuthorize("hasAuthority('SCOPE_write:jobs')")
-    fun bulkUpdateStatus(
+    fun bulkUpdateGroupStatus(
         @AuthenticationPrincipal jwt: Jwt,
         @Valid @RequestBody request: BulkUpdateStatusRequest,
-    ): List<UserJobResponse> =
-        userJobService
-            .bulkUpdateStatus(jwt.subject, request.jobIds, request.status)
-            .map { UserJobResponse.from(it) }
+    ): List<UserJobGroupResponse> = userJobGroupService.bulkUpdateGroupStatus(jwt.subject, request.groupIds, request.status)
 
     @PostMapping("/{jobId}/outreach/cover-letter")
     @PreAuthorize("hasAuthority('SCOPE_write:jobs')")

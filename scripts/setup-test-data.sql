@@ -1,119 +1,136 @@
--- Setup test jobs + user-job relationships (requires user from setup-user.sql)
+-- Setup test jobs with grouping + user-job-group relationships (requires setup-user.sql)
+-- One group has jobs from 3 sources: LinkedIn, DOU, Djinni (tests grouping)
 -- Run: psql -h localhost -p 5440 -U jobhunter -d jobhunter -f scripts/setup-test-data.sql
 
 BEGIN;
 
-INSERT INTO jobs (id, title, company, url, description, source, raw_data, salary, location, remote, published_at, matched_at)
+-- Group 1: "Senior Kotlin Developer" at "TechCorp" — 4 jobs from 3 sources (same group)
+INSERT INTO job_groups (id, group_key, title, company, job_count)
+VALUES ('e0000000-0000-0000-0000-000000000001',
+        md5('senior kotlin developer::techcorp'),
+        'Senior Kotlin Developer', 'TechCorp', 4)
+ON CONFLICT (group_key) DO NOTHING;
+
+INSERT INTO jobs (id, group_id, title, company, url, description, source, raw_data, salary, location, remote, published_at, matched_at)
 VALUES
     ('c0000000-0000-0000-0000-000000000001',
-     'Senior Kotlin Backend Developer',
+     'e0000000-0000-0000-0000-000000000001',
+     'Senior Kotlin Developer',
      'TechCorp',
-     'https://dou.ua/jobs/1001',
-     'We are looking for a Senior Kotlin Backend Developer to join our team. You will work with Spring Boot, PostgreSQL, and Kubernetes. Requirements: 5+ years of experience with JVM languages, strong knowledge of Kotlin and Spring ecosystem, experience with microservices architecture.',
-     'DOU', '{}'::jsonb, '$6000-8000', 'Remote', true,
-     now() - interval '3 days', now() - interval '2 days'),
+     'https://linkedin.com/jobs/kotlin-techcorp',
+     'TechCorp is hiring a Senior Kotlin Developer. Spring Boot, PostgreSQL, Kubernetes. Fully remote. 5+ years JVM experience required.',
+     'LINKEDIN', '{}'::jsonb, '$7000-9000', 'Remote', true,
+     now() - interval '5 days', now() - interval '3 days'),
 
     ('c0000000-0000-0000-0000-000000000002',
-     'Lead Java/Kotlin Engineer',
-     'FinTech Solutions',
-     'https://djinni.co/jobs/2001',
-     'FinTech Solutions is hiring a Lead Engineer to architect and build our core banking platform. Tech stack: Kotlin, Spring Boot 3, PostgreSQL, Kafka, gRPC. You will lead a team of 5 developers and drive technical decisions.',
-     'DJINNI', '{}'::jsonb, '$8000-10000', 'Remote', true,
-     now() - interval '5 days', now() - interval '4 days'),
-
-    ('c0000000-0000-0000-0000-000000000003',
-     'Senior Backend Engineer (Java)',
-     'CloudScale',
-     'https://dou.ua/jobs/1002',
-     'Join CloudScale as a Senior Backend Engineer. We build cloud-native applications using Java 21, Spring Boot, and AWS. Experience with distributed systems and event-driven architecture is a plus. Competitive salary and fully remote position.',
-     'DOU', '{}'::jsonb, '$5500-7500', 'Remote', true,
-     now() - interval '2 days', now() - interval '1 day'),
-
-    ('c0000000-0000-0000-0000-000000000004',
-     'Kotlin Developer',
-     'StartupXYZ',
-     'https://djinni.co/jobs/2002',
-     'StartupXYZ is building an AI-powered recruitment platform. We need a Kotlin Developer with Spring Boot experience. Bonus: experience with OpenAI API, vector databases, and Kubernetes.',
-     'DJINNI', '{}'::jsonb, '$4500-6000', 'Remote', true,
-     now() - interval '7 days', now() - interval '6 days'),
-
-    ('c0000000-0000-0000-0000-000000000005',
-     'Senior Software Engineer - Platform',
-     'DataFlow Inc',
-     'https://dou.ua/jobs/1003',
-     'DataFlow Inc is looking for a Senior Software Engineer to work on our data platform. Technologies: Kotlin, Spring, PostgreSQL, Apache Kafka, Flink. You will design and implement real-time data processing pipelines.',
-     'DOU', '{}'::jsonb, '$7000-9000', 'Kyiv, Ukraine (Remote OK)', true,
-     now() - interval '1 day', now() - interval '12 hours'),
-
-    ('c0000000-0000-0000-0000-000000000006',
-     'Full Stack Developer (React + Node)',
-     'WebAgency',
-     'https://dou.ua/jobs/1004',
-     'Looking for a Full Stack Developer with React and Node.js experience. Must know TypeScript, Next.js, and MongoDB. PHP knowledge is a plus.',
-     'DOU', '{}'::jsonb, '$3000-4500', 'Kyiv, Ukraine', false,
+     'e0000000-0000-0000-0000-000000000001',
+     'Senior Kotlin Developer',
+     'TechCorp',
+     'https://dou.ua/jobs/kotlin-techcorp',
+     'TechCorp шукає Senior Kotlin Developer. Spring Boot, PostgreSQL, Kubernetes. Remote.',
+     'DOU', '{}'::jsonb, '$6500-8500', 'Remote', true,
      now() - interval '4 days', now() - interval '3 days'),
 
-    ('c0000000-0000-0000-0000-000000000007',
-     'Junior PHP Developer',
-     'WebShop',
-     'https://djinni.co/jobs/2003',
-     'We need a Junior PHP Developer for our WordPress-based e-commerce platform. Experience with WooCommerce and MySQL is required.',
-     'DJINNI', '{}'::jsonb, '$800-1200', 'Lviv, Ukraine', false,
-     now() - interval '6 days', now() - interval '5 days'),
+    ('c0000000-0000-0000-0000-000000000003',
+     'e0000000-0000-0000-0000-000000000001',
+     'Senior Kotlin Developer',
+     'TechCorp',
+     'https://djinni.co/jobs/kotlin-techcorp-1',
+     'Senior Kotlin Developer at TechCorp. Stack: Kotlin, Spring Boot 3, PostgreSQL 16, K8s.',
+     'DJINNI', '{}'::jsonb, '$7000-8500', 'Kyiv (Remote OK)', null,
+     now() - interval '3 days', now() - interval '2 days'),
 
-    ('c0000000-0000-0000-0000-000000000008',
-     'Senior Kotlin Backend Developer',
-     'NeoBank',
-     'https://dou.ua/jobs/1005',
-     'NeoBank is hiring Senior Kotlin Backend Developers. We use Kotlin, Spring Boot, PostgreSQL, and deploy to Kubernetes. Fully remote, great benefits.',
-     'DOU', '{}'::jsonb, '$6500-8500', 'Remote', true,
-     now() - interval '6 hours', null),
-
-    ('c0000000-0000-0000-0000-000000000009',
-     'DevOps Engineer',
-     'InfraCloud',
-     'https://indeed.com/jobs/3001',
-     'InfraCloud needs a DevOps Engineer with Kubernetes, Terraform, and AWS experience. Python scripting skills required.',
-     'LINKEDIN', '{}'::jsonb, '$5000-7000', 'Remote', true,
-     now() - interval '3 hours', null)
-
+    ('c0000000-0000-0000-0000-000000000004',
+     'e0000000-0000-0000-0000-000000000001',
+     'Senior Kotlin Developer',
+     'TechCorp',
+     'https://djinni.co/jobs/kotlin-techcorp-2',
+     'TechCorp needs Senior Kotlin Developer. Microservices, event-driven architecture. Remote-first.',
+     'DJINNI', '{}'::jsonb, null, 'Berlin (Remote OK)', true,
+     now() - interval '2 days', now() - interval '1 day')
 ON CONFLICT (url) DO NOTHING;
 
-INSERT INTO user_jobs (id, user_id, job_id, status, ai_relevance_score, ai_reasoning)
+-- Group 2: "Lead Java/Kotlin Engineer" at "FinTech Solutions" — single job
+INSERT INTO job_groups (id, group_key, title, company, job_count)
+VALUES ('e0000000-0000-0000-0000-000000000002',
+        md5('lead java/kotlin engineer::fintech solutions'),
+        'Lead Java/Kotlin Engineer', 'FinTech Solutions', 1)
+ON CONFLICT (group_key) DO NOTHING;
+
+INSERT INTO jobs (id, group_id, title, company, url, description, source, raw_data, salary, location, remote, published_at, matched_at)
+VALUES
+    ('c0000000-0000-0000-0000-000000000005',
+     'e0000000-0000-0000-0000-000000000002',
+     'Lead Java/Kotlin Engineer',
+     'FinTech Solutions',
+     'https://djinni.co/jobs/lead-fintech',
+     'FinTech Solutions is hiring a Lead Engineer. Kotlin, Spring Boot 3, PostgreSQL, Kafka, gRPC. Lead team of 5.',
+     'DJINNI', '{}'::jsonb, '$8000-10000', 'Remote', true,
+     now() - interval '5 days', now() - interval '4 days')
+ON CONFLICT (url) DO NOTHING;
+
+-- Group 3: "Full Stack Developer (React + Node)" at "WebAgency" — irrelevant job
+INSERT INTO job_groups (id, group_key, title, company, job_count)
+VALUES ('e0000000-0000-0000-0000-000000000003',
+        md5('full stack developer (react + node)::webagency'),
+        'Full Stack Developer (React + Node)', 'WebAgency', 1)
+ON CONFLICT (group_key) DO NOTHING;
+
+INSERT INTO jobs (id, group_id, title, company, url, description, source, raw_data, salary, location, remote, published_at, matched_at)
+VALUES
+    ('c0000000-0000-0000-0000-000000000006',
+     'e0000000-0000-0000-0000-000000000003',
+     'Full Stack Developer (React + Node)',
+     'WebAgency',
+     'https://dou.ua/jobs/fullstack-webagency',
+     'Looking for a Full Stack Developer with React and Node.js. Must know TypeScript, Next.js, MongoDB. PHP knowledge is a plus.',
+     'DOU', '{}'::jsonb, '$3000-4500', 'Kyiv, Ukraine', false,
+     now() - interval '4 days', now() - interval '3 days')
+ON CONFLICT (url) DO NOTHING;
+
+-- Group 4: Unmatched job (no matched_at — will be picked up by matching scheduler)
+INSERT INTO job_groups (id, group_key, title, company, job_count)
+VALUES ('e0000000-0000-0000-0000-000000000004',
+        md5('senior kotlin backend developer::neobank'),
+        'Senior Kotlin Backend Developer', 'NeoBank', 1)
+ON CONFLICT (group_key) DO NOTHING;
+
+INSERT INTO jobs (id, group_id, title, company, url, description, source, raw_data, salary, location, remote, published_at, matched_at)
+VALUES
+    ('c0000000-0000-0000-0000-000000000007',
+     'e0000000-0000-0000-0000-000000000004',
+     'Senior Kotlin Backend Developer',
+     'NeoBank',
+     'https://dou.ua/jobs/kotlin-neobank',
+     'NeoBank is hiring Senior Kotlin Backend Developers. Kotlin, Spring Boot, PostgreSQL, deploy to Kubernetes. Fully remote.',
+     'DOU', '{}'::jsonb, '$6500-8500', 'Remote', true,
+     now() - interval '6 hours', null)
+ON CONFLICT (url) DO NOTHING;
+
+-- User-job-group relationships (for groups 1-3, group 4 is unmatched)
+INSERT INTO user_job_groups (id, user_id, group_id, status, ai_relevance_score, ai_reasoning)
 VALUES
     ('d0000000-0000-0000-0000-000000000001',
      'a0000000-0000-0000-0000-000000000001',
-     'c0000000-0000-0000-0000-000000000001',
-     'NEW', 92, 'Strong match: Senior Kotlin + Spring Boot + PostgreSQL, remote'),
+     'e0000000-0000-0000-0000-000000000001',
+     'NEW', 92,
+     'Strong match: Senior Kotlin + Spring Boot + PostgreSQL, remote, 4 postings from 3 sources'),
 
     ('d0000000-0000-0000-0000-000000000002',
      'a0000000-0000-0000-0000-000000000001',
-     'c0000000-0000-0000-0000-000000000003',
-     'NEW', 78, 'Good match: Senior Java backend, Spring Boot, remote. Kotlin not primary but JVM ecosystem fits'),
+     'e0000000-0000-0000-0000-000000000002',
+     'APPLIED', 95,
+     'Excellent match: Lead Kotlin + Spring, fintech, remote, leadership role'),
 
     ('d0000000-0000-0000-0000-000000000003',
      'a0000000-0000-0000-0000-000000000001',
-     'c0000000-0000-0000-0000-000000000005',
-     'NEW', 88, 'Strong match: Kotlin + Spring + PostgreSQL + Kafka, senior level, remote OK'),
-
-    ('d0000000-0000-0000-0000-000000000004',
-     'a0000000-0000-0000-0000-000000000001',
-     'c0000000-0000-0000-0000-000000000002',
-     'APPLIED', 95, 'Excellent match: Lead Kotlin + Spring, fintech, remote'),
-
-    ('d0000000-0000-0000-0000-000000000005',
-     'a0000000-0000-0000-0000-000000000001',
-     'c0000000-0000-0000-0000-000000000004',
-     'APPLIED', 72, 'Decent match: Kotlin + Spring Boot, startup'),
-
-    ('d0000000-0000-0000-0000-000000000006',
-     'a0000000-0000-0000-0000-000000000001',
-     'c0000000-0000-0000-0000-000000000006',
-     'IRRELEVANT', 25, 'Poor match: Full Stack React/Node, not backend-focused, not remote, PHP mentioned')
-
-ON CONFLICT (user_id, job_id) DO NOTHING;
+     'e0000000-0000-0000-0000-000000000003',
+     'IRRELEVANT', 25,
+     'Poor match: Full Stack React/Node, not backend-focused, not remote, PHP mentioned')
+ON CONFLICT (user_id, group_id) DO NOTHING;
 
 COMMIT;
 
-SELECT 'jobs' AS entity, count(*) FROM jobs
-UNION ALL SELECT 'user_jobs', count(*) FROM user_jobs;
+SELECT 'job_groups' AS entity, count(*) FROM job_groups
+UNION ALL SELECT 'jobs', count(*) FROM jobs
+UNION ALL SELECT 'user_job_groups', count(*) FROM user_job_groups;

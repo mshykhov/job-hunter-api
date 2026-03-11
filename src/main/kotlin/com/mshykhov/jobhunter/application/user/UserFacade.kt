@@ -5,9 +5,7 @@ import org.springframework.transaction.annotation.Transactional
 
 @Component
 @Transactional(readOnly = true)
-class UserFacade(
-    private val userRepository: UserRepository,
-) {
+class UserFacade(private val userRepository: UserRepository) {
     fun findByAuth0Sub(auth0Sub: String): UserEntity? = userRepository.findByAuth0Sub(auth0Sub)
 
     @Transactional

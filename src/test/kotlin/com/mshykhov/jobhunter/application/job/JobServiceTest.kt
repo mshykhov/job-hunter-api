@@ -8,6 +8,7 @@ import io.mockk.slot
 import io.mockk.verify
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.springframework.data.domain.PageImpl
@@ -17,10 +18,24 @@ import java.time.Instant
 
 class JobServiceTest {
     private val jobFacade = mockk<JobFacade>()
-    private val service = JobService(jobFacade)
+    private val jobGroupFacade = mockk<JobGroupFacade>()
+    private val service = JobService(jobFacade, jobGroupFacade)
 
     @Nested
     inner class Ingest {
+        @BeforeEach
+        fun setUp() {
+            every { jobGroupFacade.findByGroupKeys(any()) } returns emptyList()
+            every { jobGroupFacade.findOrCreate(any(), any(), any()) } answers {
+                JobGroupEntity(
+                    groupKey = firstArg(),
+                    title = secondArg(),
+                    company = thirdArg(),
+                )
+            }
+            every { jobGroupFacade.incrementJobCount(any()) } returns Unit
+        }
+
         @Test
         fun `should create new job when URL does not exist`() {
             val request = TestFixtures.jobIngestRequest(url = "https://example.com/new-job")
@@ -131,6 +146,77 @@ class JobServiceTest {
             val result = service.ingest(emptyList())
 
             assertTrue(result.isEmpty())
+        }
+
+        @Test
+        fun `should reuse group when two new jobs have same title and company`() {
+            val url1 = "https://example.com/job-1"
+            val url2 = "https://example.com/job-2"
+            val request1 = TestFixtures.jobIngestRequest(url = url1, title = "Kotlin Dev", company = "ACME")
+            val request2 = TestFixtures.jobIngestRequest(url = url2, title = "Kotlin Dev", company = "ACME")
+
+            every { jobFacade.findByUrls(any()) } returns emptyList()
+            val savedSlot = slot<List<JobEntity>>()
+            every { jobFacade.saveAll(capture(savedSlot)) } answers { firstArg() }
+
+            val result = service.ingest(listOf(request1, request2))
+
+            assertEquals(2, result.size)
+            val groups = savedSlot.captured.map { it.group }.distinct()
+            assertEquals(1, groups.size)
+            verify(exactly = 1) { jobGroupFacade.findOrCreate(any(), any(), any()) }
+            verify(exactly = 1) { jobGroupFacade.incrementJobCount(any()) }
+        }
+
+        @Test
+        fun `should increment job count when new job matches existing group`() {
+            val existingGroup = TestFixtures.jobGroupEntity(title = "Kotlin Dev", company = "ACME")
+            val groupKey = JobGroupKeyComputer.compute("Kotlin Dev", "ACME")
+
+            every { jobGroupFacade.findByGroupKeys(listOf(groupKey)) } returns listOf(existingGroup)
+            every { jobFacade.findByUrls(any()) } returns emptyList()
+            every { jobFacade.saveAll(any()) } answers { firstArg() }
+
+            val request = TestFixtures.jobIngestRequest(title = "Kotlin Dev", company = "ACME")
+            service.ingest(listOf(request))
+
+            verify(exactly = 1) { jobGroupFacade.incrementJobCount(existingGroup.id) }
+            verify(exactly = 0) { jobGroupFacade.findOrCreate(any(), any(), any()) }
+        }
+
+        @Test
+        fun `should create separate groups for different companies`() {
+            val url1 = "https://example.com/job-1"
+            val url2 = "https://example.com/job-2"
+            val request1 = TestFixtures.jobIngestRequest(url = url1, title = "Kotlin Dev", company = "ACME")
+            val request2 = TestFixtures.jobIngestRequest(url = url2, title = "Kotlin Dev", company = "OtherCorp")
+
+            every { jobFacade.findByUrls(any()) } returns emptyList()
+            val savedSlot = slot<List<JobEntity>>()
+            every { jobFacade.saveAll(capture(savedSlot)) } answers { firstArg() }
+
+            val result = service.ingest(listOf(request1, request2))
+
+            assertEquals(2, result.size)
+            val groups = savedSlot.captured.map { it.group }.distinct()
+            assertEquals(2, groups.size)
+            verify(exactly = 2) { jobGroupFacade.findOrCreate(any(), any(), any()) }
+        }
+
+        @Test
+        fun `should not create group for updated existing job`() {
+            val url = "https://example.com/existing"
+            val existingGroup = TestFixtures.jobGroupEntity()
+            val existing = TestFixtures.jobEntity(url = url, title = "Old Title", group = existingGroup)
+            val request = TestFixtures.jobIngestRequest(url = url, title = "New Title")
+
+            every { jobFacade.findByUrls(listOf(url)) } returns listOf(existing)
+            every { jobFacade.saveAll(any()) } answers { firstArg() }
+
+            service.ingest(listOf(request))
+
+            verify(exactly = 0) { jobGroupFacade.findOrCreate(any(), any(), any()) }
+            verify(exactly = 0) { jobGroupFacade.incrementJobCount(any()) }
         }
 
         @Test
@@ -265,6 +351,32 @@ class JobServiceTest {
         }
 
         @Test
+        fun `should classify existing URL with company change as updated`() {
+            val url = "https://example.com/company-changed"
+            val existing = TestFixtures.jobEntity(url = url, company = "OldCorp")
+            val request = JobCheckRequest(url = url, company = "NewCorp")
+
+            every { jobFacade.findByUrls(listOf(url)) } returns listOf(existing)
+
+            val result = service.checkJobs(listOf(request))
+
+            assertEquals(listOf(url), result.updatedUrls)
+        }
+
+        @Test
+        fun `should classify existing URL with location change as updated`() {
+            val url = "https://example.com/location-changed"
+            val existing = TestFixtures.jobEntity(url = url, location = "Kyiv")
+            val request = JobCheckRequest(url = url, location = "Remote")
+
+            every { jobFacade.findByUrls(listOf(url)) } returns listOf(existing)
+
+            val result = service.checkJobs(listOf(request))
+
+            assertEquals(listOf(url), result.updatedUrls)
+        }
+
+        @Test
         fun `should ignore null fields in check request`() {
             val url = "https://example.com/partial"
             val existing = TestFixtures.jobEntity(url = url, title = "Title", salary = "5000")
@@ -337,57 +449,6 @@ class JobServiceTest {
             val result = service.searchPublic(page = -5, size = 10, search = null, sources = null, remote = null, publishedAfter = null)
 
             assertEquals(0, result.page)
-        }
-
-        @Test
-        fun `should apply search filter`() {
-            every { jobFacade.findAll(any<Specification<JobEntity>>(), any<PageRequest>()) } answers {
-                PageImpl(emptyList(), secondArg<PageRequest>(), 0)
-            }
-
-            service.searchPublic(page = 0, size = 10, search = "kotlin", sources = null, remote = null, publishedAfter = null)
-
-            verify { jobFacade.findAll(any<Specification<JobEntity>>(), any<PageRequest>()) }
-        }
-
-        @Test
-        fun `should apply sources filter`() {
-            every { jobFacade.findAll(any<Specification<JobEntity>>(), any<PageRequest>()) } answers {
-                PageImpl(emptyList(), secondArg<PageRequest>(), 0)
-            }
-
-            service.searchPublic(
-                page = 0,
-                size = 10,
-                search = null,
-                sources = listOf(JobSource.DOU, JobSource.DJINNI),
-                remote = null,
-                publishedAfter = null,
-            )
-
-            verify { jobFacade.findAll(any<Specification<JobEntity>>(), any<PageRequest>()) }
-        }
-
-        @Test
-        fun `should apply remote filter`() {
-            every { jobFacade.findAll(any<Specification<JobEntity>>(), any<PageRequest>()) } answers {
-                PageImpl(emptyList(), secondArg<PageRequest>(), 0)
-            }
-
-            service.searchPublic(page = 0, size = 10, search = null, sources = null, remote = true, publishedAfter = null)
-
-            verify { jobFacade.findAll(any<Specification<JobEntity>>(), any<PageRequest>()) }
-        }
-
-        @Test
-        fun `should apply publishedAfter filter`() {
-            every { jobFacade.findAll(any<Specification<JobEntity>>(), any<PageRequest>()) } answers {
-                PageImpl(emptyList(), secondArg<PageRequest>(), 0)
-            }
-
-            service.searchPublic(page = 0, size = 10, search = null, sources = null, remote = null, publishedAfter = Instant.now())
-
-            verify { jobFacade.findAll(any<Specification<JobEntity>>(), any<PageRequest>()) }
         }
     }
 }

@@ -20,6 +20,7 @@ class CacheConfig {
                 .newBuilder()
                 .expireAfterWrite(10, TimeUnit.SECONDS)
                 .maximumSize(500)
+                .recordStats()
                 .build(),
         )
         return manager

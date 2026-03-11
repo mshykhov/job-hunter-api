@@ -6,9 +6,7 @@ import java.util.UUID
 
 @Component
 @Transactional(readOnly = true)
-class UserAiSettingsFacade(
-    private val userAiSettingsRepository: UserAiSettingsRepository,
-) {
+class UserAiSettingsFacade(private val userAiSettingsRepository: UserAiSettingsRepository) {
     fun findByUserId(userId: UUID): UserAiSettingsEntity? = userAiSettingsRepository.findByUserId(userId)
 
     @Transactional

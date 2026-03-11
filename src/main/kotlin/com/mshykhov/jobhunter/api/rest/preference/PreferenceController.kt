@@ -27,9 +27,7 @@ import org.springframework.web.multipart.MultipartFile
 
 @RestController
 @RequestMapping("/preferences")
-class PreferenceController(
-    private val preferenceService: PreferenceService,
-) {
+class PreferenceController(private val preferenceService: PreferenceService) {
     @GetMapping
     @PreAuthorize("hasAuthority('SCOPE_read:preferences')")
     fun get(

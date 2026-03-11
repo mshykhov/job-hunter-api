@@ -1,4 +1,4 @@
--- Setup test user + preferences
+-- Setup test user + preferences for local development
 -- Run: psql -h localhost -p 5440 -U jobhunter -d jobhunter -f scripts/setup-user.sql
 
 BEGIN;
@@ -7,19 +7,22 @@ INSERT INTO users (id, auth0_sub, email, name)
 VALUES ('a0000000-0000-0000-0000-000000000001', 'local-dev-user', 'dev@jobhunter.local', 'Dev User')
 ON CONFLICT (auth0_sub) DO NOTHING;
 
-INSERT INTO user_preferences (id, user_id, raw_input, categories, seniority_levels, keywords,
-                              excluded_keywords, locations, remote_only, disabled_sources,
-                              notifications_enabled)
+INSERT INTO user_preferences (id, user_id, about,
+                              categories, locations, remote_only, disabled_sources,
+                              keywords, excluded_keywords, excluded_title_keywords,
+                              excluded_companies, seniority_levels, match_with_ai)
 VALUES ('b0000000-0000-0000-0000-000000000001',
         'a0000000-0000-0000-0000-000000000001',
         'Senior Kotlin/Java backend developer, remote',
         ARRAY ['kotlin', 'java'],
-        ARRAY ['senior', 'lead'],
-        ARRAY ['spring', 'microservices', 'postgresql', 'kubernetes'],
-        ARRAY ['php', 'wordpress', 'drupal'],
         ARRAY ['Ukraine', 'United Kingdom', 'United States', 'Europe', 'Middle East'],
         true,
         ARRAY[]::text[],
+        ARRAY ['spring', 'microservices', 'postgresql', 'kubernetes'],
+        ARRAY ['php', 'wordpress', 'drupal'],
+        ARRAY[]::text[],
+        ARRAY[]::text[],
+        ARRAY ['senior', 'lead'],
         true)
 ON CONFLICT (user_id) DO NOTHING;
 

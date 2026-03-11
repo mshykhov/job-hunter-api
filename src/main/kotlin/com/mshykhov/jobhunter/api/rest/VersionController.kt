@@ -5,9 +5,7 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
-class VersionController(
-    private val buildProperties: BuildProperties,
-) {
+class VersionController(private val buildProperties: BuildProperties) {
     @GetMapping("/public/version")
     fun getVersion(): VersionResponse =
         VersionResponse(
@@ -16,7 +14,4 @@ class VersionController(
         )
 }
 
-data class VersionResponse(
-    val version: String,
-    val name: String,
-)
+data class VersionResponse(val version: String, val name: String)

@@ -12,10 +12,7 @@ import org.springframework.web.filter.OncePerRequestFilter
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
-class RateLimitFilter(
-    private val properties: RateLimitProperties,
-    private val objectMapper: ObjectMapper,
-) : OncePerRequestFilter() {
+class RateLimitFilter(private val properties: RateLimitProperties, private val objectMapper: ObjectMapper) : OncePerRequestFilter() {
     private val requestCounts =
         Caffeine
             .newBuilder()

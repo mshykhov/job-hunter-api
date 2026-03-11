@@ -11,9 +11,7 @@ import org.springframework.web.bind.annotation.RestController
 
 @RestController
 @RequestMapping("/proxies")
-class ProxyController(
-    private val proxyService: ProxyService,
-) {
+class ProxyController(private val proxyService: ProxyService) {
     @GetMapping
     @PreAuthorize("hasAuthority('SCOPE_read:proxies')")
     fun get(

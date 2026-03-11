@@ -10,10 +10,7 @@ import kotlin.random.Random
 
 private val logger = KotlinLogging.logger {}
 
-class FingerprintProvider(
-    private val restClient: RestClient,
-    private val properties: ScrapeOpsProperties,
-) {
+class FingerprintProvider(private val restClient: RestClient, private val properties: ScrapeOpsProperties) {
     private val cache = AtomicReference<List<BrowserFingerprint>>(emptyList())
 
     @Volatile

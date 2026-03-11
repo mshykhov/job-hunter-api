@@ -14,9 +14,7 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
 @Configuration
-class OpenApiConfig(
-    private val auth0Properties: Auth0Properties,
-) {
+class OpenApiConfig(private val auth0Properties: Auth0Properties) {
     @Bean
     fun openApi(): OpenAPI {
         val openAPI =

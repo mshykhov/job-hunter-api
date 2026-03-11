@@ -5,10 +5,11 @@ import com.mshykhov.jobhunter.application.ai.JobRelevanceEvaluator
 import com.mshykhov.jobhunter.application.ai.UserAiSettingsFacade
 import com.mshykhov.jobhunter.application.job.JobEntity
 import com.mshykhov.jobhunter.application.job.JobFacade
+import com.mshykhov.jobhunter.application.job.JobGroupEntity
 import com.mshykhov.jobhunter.application.preference.UserPreferenceEntity
 import com.mshykhov.jobhunter.application.preference.UserPreferenceFacade
-import com.mshykhov.jobhunter.application.userjob.UserJobEntity
-import com.mshykhov.jobhunter.application.userjob.UserJobFacade
+import com.mshykhov.jobhunter.application.userjob.UserJobGroupEntity
+import com.mshykhov.jobhunter.application.userjob.UserJobGroupFacade
 import com.mshykhov.jobhunter.infrastructure.ai.AiProperties
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
@@ -31,7 +32,7 @@ private val logger = KotlinLogging.logger {}
 class JobMatchingService(
     private val jobFacade: JobFacade,
     private val userPreferenceFacade: UserPreferenceFacade,
-    private val userJobFacade: UserJobFacade,
+    private val userJobGroupFacade: UserJobGroupFacade,
     private val userAiSettingsFacade: UserAiSettingsFacade,
     private val jobRelevanceEvaluator: JobRelevanceEvaluator,
     private val chatClientFactory: ChatClientFactory,
@@ -50,75 +51,80 @@ class JobMatchingService(
             return
         }
 
+        val jobsByGroup = jobs.groupBy { it.group }
         val userChatClients = buildUserChatClients(preferences)
 
         logger.info {
-            "Matching ${jobs.size} jobs against ${preferences.size} user preferences " +
+            "Matching ${jobs.size} jobs (${jobsByGroup.size} groups) against ${preferences.size} user preferences " +
                 "(${userChatClients.size} AI-enabled)"
         }
 
         val semaphore = Semaphore(aiProperties.matching.concurrency)
         val results =
             runBlocking(Dispatchers.IO) {
-                jobs
-                    .map { job ->
+                jobsByGroup.entries
+                    .map { (group, groupJobs) ->
                         async {
                             semaphore.withPermit {
-                                processJob(job, preferences, userChatClients)
+                                processGroup(group, groupJobs, preferences, userChatClients)
                             }
                         }
                     }.awaitAll()
             }
 
         val successResults = results.filterIsInstance<MatchResult.Success>()
-        val matched = successResults.map { it.job }
+        val matchedJobs = successResults.flatMap { it.jobs }
         val failedCount = results.count { it is MatchResult.Failure }
         val totalStats = successResults.fold(MatchingStats()) { acc, r -> acc.merge(r.stats) }
 
-        if (matched.isNotEmpty()) markMatched(matched)
+        if (matchedJobs.isNotEmpty()) markMatched(matchedJobs)
 
         logger.info {
-            "Matching complete: ${matched.size}/${jobs.size} processed, $failedCount failed — ${totalStats.summary()}"
+            "Matching complete: ${matchedJobs.size}/${jobs.size} processed ($failedCount failed) — ${totalStats.summary()}"
         }
-        // TODO: [REPORT] if totalStats.aiFailed > threshold or failedCount > 0, notify admin
     }
 
-    private fun processJob(
-        job: JobEntity,
+    private fun processGroup(
+        group: JobGroupEntity,
+        groupJobs: List<JobEntity>,
         preferences: List<UserPreferenceEntity>,
         userChatClients: Map<UUID, ChatClient>,
     ): MatchResult =
         try {
             val stats = MatchingStats()
-            val userJobs = matchJobToUsers(job, preferences, userChatClients, stats)
-            if (userJobs.isNotEmpty()) {
-                userJobFacade.saveAll(userJobs)
-                stats.saved += userJobs.size
+            val representative = selectRepresentative(groupJobs)
+            val userJobGroups = matchGroupToUsers(group, representative, preferences, userChatClients, stats)
+            if (userJobGroups.isNotEmpty()) {
+                userJobGroupFacade.saveAll(userJobGroups)
+                stats.saved += userJobGroups.size
                 logger.info {
-                    "Job '${job.title}' matched to ${userJobs.size} users (scores: ${userJobs.map { it.aiRelevanceScore }})"
+                    "Group '${group.title}' (${groupJobs.size} jobs) matched to ${userJobGroups.size} users " +
+                        "(scores: ${userJobGroups.map { it.aiRelevanceScore }})"
                 }
             }
-            MatchResult.Success(job, stats)
+            MatchResult.Success(groupJobs, stats)
         } catch (e: Exception) {
-            logger.error(e) { "Matching failed for job '${job.title}'" }
-            // TODO: [REPORT] persistent failures may indicate API key expiry or rate limit
+            logger.error(e) { "Matching failed for group '${group.title}'" }
             MatchResult.Failure
         }
 
-    private fun matchJobToUsers(
-        job: JobEntity,
+    private fun selectRepresentative(groupJobs: List<JobEntity>): JobEntity = groupJobs.maxBy { it.description.length }
+
+    private fun matchGroupToUsers(
+        group: JobGroupEntity,
+        representative: JobEntity,
         preferences: List<UserPreferenceEntity>,
         userChatClients: Map<UUID, ChatClient>,
         stats: MatchingStats,
-    ): List<UserJobEntity> {
-        val existingByUserId = userJobFacade.findByJobId(job.id).associateBy { it.user.id }
-        val userJobs = mutableListOf<UserJobEntity>()
+    ): List<UserJobGroupEntity> {
+        val existingByUserId = userJobGroupFacade.findByGroupId(group.id).associateBy { it.user.id }
+        val userJobGroups = mutableListOf<UserJobGroupEntity>()
 
         for (preference in preferences) {
-            val filterResult = coldFilterChain.evaluate(job, preference)
+            val filterResult = coldFilterChain.evaluate(representative, preference)
             if (filterResult is FilterResult.Rejected) {
                 logger.debug {
-                    "Job '${job.title}' rejected for user ${preference.user.id} " +
+                    "Group '${group.title}' rejected for user ${preference.user.id} " +
                         "by [${filterResult.filter}]: ${filterResult.reason}"
                 }
                 stats.coldRejected++
@@ -129,49 +135,48 @@ class JobMatchingService(
             val chatClient = userChatClients[preference.user.id]
 
             if (chatClient != null) {
-                val result = evaluateWithAi(job, preference, chatClient, stats, existing)
-                if (result != null) userJobs += result
+                val result = evaluateWithAi(group, representative, preference, chatClient, stats, existing)
+                if (result != null) userJobGroups += result
             } else {
                 stats.coldOnly++
-                userJobs += existing?.apply {
+                userJobGroups += existing?.apply {
                     aiRelevanceScore = 0
                     aiReasoning = COLD_ONLY_REASONING
-                    aiInferredRemote = null
-                } ?: UserJobEntity(
+                } ?: UserJobGroupEntity(
                     user = preference.user,
-                    job = job,
+                    group = group,
                     aiRelevanceScore = 0,
                     aiReasoning = COLD_ONLY_REASONING,
                 )
             }
         }
 
-        return userJobs
+        return userJobGroups
     }
 
     private fun evaluateWithAi(
-        job: JobEntity,
+        group: JobGroupEntity,
+        representative: JobEntity,
         preference: UserPreferenceEntity,
         chatClient: ChatClient,
         stats: MatchingStats,
-        existing: UserJobEntity?,
-    ): UserJobEntity? {
+        existing: UserJobGroupEntity?,
+    ): UserJobGroupEntity? {
         val aiResult =
             try {
-                jobRelevanceEvaluator.evaluate(job, preference, chatClient)
+                jobRelevanceEvaluator.evaluate(representative, preference, chatClient)
             } catch (e: Exception) {
-                logger.warn(e) { "AI evaluation failed for job '${job.title}', user ${preference.user.id}" }
-                // TODO: [REPORT] AI call failure — may need admin attention
+                logger.warn(e) { "AI evaluation failed for group '${group.title}', user ${preference.user.id}" }
                 stats.aiFailed++
                 return null
             }
         stats.aiEvaluated++
 
-        backfillRemoteIfNeeded(job, aiResult.inferredRemote)
+        backfillRemoteIfNeeded(representative, aiResult.inferredRemote)
 
         if (preference.search.remoteOnly && !aiResult.inferredRemote) {
             logger.debug {
-                "Job '${job.title}' post-AI rejected for user ${preference.user.id}: " +
+                "Group '${group.title}' post-AI rejected for user ${preference.user.id}: " +
                     "remoteOnly but inferredRemote=false"
             }
             stats.postAiRejected++
@@ -181,13 +186,11 @@ class JobMatchingService(
         return existing?.apply {
             aiRelevanceScore = aiResult.score
             aiReasoning = aiResult.reasoning
-            aiInferredRemote = aiResult.inferredRemote
-        } ?: UserJobEntity(
+        } ?: UserJobGroupEntity(
             user = preference.user,
-            job = job,
+            group = group,
             aiRelevanceScore = aiResult.score,
             aiReasoning = aiResult.reasoning,
-            aiInferredRemote = aiResult.inferredRemote,
         )
     }
 
@@ -210,7 +213,6 @@ class JobMatchingService(
                 val settings = userAiSettingsFacade.findByUserId(userId)
                 if (settings == null) {
                     logger.warn { "User $userId has matchWithAi=true but no AI settings — falling back to cold-only" }
-                    // TODO: [REPORT] user enabled AI matching without API key — notify user
                     null
                 } else {
                     userId to chatClientFactory.createForUser(settings)
@@ -240,10 +242,7 @@ class JobMatchingService(
     }
 
     private sealed interface MatchResult {
-        data class Success(
-            val job: JobEntity,
-            val stats: MatchingStats,
-        ) : MatchResult
+        data class Success(val jobs: List<JobEntity>, val stats: MatchingStats) : MatchResult
 
         data object Failure : MatchResult
     }

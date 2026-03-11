@@ -1,5 +1,6 @@
 package com.mshykhov.jobhunter.application.job
 
+import org.springframework.data.jpa.repository.EntityGraph
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor
 import org.springframework.data.jpa.repository.Modifying
@@ -12,6 +13,9 @@ interface JobRepository :
     JpaSpecificationExecutor<JobEntity> {
     fun findByUrlIn(urls: List<String>): List<JobEntity>
 
+    fun findByGroupId(groupId: UUID): List<JobEntity>
+
+    @EntityGraph(attributePaths = ["group"])
     fun findByMatchedAtIsNull(): List<JobEntity>
 
     fun findByMatchedAtIsNotNull(): List<JobEntity>

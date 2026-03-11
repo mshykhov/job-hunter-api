@@ -5,8 +5,6 @@ import com.mshykhov.jobhunter.application.user.UserEntity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EntityListeners
-import jakarta.persistence.EnumType
-import jakarta.persistence.Enumerated
 import jakarta.persistence.FetchType
 import jakarta.persistence.Id
 import jakarta.persistence.JoinColumn
@@ -38,15 +36,6 @@ class UserJobEntity(
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "job_id", nullable = false)
     val job: JobEntity,
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    var status: UserJobStatus = UserJobStatus.NEW,
-    @Column(name = "ai_relevance_score", nullable = false)
-    var aiRelevanceScore: Int,
-    @Column(name = "ai_reasoning", columnDefinition = "TEXT", nullable = false)
-    var aiReasoning: String,
-    @Column(name = "ai_inferred_remote")
-    var aiInferredRemote: Boolean? = null,
     @Column(name = "cover_letter", columnDefinition = "TEXT")
     var coverLetter: String? = null,
     @Column(name = "recruiter_message", columnDefinition = "TEXT")

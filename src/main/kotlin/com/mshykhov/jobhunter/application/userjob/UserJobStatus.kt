@@ -3,12 +3,10 @@ package com.mshykhov.jobhunter.application.userjob
 import com.fasterxml.jackson.annotation.JsonCreator
 import com.mshykhov.jobhunter.application.common.ValueMappedEnum
 
-enum class UserJobStatus(
-    override val value: String,
-) : ValueMappedEnum {
-    NEW("new"),
-    APPLIED("applied"),
-    IRRELEVANT("irrelevant"),
+enum class UserJobStatus(override val value: String, val displayName: String) : ValueMappedEnum {
+    NEW("new", "New"),
+    APPLIED("applied", "Applied"),
+    IRRELEVANT("irrelevant", "Irrelevant"),
     ;
 
     override fun toString(): String = value

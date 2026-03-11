@@ -5,7 +5,10 @@ import jakarta.persistence.Entity
 import jakarta.persistence.EntityListeners
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
+import jakarta.persistence.FetchType
 import jakarta.persistence.Id
+import jakarta.persistence.JoinColumn
+import jakarta.persistence.ManyToOne
 import jakarta.persistence.PostLoad
 import jakarta.persistence.PostPersist
 import jakarta.persistence.Table
@@ -28,6 +31,9 @@ class JobEntity(
     @Column(nullable = false)
     var title: String,
     val company: String? = null,
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "group_id", nullable = false)
+    val group: JobGroupEntity,
     @Column(nullable = false, unique = true)
     val url: String,
     @Column(nullable = false, columnDefinition = "TEXT")

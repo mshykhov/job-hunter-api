@@ -1,6 +1,7 @@
 package com.mshykhov.jobhunter.api.rest.job.dto
 
 import com.mshykhov.jobhunter.application.job.JobEntity
+import com.mshykhov.jobhunter.application.job.JobGroupEntity
 import com.mshykhov.jobhunter.application.job.JobSource
 import jakarta.validation.constraints.NotBlank
 import java.time.Instant
@@ -19,10 +20,14 @@ data class JobIngestRequest(
     val publishedAt: String? = null,
     val rawData: Map<String, Any?> = emptyMap(),
 ) {
-    fun toEntity(parsedPublishedAt: Instant?): JobEntity =
+    fun toEntity(
+        parsedPublishedAt: Instant?,
+        group: JobGroupEntity,
+    ): JobEntity =
         JobEntity(
             title = title,
             company = company,
+            group = group,
             url = url,
             description = description,
             source = source,

@@ -10,15 +10,15 @@ import java.util.UUID
 
 @Component
 @Transactional(readOnly = true)
-class JobFacade(
-    private val jobRepository: JobRepository,
-) {
+class JobFacade(private val jobRepository: JobRepository) {
     fun findAll(
         spec: Specification<JobEntity>,
         pageable: Pageable,
     ): Page<JobEntity> = jobRepository.findAll(spec, pageable)
 
     fun findByUrls(urls: List<String>): List<JobEntity> = jobRepository.findByUrlIn(urls)
+
+    fun findByGroupId(groupId: UUID): List<JobEntity> = jobRepository.findByGroupId(groupId)
 
     fun findUnmatched(): List<JobEntity> = jobRepository.findByMatchedAtIsNull()
 

@@ -14,9 +14,7 @@ private val logger = KotlinLogging.logger {}
 
 @Component
 @Converter
-class AiEncryptionConverter(
-    private val aiProperties: AiProperties,
-) : AttributeConverter<String, String> {
+class AiEncryptionConverter(private val aiProperties: AiProperties) : AttributeConverter<String, String> {
     private val secretKey: SecretKeySpec by lazy {
         val keyBytes = Base64.getDecoder().decode(aiProperties.encryptionKey)
         require(keyBytes.size == KEY_LENGTH_BYTES) {

@@ -6,9 +6,7 @@ import com.mshykhov.jobhunter.application.preference.UserPreferenceFacade
 import org.springframework.stereotype.Service
 
 @Service
-class SearchCriteriaService(
-    private val userPreferenceFacade: UserPreferenceFacade,
-) {
+class SearchCriteriaService(private val userPreferenceFacade: UserPreferenceFacade) {
     fun getAggregated(source: JobSource): SearchCriteriaResponse {
         val preferences = userPreferenceFacade.findBySourceAllowed(source.name)
         val categories = preferences.flatMap { it.search.categories }.distinct()

@@ -1,5 +1,3 @@
 package com.mshykhov.jobhunter.application.common
 
-class NotFoundException(
-    message: String,
-) : RuntimeException(message)
+class NotFoundException(message: String) : RuntimeException(message)

@@ -6,9 +6,7 @@ import java.util.UUID
 
 @Component
 @Transactional(readOnly = true)
-class UserPreferenceFacade(
-    private val userPreferenceRepository: UserPreferenceRepository,
-) {
+class UserPreferenceFacade(private val userPreferenceRepository: UserPreferenceRepository) {
     fun findAll(): List<UserPreferenceEntity> = userPreferenceRepository.findAll()
 
     fun findBySourceAllowed(source: String): List<UserPreferenceEntity> = userPreferenceRepository.findBySourceAllowed(source)

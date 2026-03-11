@@ -1,13 +1,22 @@
 package com.mshykhov.jobhunter.api.rest.job
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.mshykhov.jobhunter.application.job.JobGroupRepository
+import com.mshykhov.jobhunter.application.job.JobRepository
 import com.mshykhov.jobhunter.application.job.JobSource
 import com.mshykhov.jobhunter.application.job.JobSource.DJINNI
 import com.mshykhov.jobhunter.application.job.JobSource.DOU
+import com.mshykhov.jobhunter.application.user.UserEntity
+import com.mshykhov.jobhunter.application.user.UserRepository
+import com.mshykhov.jobhunter.application.userjob.UserJobGroupEntity
+import com.mshykhov.jobhunter.application.userjob.UserJobGroupRepository
+import com.mshykhov.jobhunter.application.userjob.UserJobStatus
 import com.mshykhov.jobhunter.application.userjob.UserJobStatus.APPLIED
+import com.mshykhov.jobhunter.infrastructure.security.DevAuthenticationFilter
 import com.mshykhov.jobhunter.support.AbstractIntegrationTest
 import com.mshykhov.jobhunter.support.TestFixtures
 import org.hamcrest.Matchers.equalTo
+import org.hamcrest.Matchers.greaterThanOrEqualTo
 import org.hamcrest.Matchers.hasSize
 import org.hamcrest.Matchers.notNullValue
 import org.junit.jupiter.api.Nested
@@ -26,6 +35,22 @@ class JobControllerIntegrationTest : AbstractIntegrationTest() {
 
     @Autowired
     lateinit var objectMapper: ObjectMapper
+
+    @Autowired
+    lateinit var userRepository: UserRepository
+
+    @Autowired
+    lateinit var jobRepository: JobRepository
+
+    @Autowired
+    lateinit var jobGroupRepository: JobGroupRepository
+
+    @Autowired
+    lateinit var userJobGroupRepository: UserJobGroupRepository
+
+    private fun getOrCreateDevUser(): UserEntity =
+        userRepository.findByAuth0Sub(DevAuthenticationFilter.DEV_USER_SUB)
+            ?: userRepository.save(UserEntity(auth0Sub = DevAuthenticationFilter.DEV_USER_SUB))
 
     @Nested
     inner class Ingest {
@@ -259,11 +284,401 @@ class JobControllerIntegrationTest : AbstractIntegrationTest() {
     }
 
     @Nested
+    inner class Search {
+        @Test
+        fun `should return paginated groups with status counts`() {
+            val user = getOrCreateDevUser()
+            val uniqueSuffix = System.nanoTime()
+
+            val requests =
+                listOf(
+                    TestFixtures.jobIngestRequest(
+                        title = "Search Test $uniqueSuffix",
+                        url = "https://example.com/search-$uniqueSuffix",
+                        source = DOU,
+                    ),
+                )
+            mockMvc
+                .post("/jobs/ingest") {
+                    contentType = APPLICATION_JSON
+                    content = objectMapper.writeValueAsString(requests)
+                }.andExpect { status { isOk() } }
+
+            val group = jobGroupRepository.findAll().first { it.title == "Search Test $uniqueSuffix" }
+            userJobGroupRepository.save(
+                UserJobGroupEntity(
+                    user = user,
+                    group = group,
+                    status = UserJobStatus.NEW,
+                    aiRelevanceScore = 85,
+                    aiReasoning = "Good match",
+                ),
+            )
+
+            mockMvc
+                .post("/jobs/search") {
+                    contentType = APPLICATION_JSON
+                    content = """{"search": "Search Test $uniqueSuffix"}"""
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.content", hasSize<Any>(1))
+                    jsonPath("$.content[0].title", equalTo("Search Test $uniqueSuffix"))
+                    jsonPath("$.content[0].status", equalTo(UserJobStatus.NEW.value))
+                    jsonPath("$.content[0].aiRelevanceScore", equalTo(85))
+                    jsonPath("$.content[0].jobCount", greaterThanOrEqualTo(1))
+                    jsonPath("$.totalElements", equalTo(1))
+                    jsonPath("$.statusCounts", notNullValue())
+                }
+        }
+    }
+
+    @Nested
+    inner class SearchFilters {
+        @Test
+        fun `should filter groups by status`() {
+            val user = getOrCreateDevUser()
+            val suffix = System.nanoTime()
+
+            val requests =
+                listOf(
+                    TestFixtures.jobIngestRequest(
+                        title = "StatusFilter $suffix",
+                        url = "https://example.com/status-filter-$suffix",
+                        source = DOU,
+                    ),
+                )
+            mockMvc
+                .post("/jobs/ingest") {
+                    contentType = APPLICATION_JSON
+                    content = objectMapper.writeValueAsString(requests)
+                }.andExpect { status { isOk() } }
+
+            val group = jobGroupRepository.findAll().first { it.title == "StatusFilter $suffix" }
+            userJobGroupRepository.save(
+                UserJobGroupEntity(
+                    user = user,
+                    group = group,
+                    status = APPLIED,
+                    aiRelevanceScore = 80,
+                    aiReasoning = "Match",
+                ),
+            )
+
+            mockMvc
+                .post("/jobs/search") {
+                    contentType = APPLICATION_JSON
+                    content = """{"statuses": ["${APPLIED.value}"], "search": "StatusFilter $suffix"}"""
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.content", hasSize<Any>(1))
+                    jsonPath("$.content[0].status", equalTo(APPLIED.value))
+                }
+
+            mockMvc
+                .post("/jobs/search") {
+                    contentType = APPLICATION_JSON
+                    content = """{"statuses": ["${UserJobStatus.IRRELEVANT.value}"], "search": "StatusFilter $suffix"}"""
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.content", hasSize<Any>(0))
+                }
+        }
+
+        @Test
+        fun `should filter groups by minScore`() {
+            val user = getOrCreateDevUser()
+            val suffix = System.nanoTime()
+
+            val requests =
+                listOf(
+                    TestFixtures.jobIngestRequest(
+                        title = "ScoreFilter $suffix",
+                        url = "https://example.com/score-filter-$suffix",
+                        source = DOU,
+                    ),
+                )
+            mockMvc
+                .post("/jobs/ingest") {
+                    contentType = APPLICATION_JSON
+                    content = objectMapper.writeValueAsString(requests)
+                }.andExpect { status { isOk() } }
+
+            val group = jobGroupRepository.findAll().first { it.title == "ScoreFilter $suffix" }
+            userJobGroupRepository.save(
+                UserJobGroupEntity(
+                    user = user,
+                    group = group,
+                    status = UserJobStatus.NEW,
+                    aiRelevanceScore = 60,
+                    aiReasoning = "Partial match",
+                ),
+            )
+
+            mockMvc
+                .post("/jobs/search") {
+                    contentType = APPLICATION_JSON
+                    content = """{"minScore": 50, "search": "ScoreFilter $suffix"}"""
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.content", hasSize<Any>(1))
+                }
+
+            mockMvc
+                .post("/jobs/search") {
+                    contentType = APPLICATION_JSON
+                    content = """{"minScore": 80, "search": "ScoreFilter $suffix"}"""
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.content", hasSize<Any>(0))
+                }
+        }
+
+        @Test
+        fun `should filter groups by matchedAfter`() {
+            val user = getOrCreateDevUser()
+            val suffix = System.nanoTime()
+
+            val requests =
+                listOf(
+                    TestFixtures.jobIngestRequest(
+                        title = "MatchedAfterFilter $suffix",
+                        url = "https://example.com/matched-after-$suffix",
+                        source = DOU,
+                    ),
+                )
+            mockMvc
+                .post("/jobs/ingest") {
+                    contentType = APPLICATION_JSON
+                    content = objectMapper.writeValueAsString(requests)
+                }.andExpect { status { isOk() } }
+
+            val group = jobGroupRepository.findAll().first { it.title == "MatchedAfterFilter $suffix" }
+            userJobGroupRepository.save(
+                UserJobGroupEntity(
+                    user = user,
+                    group = group,
+                    status = UserJobStatus.NEW,
+                    aiRelevanceScore = 70,
+                    aiReasoning = "Match",
+                ),
+            )
+
+            mockMvc
+                .post("/jobs/search") {
+                    contentType = APPLICATION_JSON
+                    content = """{"matchedAfter": "2020-01-01T00:00:00Z", "search": "MatchedAfterFilter $suffix"}"""
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.content", hasSize<Any>(1))
+                }
+
+            mockMvc
+                .post("/jobs/search") {
+                    contentType = APPLICATION_JSON
+                    content = """{"matchedAfter": "2099-01-01T00:00:00Z", "search": "MatchedAfterFilter $suffix"}"""
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.content", hasSize<Any>(0))
+                }
+        }
+
+        @Test
+        fun `should filter groups by remote`() {
+            val user = getOrCreateDevUser()
+            val suffix = System.nanoTime()
+
+            val requests =
+                listOf(
+                    TestFixtures.jobIngestRequest(
+                        title = "RemoteFilter $suffix",
+                        url = "https://example.com/remote-filter-$suffix",
+                        source = DOU,
+                        remote = true,
+                    ),
+                )
+            mockMvc
+                .post("/jobs/ingest") {
+                    contentType = APPLICATION_JSON
+                    content = objectMapper.writeValueAsString(requests)
+                }.andExpect { status { isOk() } }
+
+            val group = jobGroupRepository.findAll().first { it.title == "RemoteFilter $suffix" }
+            userJobGroupRepository.save(
+                UserJobGroupEntity(
+                    user = user,
+                    group = group,
+                    status = UserJobStatus.NEW,
+                    aiRelevanceScore = 75,
+                    aiReasoning = "Match",
+                ),
+            )
+
+            mockMvc
+                .post("/jobs/search") {
+                    contentType = APPLICATION_JSON
+                    content = """{"remote": true, "search": "RemoteFilter $suffix"}"""
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.content", hasSize<Any>(1))
+                }
+        }
+    }
+
+    @Nested
+    inner class GetGroupDetail {
+        @Test
+        fun `should return group detail with jobs`() {
+            val user = getOrCreateDevUser()
+            val uniqueSuffix = System.nanoTime()
+
+            val requests =
+                listOf(
+                    TestFixtures.jobIngestRequest(
+                        title = "Detail Test $uniqueSuffix",
+                        url = "https://example.com/detail-$uniqueSuffix",
+                        source = DOU,
+                    ),
+                )
+            mockMvc
+                .post("/jobs/ingest") {
+                    contentType = APPLICATION_JSON
+                    content = objectMapper.writeValueAsString(requests)
+                }.andExpect { status { isOk() } }
+
+            val group = jobGroupRepository.findAll().first { it.title == "Detail Test $uniqueSuffix" }
+            userJobGroupRepository.save(
+                UserJobGroupEntity(
+                    user = user,
+                    group = group,
+                    status = UserJobStatus.NEW,
+                    aiRelevanceScore = 90,
+                    aiReasoning = "Excellent match",
+                ),
+            )
+
+            mockMvc
+                .get("/jobs/groups/${group.id}")
+                .andExpect {
+                    status { isOk() }
+                    jsonPath("$.groupId", equalTo(group.id.toString()))
+                    jsonPath("$.title", equalTo("Detail Test $uniqueSuffix"))
+                    jsonPath("$.status", equalTo(UserJobStatus.NEW.value))
+                    jsonPath("$.aiRelevanceScore", equalTo(90))
+                    jsonPath("$.aiReasoning", equalTo("Excellent match"))
+                    jsonPath("$.jobs", hasSize<Any>(1))
+                    jsonPath("$.jobs[0].source", equalTo(DOU.value))
+                }
+        }
+    }
+
+    @Nested
+    inner class UpdateGroupStatus {
+        @Test
+        fun `should update group status and return updated response`() {
+            val user = getOrCreateDevUser()
+            val uniqueSuffix = System.nanoTime()
+
+            val requests =
+                listOf(
+                    TestFixtures.jobIngestRequest(
+                        title = "Status Test $uniqueSuffix",
+                        url = "https://example.com/status-$uniqueSuffix",
+                        source = DOU,
+                    ),
+                )
+            mockMvc
+                .post("/jobs/ingest") {
+                    contentType = APPLICATION_JSON
+                    content = objectMapper.writeValueAsString(requests)
+                }.andExpect { status { isOk() } }
+
+            val group = jobGroupRepository.findAll().first { it.title == "Status Test $uniqueSuffix" }
+            userJobGroupRepository.save(
+                UserJobGroupEntity(
+                    user = user,
+                    group = group,
+                    status = UserJobStatus.NEW,
+                    aiRelevanceScore = 80,
+                    aiReasoning = "Good match",
+                ),
+            )
+
+            mockMvc
+                .patch("/jobs/groups/${group.id}/status") {
+                    contentType = APPLICATION_JSON
+                    content = """{"status": "${APPLIED.value}"}"""
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.status", equalTo(APPLIED.value))
+                    jsonPath("$.title", equalTo("Status Test $uniqueSuffix"))
+                    jsonPath("$.groupId", equalTo(group.id.toString()))
+                }
+        }
+    }
+
+    @Nested
+    inner class BulkUpdateGroupStatus {
+        @Test
+        fun `should bulk update group statuses`() {
+            val user = getOrCreateDevUser()
+            val uniqueSuffix = System.nanoTime()
+
+            val requests =
+                listOf(
+                    TestFixtures.jobIngestRequest(
+                        title = "Bulk1 $uniqueSuffix",
+                        url = "https://example.com/bulk1-$uniqueSuffix",
+                        source = DOU,
+                    ),
+                    TestFixtures.jobIngestRequest(
+                        title = "Bulk2 $uniqueSuffix",
+                        url = "https://example.com/bulk2-$uniqueSuffix",
+                        source = DJINNI,
+                    ),
+                )
+            mockMvc
+                .post("/jobs/ingest") {
+                    contentType = APPLICATION_JSON
+                    content = objectMapper.writeValueAsString(requests)
+                }.andExpect { status { isOk() } }
+
+            val groups = jobGroupRepository.findAll().filter { it.title.contains(uniqueSuffix.toString()) }
+            groups.forEach { group ->
+                userJobGroupRepository.save(
+                    UserJobGroupEntity(
+                        user = user,
+                        group = group,
+                        status = UserJobStatus.NEW,
+                        aiRelevanceScore = 70,
+                        aiReasoning = "Match",
+                    ),
+                )
+            }
+
+            val groupIds = groups.map { it.id }
+
+            mockMvc
+                .patch("/jobs/groups/status") {
+                    contentType = APPLICATION_JSON
+                    content =
+                        objectMapper.writeValueAsString(
+                            mapOf("groupIds" to groupIds, "status" to UserJobStatus.IRRELEVANT.value),
+                        )
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$", hasSize<Any>(2))
+                    jsonPath("$[0].status", equalTo(UserJobStatus.IRRELEVANT.value))
+                    jsonPath("$[1].status", equalTo(UserJobStatus.IRRELEVANT.value))
+                }
+        }
+    }
+
+    @Nested
     inner class ErrorHandling {
         @Test
-        fun `should return 404 when getting detail for non-existent job`() {
+        fun `should return 404 when getting detail for non-existent group`() {
             mockMvc
-                .get("/jobs/${UUID.randomUUID()}")
+                .get("/jobs/groups/${UUID.randomUUID()}")
                 .andExpect {
                     status { isNotFound() }
                     jsonPath("$.code", equalTo("NOT_FOUND"))
@@ -271,9 +686,9 @@ class JobControllerIntegrationTest : AbstractIntegrationTest() {
         }
 
         @Test
-        fun `should return 404 when updating status of non-existent job`() {
+        fun `should return 404 when updating status of non-existent group`() {
             mockMvc
-                .patch("/jobs/${UUID.randomUUID()}/status") {
+                .patch("/jobs/groups/${UUID.randomUUID()}/status") {
                     contentType = APPLICATION_JSON
                     content = """{"status": "${APPLIED.value}"}"""
                 }.andExpect {
@@ -283,11 +698,24 @@ class JobControllerIntegrationTest : AbstractIntegrationTest() {
         }
 
         @Test
-        fun `should return 400 for bulk update with empty job ids`() {
+        fun `should return 404 for bulk update with non-existent group ids`() {
+            getOrCreateDevUser()
             mockMvc
-                .patch("/jobs/status") {
+                .patch("/jobs/groups/status") {
                     contentType = APPLICATION_JSON
-                    content = """{"jobIds": [], "status": "${APPLIED.value}"}"""
+                    content = """{"groupIds": ["${UUID.randomUUID()}"], "status": "${APPLIED.value}"}"""
+                }.andExpect {
+                    status { isNotFound() }
+                    jsonPath("$.code", equalTo("NOT_FOUND"))
+                }
+        }
+
+        @Test
+        fun `should return 400 for bulk update with empty group ids`() {
+            mockMvc
+                .patch("/jobs/groups/status") {
+                    contentType = APPLICATION_JSON
+                    content = """{"groupIds": [], "status": "${APPLIED.value}"}"""
                 }.andExpect {
                     status { isBadRequest() }
                     jsonPath("$.code", equalTo("VALIDATION_ERROR"))

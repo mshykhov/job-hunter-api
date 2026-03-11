@@ -8,9 +8,7 @@ import org.springframework.web.client.body
 
 private val logger = KotlinLogging.logger {}
 
-class WebshareClient(
-    private val restClient: RestClient,
-) {
+class WebshareClient(private val restClient: RestClient) {
     fun fetchProxies(): List<WebshareProxy> {
         val proxies = mutableListOf<WebshareProxy>()
         var page = 1
