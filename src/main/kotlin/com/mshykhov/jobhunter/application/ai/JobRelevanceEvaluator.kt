@@ -23,10 +23,8 @@ class JobRelevanceEvaluator {
     private fun buildUserPrompt(
         job: JobEntity,
         preference: UserPreferenceEntity,
-    ): String {
-        val search = preference.search
-
-        return buildString {
+    ): String =
+        buildString {
             appendLine("## Job")
             appendLine("Title: ${job.title}")
             job.company?.let { appendLine("Company: $it") }
@@ -35,40 +33,61 @@ class JobRelevanceEvaluator {
             appendLine("Remote: ${job.remote ?: "unknown — infer from description"}")
             job.salary?.let { appendLine("Salary: $it") }
 
-            if (search.categories.isNotEmpty()) {
+            if (!preference.about.isNullOrBlank()) {
                 appendLine()
-                appendLine("## Preferences")
-                appendLine("Categories: ${search.categories.joinToString(", ")}")
+                appendLine("## Candidate Profile")
+                appendLine(preference.about!!.take(ABOUT_LIMIT))
+            }
+
+            if (preference.search.categories.isNotEmpty()) {
+                appendLine()
+                appendLine("## Target Categories")
+                appendLine(preference.search.categories.joinToString(", "))
             }
 
             if (!preference.matching.customPrompt.isNullOrBlank()) {
                 appendLine()
-                appendLine("## Custom instructions")
+                appendLine("## Custom Instructions")
                 appendLine(preference.matching.customPrompt)
             }
         }
-    }
 
     companion object {
         private const val DESCRIPTION_LIMIT = 3000
+        private const val ABOUT_LIMIT = 2000
     }
 }
 
 private val SYSTEM_PROMPT =
     """
-    You are a job relevance scoring engine.
+    You are a job-candidate fit evaluator. Assess how well the candidate matches the job opening.
 
-    ## Scoring (0–100)
-    Evaluate how well the job matches the user's preferences.
+    ## How to Score (0–100)
 
-    If categories are provided, evaluate whether the job's PRIMARY technology stack matches.
-    Full points: primary tech matches (e.g. user wants Java, job is Java).
-    Half: closely related primary tech (e.g. user wants Kotlin, job is Java).
-    Zero: different primary tech (e.g. user wants Java, job is C#/Python/.NET even if Java is mentioned as a bonus).
+    Evaluate semantic fit between the candidate's profile and the job requirements:
 
+    1. **Technical fit** — Do the candidate's skills and experience align with the job's core requirements?
+       Focus on primary technologies (languages, frameworks, databases), not peripheral tools.
+       Treat closely related technologies as transferable (e.g., Kotlin ↔ Java, Spring Boot ↔ Spring Framework).
+       Ignore universal tools every developer knows (git, jira, IDE, CI/CD).
+
+    2. **Experience fit** — Does the candidate's seniority, years of experience, and type of work
+       (microservices, API design, team leading, etc.) match what the role demands?
+
+    3. **Category fit** — Does the job's primary tech stack match the candidate's target categories?
+       If the job's main technology differs from the candidate's categories, score significantly lower,
+       even if the job mentions target tech as a "nice-to-have".
+
+    If a candidate profile is provided, use it as the primary source of truth about the candidate.
     If custom instructions are provided, follow them for scoring adjustments.
 
-    If no preferences are provided, evaluate overall job quality and relevance.
+    ## Score Calibration
+    - 90-100: Near-perfect fit. Candidate meets virtually all requirements.
+    - 75-89: Strong fit. Core requirements met, minor gaps in nice-to-haves.
+    - 60-74: Good fit. Primary tech matches, some gaps in secondary requirements.
+    - 40-59: Moderate fit. Some overlap but notable gaps in core areas.
+    - 20-39: Weak fit. Limited overlap with job requirements.
+    - 0-19: Poor fit. Fundamentally different role or tech stack.
 
     ## inferredRemote
     Always return true or false. Never null.
@@ -76,13 +95,10 @@ private val SYSTEM_PROMPT =
     If remote status is provided in job data, echo that value.
 
     If remote is "unknown", infer from description:
-    - true ONLY for fully remote positions: "remote", "fully remote", "100% remote", "remote-first", "work from anywhere", "distributed team", "work from home"
-    - false for hybrid, partial remote, flexible office, or any arrangement requiring office presence
-    - false for on-site: "on-site", "in-office", "office-based", "relocation required"
+    - true ONLY for fully remote positions: "remote", "fully remote", "100% remote", "remote-first", "work from anywhere"
+    - false for hybrid, partial remote, or any arrangement requiring office presence
     - false if no remote signals found (assume on-site)
 
-    IMPORTANT: hybrid and partial remote count as FALSE. Only pure fully-remote = true.
-
     ## Output
-    JSON: { "score": 0-100, "reasoning": "1-2 sentences", "inferredRemote": true/false }
+    JSON: { "score": 0-100, "reasoning": "2-3 sentences explaining key factors", "inferredRemote": true/false }
     """.trimIndent()

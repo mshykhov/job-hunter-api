@@ -14,11 +14,12 @@ class ChatClientFactory {
             throw AiNotConfiguredException("API key is corrupted or missing — please re-enter your API key in settings.")
         }
         val api = OpenAiApi.builder().apiKey(settings.apiKey).build()
+        val temperature = if (settings.modelId.contains("nano")) 1.0 else 0.2
         val options =
             OpenAiChatOptions
                 .builder()
                 .model(settings.modelId)
-                .temperature(1.0)
+                .temperature(temperature)
                 .build()
         val model =
             OpenAiChatModel
