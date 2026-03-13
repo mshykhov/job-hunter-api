@@ -723,6 +723,31 @@ class JobControllerIntegrationTest : AbstractIntegrationTest() {
     }
 
     @Nested
+    inner class Outreach {
+        @Test
+        fun `should return 404 for cover letter when job not in user matches`() {
+            getOrCreateDevUser()
+            mockMvc
+                .post("/jobs/${UUID.randomUUID()}/outreach/cover-letter")
+                .andExpect {
+                    status { isNotFound() }
+                    jsonPath("$.code", equalTo("NOT_FOUND"))
+                }
+        }
+
+        @Test
+        fun `should return 404 for recruiter message when job not in user matches`() {
+            getOrCreateDevUser()
+            mockMvc
+                .post("/jobs/${UUID.randomUUID()}/outreach/recruiter-message")
+                .andExpect {
+                    status { isNotFound() }
+                    jsonPath("$.code", equalTo("NOT_FOUND"))
+                }
+        }
+    }
+
+    @Nested
     inner class ErrorHandling {
         @Test
         fun `should return 404 when getting detail for non-existent group`() {
