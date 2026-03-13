@@ -1,5 +1,10 @@
 package com.mshykhov.jobhunter.application.outreach
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize
+import com.fasterxml.jackson.databind.annotation.JsonSerialize
+import com.mshykhov.jobhunter.application.job.JobSource
+import com.mshykhov.jobhunter.application.job.JobSourceKeyDeserializer
+import com.mshykhov.jobhunter.application.job.JobSourceKeySerializer
 import com.mshykhov.jobhunter.application.user.UserEntity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -36,7 +41,9 @@ class OutreachSettingsEntity(
     var recruiterMessagePrompt: String? = null,
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "source_config", nullable = false, columnDefinition = "jsonb")
-    var sourceConfig: Map<String, OutreachSourceConfig> = emptyMap(),
+    @field:JsonSerialize(keyUsing = JobSourceKeySerializer::class)
+    @field:JsonDeserialize(keyUsing = JobSourceKeyDeserializer::class)
+    var sourceConfig: Map<JobSource, OutreachSourceConfig> = emptyMap(),
     @CreatedDate
     @Column(name = "created_at", insertable = false, updatable = false)
     val createdAt: Instant? = null,

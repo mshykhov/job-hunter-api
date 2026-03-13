@@ -16,7 +16,6 @@ data class OutreachSettingsResponse(
             val sourceConfig =
                 entity
                     ?.sourceConfig
-                    ?.mapKeys { JobSource.valueOf(it.key) }
                     ?.mapValues { OutreachSourceConfigResponse.from(it.value) }
                     ?: emptyMap()
             return OutreachSettingsResponse(

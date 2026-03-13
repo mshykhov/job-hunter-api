@@ -12,7 +12,7 @@ data class SaveOutreachSettingsRequest(
     fun applyTo(target: OutreachSettingsEntity) {
         target.coverLetterPrompt = coverLetterPrompt
         target.recruiterMessagePrompt = recruiterMessagePrompt
-        target.sourceConfig = sourceConfig.mapKeys { it.key.name }.mapValues { it.value.toSourceConfig() }
+        target.sourceConfig = sourceConfig.mapValues { it.value.toSourceConfig() }
     }
 
     fun toEntity(user: UserEntity): OutreachSettingsEntity =
@@ -20,6 +20,6 @@ data class SaveOutreachSettingsRequest(
             user = user,
             coverLetterPrompt = coverLetterPrompt,
             recruiterMessagePrompt = recruiterMessagePrompt,
-            sourceConfig = sourceConfig.mapKeys { it.key.name }.mapValues { it.value.toSourceConfig() },
+            sourceConfig = sourceConfig.mapValues { it.value.toSourceConfig() },
         )
 }
