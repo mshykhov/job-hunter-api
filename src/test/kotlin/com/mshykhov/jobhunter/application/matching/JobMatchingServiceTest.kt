@@ -396,7 +396,6 @@ class JobMatchingServiceTest {
             matching =
             MatchingPreferences(
                 matchWithAi = matchWithAi,
-                keywords = listOf("Kotlin", "Spring"),
             ),
             telegram = TelegramPreferences(),
         )

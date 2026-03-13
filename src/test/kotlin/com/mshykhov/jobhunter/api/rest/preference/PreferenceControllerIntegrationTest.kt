@@ -126,18 +126,13 @@ class PreferenceControllerIntegrationTest : AbstractIntegrationTest() {
     @Nested
     inner class SaveMatching {
         @Test
-        fun `should save matching preferences with valid weights`() {
+        fun `should save matching preferences`() {
             val body =
                 mapOf(
-                    "keywords" to listOf("Kotlin", "Spring"),
                     "excludedKeywords" to listOf("PHP"),
                     "excludedTitleKeywords" to listOf("Junior"),
                     "excludedCompanies" to listOf("BadCorp"),
-                    "seniorityLevels" to listOf("Senior", "Lead"),
                     "matchWithAi" to true,
-                    "weightKeywords" to 40,
-                    "weightSeniority" to 30,
-                    "weightCategories" to 30,
                 )
 
             mockMvc
@@ -146,50 +141,10 @@ class PreferenceControllerIntegrationTest : AbstractIntegrationTest() {
                     content = objectMapper.writeValueAsString(body)
                 }.andExpect {
                     status { isOk() }
-                    jsonPath("$.keywords", hasSize<Any>(2))
                     jsonPath("$.excludedKeywords", hasSize<Any>(1))
+                    jsonPath("$.excludedTitleKeywords", hasSize<Any>(1))
+                    jsonPath("$.excludedCompanies", hasSize<Any>(1))
                     jsonPath("$.matchWithAi", equalTo(true))
-                    jsonPath("$.weightKeywords", equalTo(40))
-                }
-        }
-
-        @Test
-        fun `should return 400 when weights do not sum to 100`() {
-            val body =
-                mapOf(
-                    "keywords" to emptyList<String>(),
-                    "weightKeywords" to 50,
-                    "weightSeniority" to 30,
-                    "weightCategories" to 10,
-                )
-
-            mockMvc
-                .put("/preferences/matching") {
-                    contentType = APPLICATION_JSON
-                    content = objectMapper.writeValueAsString(body)
-                }.andExpect {
-                    status { isBadRequest() }
-                }
-        }
-
-        @Test
-        fun `should save with edge weights`() {
-            val body =
-                mapOf(
-                    "weightKeywords" to 100,
-                    "weightSeniority" to 0,
-                    "weightCategories" to 0,
-                )
-
-            mockMvc
-                .put("/preferences/matching") {
-                    contentType = APPLICATION_JSON
-                    content = objectMapper.writeValueAsString(body)
-                }.andExpect {
-                    status { isOk() }
-                    jsonPath("$.weightKeywords", equalTo(100))
-                    jsonPath("$.weightSeniority", equalTo(0))
-                    jsonPath("$.weightCategories", equalTo(0))
                 }
         }
 
@@ -198,9 +153,6 @@ class PreferenceControllerIntegrationTest : AbstractIntegrationTest() {
             val body =
                 mapOf(
                     "customPrompt" to "Focus on Kotlin and remote positions",
-                    "weightKeywords" to 40,
-                    "weightSeniority" to 30,
-                    "weightCategories" to 30,
                 )
 
             mockMvc

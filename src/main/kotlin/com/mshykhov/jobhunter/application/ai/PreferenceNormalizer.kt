@@ -26,7 +26,7 @@ class PreferenceNormalizer {
                     .entity<NormalizedPreferences>()
             logger.info {
                 "Normalization complete: ${result.categories.size} categories, " +
-                    "${result.keywords.size} keywords, ${result.seniorityLevels.size} seniority levels"
+                    "${result.excludedKeywords.size} excluded keywords"
             }
             result
         } catch (e: Exception) {
@@ -42,8 +42,6 @@ private val SYSTEM_PROMPT =
 
     Extract the following:
     - categories: core technologies the user wants to work with (e.g. kotlin, java, javascript, python, go, rust, typescript)
-    - seniorityLevels: experience levels (e.g. junior, middle, senior, lead, principal)
-    - keywords: relevant skill/framework keywords for job matching (e.g. spring, react, kubernetes, microservices)
     - excludedKeywords: technologies or domains the user wants to avoid
     - locations: countries or regions to search jobs in (e.g. Ukraine, United States, Worldwide). Empty means no preference (use default).
     - remoteOnly: whether user wants only remote positions (true/false)

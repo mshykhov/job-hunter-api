@@ -85,7 +85,6 @@ object TestFixtures {
         disabledSources: List<JobSource> = emptyList(),
         categories: List<String> = emptyList(),
         locations: List<String> = emptyList(),
-        keywords: List<String> = listOf("Kotlin", "Spring"),
         excludedKeywords: List<String> = emptyList(),
         excludedTitleKeywords: List<String> = emptyList(),
         excludedCompanies: List<String> = emptyList(),
@@ -103,7 +102,6 @@ object TestFixtures {
             ),
             matching =
             MatchingPreferences(
-                keywords = keywords,
                 excludedKeywords = excludedKeywords,
                 excludedTitleKeywords = excludedTitleKeywords,
                 excludedCompanies = excludedCompanies,
