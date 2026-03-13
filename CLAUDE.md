@@ -150,7 +150,8 @@ Controller → Service → Facade → Repository
 - **Naming**: `{Controller}IntegrationTest` for endpoints, `{Class}Test` for unit tests
 - **Test location mirrors source**: `api/rest/{feature}/` for endpoint tests, `application/{feature}/` for service/logic tests
 - **What to test**: endpoints (happy + error), service orchestration (MockK), pure logic (filters, parsers, utils)
-- **What to skip**: Facades (thin wrappers), Entities (JPA), DTO mapping (covered by endpoint tests)
+- **AI-dependent features**: always test with mocked AI (ChatClient, OutreachGenerator, etc.) — cover happy path, not-found, and AI-not-configured cases. Never skip service-level tests just because they call external AI.
+- **What to skip**: Facades (thin wrappers, unless they contain logic like find-or-create), Entities (JPA), DTO mapping (covered by endpoint tests)
 
 ---
 
