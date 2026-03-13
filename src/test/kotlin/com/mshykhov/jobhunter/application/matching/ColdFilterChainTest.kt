@@ -210,6 +210,32 @@ class ColdFilterChainTest {
             assertIs<FilterResult.Rejected>(result)
             assertEquals("category", result.filter)
         }
+
+        @Test
+        fun `should reject when job group has no categories but user has preferences`() {
+            val group = TestFixtures.jobGroupEntity().apply { categories = emptySet() }
+            val result =
+                chain.evaluate(
+                    TestFixtures.jobEntity(group = group),
+                    TestFixtures.userPreferenceEntity(categories = setOf(Category("kotlin"))),
+                )
+            assertIs<FilterResult.Rejected>(result)
+            assertEquals("category", result.filter)
+        }
+
+        @Test
+        fun `should pass when at least one category overlaps among many`() {
+            val group =
+                TestFixtures.jobGroupEntity().apply {
+                    categories = setOf(Category("python"), Category("java"), Category("go"))
+                }
+            val result =
+                chain.evaluate(
+                    TestFixtures.jobEntity(group = group),
+                    TestFixtures.userPreferenceEntity(categories = setOf(Category("kotlin"), Category("java"))),
+                )
+            assertIs<FilterResult.Passed>(result)
+        }
     }
 
     @Nested
