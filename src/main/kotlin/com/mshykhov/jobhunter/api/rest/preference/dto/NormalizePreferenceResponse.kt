@@ -14,7 +14,7 @@ data class NormalizePreferenceResponse(
     companion object {
         fun from(result: NormalizedPreferences): NormalizePreferenceResponse =
             NormalizePreferenceResponse(
-                categories = result.categories.map { Category(it) },
+                categories = result.categories,
                 excludedKeywords = result.excludedKeywords,
                 locations = result.locations,
                 remoteOnly = result.remoteOnly,

@@ -1,9 +1,10 @@
 package com.mshykhov.jobhunter.application.ai.dto
 
+import com.mshykhov.jobhunter.application.job.Category
 import com.mshykhov.jobhunter.application.job.JobSource
 
 data class NormalizedPreferences(
-    val categories: List<String> = emptyList(),
+    val categories: List<Category> = emptyList(),
     val excludedKeywords: List<String> = emptyList(),
     val locations: List<String> = emptyList(),
     val remoteOnly: Boolean = false,
