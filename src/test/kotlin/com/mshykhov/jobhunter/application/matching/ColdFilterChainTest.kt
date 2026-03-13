@@ -1,5 +1,6 @@
 package com.mshykhov.jobhunter.application.matching
 
+import com.mshykhov.jobhunter.application.job.Category
 import com.mshykhov.jobhunter.application.job.JobSource
 import com.mshykhov.jobhunter.support.TestFixtures
 import org.junit.jupiter.api.Nested
@@ -181,28 +182,30 @@ class ColdFilterChainTest {
         fun `should pass when no categories specified`() {
             val result =
                 chain.evaluate(
-                    TestFixtures.jobEntity(description = "Random job"),
+                    TestFixtures.jobEntity(),
                     TestFixtures.userPreferenceEntity(),
                 )
             assertIs<FilterResult.Passed>(result)
         }
 
         @Test
-        fun `should pass when job text contains a category word`() {
+        fun `should pass when job group category matches preference`() {
+            val group = TestFixtures.jobGroupEntity().apply { categories = setOf(Category("kotlin")) }
             val result =
                 chain.evaluate(
-                    TestFixtures.jobEntity(description = "We need a Kotlin backend developer"),
-                    TestFixtures.userPreferenceEntity(categories = listOf("Kotlin", "Java")),
+                    TestFixtures.jobEntity(group = group),
+                    TestFixtures.userPreferenceEntity(categories = setOf(Category("kotlin"), Category("java"))),
                 )
             assertIs<FilterResult.Passed>(result)
         }
 
         @Test
         fun `should reject when no category matches`() {
+            val group = TestFixtures.jobGroupEntity().apply { categories = setOf(Category("python")) }
             val result =
                 chain.evaluate(
-                    TestFixtures.jobEntity(title = "Recruiter", description = "HR position for recruiting"),
-                    TestFixtures.userPreferenceEntity(categories = listOf("Kotlin", "Java", "Python")),
+                    TestFixtures.jobEntity(group = group),
+                    TestFixtures.userPreferenceEntity(categories = setOf(Category("kotlin"), Category("java"))),
                 )
             assertIs<FilterResult.Rejected>(result)
             assertEquals("category", result.filter)

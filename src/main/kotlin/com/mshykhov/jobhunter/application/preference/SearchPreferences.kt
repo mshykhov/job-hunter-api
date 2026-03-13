@@ -1,5 +1,6 @@
 package com.mshykhov.jobhunter.application.preference
 
+import com.mshykhov.jobhunter.application.job.Category
 import com.mshykhov.jobhunter.application.job.JobSource
 import jakarta.persistence.Column
 import jakarta.persistence.Embeddable
@@ -10,9 +11,9 @@ import org.hibernate.type.SqlTypes
 
 @Embeddable
 class SearchPreferences(
-    @JdbcTypeCode(SqlTypes.ARRAY)
-    @Column(name = "categories", columnDefinition = "text[]")
-    var categories: List<String> = emptyList(),
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "categories", columnDefinition = "jsonb")
+    var categories: Set<Category> = emptySet(),
     @JdbcTypeCode(SqlTypes.ARRAY)
     @Column(name = "locations", columnDefinition = "text[]")
     var locations: List<String> = emptyList(),

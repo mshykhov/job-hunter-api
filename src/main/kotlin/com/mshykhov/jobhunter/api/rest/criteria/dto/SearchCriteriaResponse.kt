@@ -1,3 +1,5 @@
 package com.mshykhov.jobhunter.api.rest.criteria.dto
 
-data class SearchCriteriaResponse(val categories: List<String>, val locations: List<String>, val remoteOnly: Boolean)
+import com.mshykhov.jobhunter.application.job.Category
+
+data class SearchCriteriaResponse(val categories: Set<Category>, val locations: List<String>, val remoteOnly: Boolean)

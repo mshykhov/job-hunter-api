@@ -1,10 +1,11 @@
 package com.mshykhov.jobhunter.api.rest.preference.dto
 
+import com.mshykhov.jobhunter.application.job.Category
 import com.mshykhov.jobhunter.application.job.JobSource
 import com.mshykhov.jobhunter.application.preference.SearchPreferences
 
 data class SearchPreferenceRequest(
-    val categories: List<String> = emptyList(),
+    val categories: Set<Category> = emptySet(),
     val locations: List<String> = emptyList(),
     val remoteOnly: Boolean = false,
     val disabledSources: List<JobSource> = emptyList(),

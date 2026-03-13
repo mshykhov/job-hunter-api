@@ -92,8 +92,7 @@ internal class ColdFilterChain {
         preference: UserPreferenceEntity,
     ): FilterResult.Rejected? {
         if (preference.search.categories.isEmpty()) return null
-        val searchText = TextMatchUtils.buildSearchText(job)
-        val matched = preference.search.categories.any { TextMatchUtils.containsWord(searchText, it) }
+        val matched = job.group.categories.any { it in preference.search.categories }
         if (!matched) {
             return FilterResult.Rejected("category", "no category matched ${preference.search.categories}")
         }

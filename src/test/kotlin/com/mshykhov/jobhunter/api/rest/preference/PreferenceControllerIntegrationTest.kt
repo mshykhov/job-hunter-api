@@ -104,7 +104,7 @@ class PreferenceControllerIntegrationTest : AbstractIntegrationTest() {
                     content = """{"categories": ["Frontend"], "locations": [], "remoteOnly": false, "disabledSources": []}"""
                 }.andExpect {
                     status { isOk() }
-                    jsonPath("$.categories[0]", equalTo("Frontend"))
+                    jsonPath("$.categories[0]", equalTo("frontend"))
                     jsonPath("$.locations", hasSize<Any>(0))
                     jsonPath("$.remoteOnly", equalTo(false))
                 }
@@ -230,7 +230,7 @@ class PreferenceControllerIntegrationTest : AbstractIntegrationTest() {
             mockMvc.get("/preferences").andExpect {
                 status { isOk() }
                 jsonPath("$.about", equalTo("My about text"))
-                jsonPath("$.search.categories[0]", equalTo("Backend"))
+                jsonPath("$.search.categories[0]", equalTo("backend"))
                 jsonPath("$.search.remoteOnly", equalTo(true))
             }
         }

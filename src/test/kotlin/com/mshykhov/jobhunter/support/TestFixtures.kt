@@ -86,7 +86,7 @@ object TestFixtures {
         about: String? = "Experienced Kotlin developer",
         remoteOnly: Boolean = false,
         disabledSources: List<JobSource> = emptyList(),
-        categories: List<String> = emptyList(),
+        categories: Set<Category> = emptySet(),
         locations: List<String> = emptyList(),
         excludedKeywords: List<String> = emptyList(),
         excludedTitleKeywords: List<String> = emptyList(),

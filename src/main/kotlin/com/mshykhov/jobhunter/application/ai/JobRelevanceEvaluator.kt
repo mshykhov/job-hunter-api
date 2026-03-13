@@ -72,6 +72,8 @@ private val SYSTEM_PROMPT =
 
     2. **Experience fit** — Does the candidate's seniority, years of experience, and type of work
        (microservices, API design, team leading, etc.) match what the role demands?
+       Seniority mismatch matters in both directions: overqualified is as bad as underqualified.
+       The wider the gap, the heavier the penalty — it should outweigh strong technical fit.
 
     3. **Category fit** — Does the job's primary tech stack match the candidate's target categories?
        If the job's main technology differs from the candidate's categories, score significantly lower,
