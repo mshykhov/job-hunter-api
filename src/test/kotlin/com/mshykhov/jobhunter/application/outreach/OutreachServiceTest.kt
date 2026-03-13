@@ -174,6 +174,15 @@ class OutreachServiceTest {
         }
 
         @Test
+        fun `should throw NotFoundException when user not found`() {
+            every { userFacade.findByAuth0Sub(auth0Sub) } returns null
+
+            assertThrows<NotFoundException> {
+                service.generateRecruiterMessage(auth0Sub, TestFixtures.jobEntity().id)
+            }
+        }
+
+        @Test
         fun `should throw NotFoundException when job not in user matches`() {
             val user = TestFixtures.userEntity(auth0Sub)
             val jobId = TestFixtures.jobEntity().id
@@ -184,6 +193,23 @@ class OutreachServiceTest {
 
             assertThrows<NotFoundException> {
                 service.generateRecruiterMessage(auth0Sub, jobId)
+            }
+        }
+
+        @Test
+        fun `should throw AiNotConfiguredException when AI not configured`() {
+            val user = TestFixtures.userEntity(auth0Sub)
+            val job = TestFixtures.jobEntity()
+            val userJob = TestFixtures.userJobEntity(user = user, job = job)
+
+            every { userFacade.findByAuth0Sub(auth0Sub) } returns user
+            every { userJobFacade.findOrCreateForGroupMember(user, job.id) } returns userJob
+            every { outreachSettingsFacade.findByUserId(user.id) } returns null
+            every { userPreferenceFacade.findByUserId(user.id) } returns null
+            every { userAiSettingsService.resolveForUser(auth0Sub) } throws AiNotConfiguredException()
+
+            assertThrows<AiNotConfiguredException> {
+                service.generateRecruiterMessage(auth0Sub, job.id)
             }
         }
     }

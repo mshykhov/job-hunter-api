@@ -21,8 +21,9 @@ class AboutOptimizer {
                     .system(SYSTEM_PROMPT)
                     .user(rawAbout)
                     .call()
-                    .content()!!
-                    .trim()
+                    .content()
+                    ?.trim()
+                    ?: throw ServiceUnavailableException("AI returned empty response")
             logger.info { "About optimized: ${rawAbout.length} → ${result.length} chars" }
             result
         } catch (e: Exception) {

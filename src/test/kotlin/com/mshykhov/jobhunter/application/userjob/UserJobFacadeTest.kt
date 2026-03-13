@@ -37,18 +37,6 @@ class UserJobFacadeTest {
         fun `should create user job when not found but group match exists`() {
             val user = TestFixtures.userEntity()
             val job = TestFixtures.jobEntity()
-            val group = job.group
-            val userJobGroup = TestFixtures.userJobGroupEntity(user = user, group = group)
-            val groupWithJobs = mockk<com.mshykhov.jobhunter.application.job.JobGroupEntity>()
-
-            every { userJobRepository.findByUserIdAndJobId(user.id, job.id) } returns null
-            every { userJobGroupFacade.findByUserIdAndJobId(user.id, job.id) } returns
-                userJobGroup.apply {
-                    every { groupWithJobs.jobs } returns listOf(job)
-                    // Use the real group from userJobGroup which has jobs loaded via @EntityGraph
-                }
-
-            // Since we can't easily set jobs on a real JobGroupEntity, let's use mockk
             val mockUserJobGroup = mockk<UserJobGroupEntity>()
             val mockGroup = mockk<com.mshykhov.jobhunter.application.job.JobGroupEntity>()
             every { mockGroup.jobs } returns listOf(job)

@@ -81,6 +81,8 @@ class PreferenceService(
         val settings = userAiSettingsService.resolveForUser(auth0Sub)
         val chatClient = chatClientFactory.createForUser(settings)
         val optimized = aboutOptimizer.optimize(about, chatClient)
+        preference.about = optimized
+        userPreferenceFacade.save(preference)
         return AboutResponse(optimized)
     }
 
