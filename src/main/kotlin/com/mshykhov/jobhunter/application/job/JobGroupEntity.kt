@@ -10,6 +10,8 @@ import jakarta.persistence.PostPersist
 import jakarta.persistence.Table
 import jakarta.persistence.Transient
 import org.hibernate.annotations.BatchSize
+import org.hibernate.annotations.JdbcTypeCode
+import org.hibernate.type.SqlTypes
 import org.springframework.data.annotation.CreatedDate
 import org.springframework.data.annotation.LastModifiedDate
 import org.springframework.data.domain.Persistable
@@ -30,6 +32,9 @@ class JobGroupEntity(
     val company: String? = null,
     @Column(name = "job_count", nullable = false)
     var jobCount: Int = 1,
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(nullable = false, columnDefinition = "jsonb")
+    var categories: Set<Category> = emptySet(),
     @CreatedDate
     @Column(name = "created_at", insertable = false, updatable = false)
     val createdAt: Instant? = null,

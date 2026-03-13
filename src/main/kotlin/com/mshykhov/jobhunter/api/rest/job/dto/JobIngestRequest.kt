@@ -1,5 +1,6 @@
 package com.mshykhov.jobhunter.api.rest.job.dto
 
+import com.mshykhov.jobhunter.application.job.Category
 import com.mshykhov.jobhunter.application.job.JobEntity
 import com.mshykhov.jobhunter.application.job.JobGroupEntity
 import com.mshykhov.jobhunter.application.job.JobSource
@@ -19,6 +20,7 @@ data class JobIngestRequest(
     val remote: Boolean? = null,
     val publishedAt: String? = null,
     val rawData: Map<String, Any?> = emptyMap(),
+    val category: Category,
 ) {
     fun toEntity(
         parsedPublishedAt: Instant?,

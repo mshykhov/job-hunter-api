@@ -1,5 +1,6 @@
 package com.mshykhov.jobhunter.api.rest.job.dto
 
+import com.mshykhov.jobhunter.application.job.Category
 import com.mshykhov.jobhunter.application.job.JobSource
 import com.mshykhov.jobhunter.application.userjob.UserJobGroupEntity
 import com.mshykhov.jobhunter.application.userjob.UserJobStatus
@@ -14,6 +15,7 @@ data class UserJobGroupResponse(
     val status: UserJobStatus,
     val aiRelevanceScore: Int,
     val jobCount: Int,
+    val categories: Set<Category>,
     val sources: List<JobSource>,
     val locations: List<String>,
     val remote: Boolean,
@@ -34,6 +36,7 @@ data class UserJobGroupResponse(
                 status = entity.status,
                 aiRelevanceScore = entity.aiRelevanceScore,
                 jobCount = entity.group.jobCount,
+                categories = entity.group.categories,
                 sources = jobs.map { it.source }.distinct().sortedBy { it.value },
                 locations = jobs.mapNotNull { it.location }.distinct().sorted(),
                 remote = jobs.any { it.remote == true },

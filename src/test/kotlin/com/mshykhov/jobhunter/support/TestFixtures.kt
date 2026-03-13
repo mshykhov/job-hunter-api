@@ -1,6 +1,7 @@
 package com.mshykhov.jobhunter.support
 
 import com.mshykhov.jobhunter.api.rest.job.dto.JobIngestRequest
+import com.mshykhov.jobhunter.application.job.Category
 import com.mshykhov.jobhunter.application.job.JobEntity
 import com.mshykhov.jobhunter.application.job.JobGroupEntity
 import com.mshykhov.jobhunter.application.job.JobGroupKeyComputer
@@ -27,6 +28,7 @@ object TestFixtures {
         remote: Boolean? = true,
         publishedAt: String? = "2026-03-01T10:00:00Z",
         rawData: Map<String, Any?> = emptyMap(),
+        category: Category = Category("kotlin"),
     ): JobIngestRequest =
         JobIngestRequest(
             title = title,
@@ -39,6 +41,7 @@ object TestFixtures {
             remote = remote,
             publishedAt = publishedAt,
             rawData = rawData,
+            category = category,
         )
 
     fun jobGroupEntity(

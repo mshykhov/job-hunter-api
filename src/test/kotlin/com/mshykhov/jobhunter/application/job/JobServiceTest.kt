@@ -34,19 +34,83 @@ class JobServiceTest {
                 )
             }
             every { jobGroupFacade.incrementJobCount(any()) } returns Unit
+            every { jobGroupFacade.saveAll(any()) } answers { firstArg<Collection<JobGroupEntity>>().toList() }
         }
 
         @Test
         fun `should create new job when URL does not exist`() {
-            val request = TestFixtures.jobIngestRequest(url = "https://example.com/new-job")
+            val request = TestFixtures.jobIngestRequest(url = "https://example.com/new-job", category = Category("java"))
             every { jobFacade.findByUrls(listOf(request.url)) } returns emptyList()
-            every { jobFacade.saveAll(any()) } answers { firstArg() }
+            every { jobFacade.saveAll(any<List<JobEntity>>()) } answers { firstArg() }
 
             val result = service.ingest(listOf(request))
 
             assertEquals(1, result.size)
             assertEquals(request.title, result[0].title)
             assertEquals(request.url, result[0].url)
+            assertEquals(setOf(Category("java")), result[0].group.categories)
+        }
+
+        @Test
+        fun `should normalize category to trimmed lowercase`() {
+            val request = TestFixtures.jobIngestRequest(url = "https://example.com/trim", category = Category("  Kotlin  "))
+            every { jobFacade.findByUrls(listOf(request.url)) } returns emptyList()
+            every { jobFacade.saveAll(any<List<JobEntity>>()) } answers { firstArg() }
+
+            val result = service.ingest(listOf(request))
+
+            assertEquals(setOf(Category("kotlin")), result[0].group.categories)
+        }
+
+        @Test
+        fun `should merge new category into existing group categories`() {
+            val url = "https://example.com/merge"
+            val group = TestFixtures.jobGroupEntity().apply { categories = setOf(Category("java")) }
+            val existing = TestFixtures.jobEntity(url = url, group = group)
+            val request = TestFixtures.jobIngestRequest(url = url, category = Category("kotlin"))
+
+            every { jobFacade.findByUrls(listOf(url)) } returns listOf(existing)
+            every { jobFacade.saveAll(any<List<JobEntity>>()) } answers { firstArg() }
+
+            service.ingest(listOf(request))
+
+            assertEquals(setOf(Category("java"), Category("kotlin")), group.categories)
+        }
+
+        @Test
+        fun `should not duplicate existing category on re-ingest`() {
+            val url = "https://example.com/no-dup"
+            val group = TestFixtures.jobGroupEntity().apply { categories = setOf(Category("kotlin")) }
+            val existing =
+                TestFixtures.jobEntity(
+                    url = url,
+                    group = group,
+                    title = "Same",
+                    description = "Same",
+                    salary = null,
+                    location = null,
+                    remote = null,
+                )
+            val request =
+                TestFixtures.jobIngestRequest(
+                    url = url,
+                    title = "Same",
+                    description = "Same",
+                    salary = null,
+                    location = null,
+                    remote = null,
+                    publishedAt = null,
+                    category = Category("kotlin"),
+                )
+
+            every { jobFacade.findByUrls(listOf(url)) } returns listOf(existing)
+            val savedSlot = slot<List<JobEntity>>()
+            every { jobFacade.saveAll(capture(savedSlot)) } answers { firstArg() }
+
+            service.ingest(listOf(request))
+
+            assertTrue(savedSlot.captured.isEmpty())
+            assertEquals(setOf(Category("kotlin")), group.categories)
         }
 
         @Test
@@ -86,6 +150,7 @@ class JobServiceTest {
                     location = "Remote",
                     remote = true,
                     publishedAt = null,
+                    category = Category("kotlin"),
                 )
 
             every { jobFacade.findByUrls(listOf(url)) } returns listOf(existing)
@@ -251,6 +316,7 @@ class JobServiceTest {
                         location = null,
                         remote = null,
                         publishedAt = null,
+                        category = Category("kotlin"),
                     ),
                 )
 
@@ -286,6 +352,7 @@ class JobServiceTest {
                         location = null,
                         remote = null,
                         publishedAt = null,
+                        category = Category("kotlin"),
                     ),
                 ),
             )

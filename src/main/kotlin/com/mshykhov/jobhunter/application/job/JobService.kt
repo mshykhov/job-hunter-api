@@ -71,15 +71,22 @@ class JobService(private val jobFacade: JobFacade, private val jobGroupFacade: J
         val toSave = mutableListOf<JobEntity>()
         val unchangedEntities = mutableListOf<JobEntity>()
 
+        val groupsToSave = mutableSetOf<JobGroupEntity>()
+
         uniqueRequests.forEach { request ->
             val existing = existingByUrl[request.url]
             if (existing != null) {
                 if (updateExisting(existing, request)) toSave.add(existing) else unchangedEntities.add(existing)
+                if (mergeCategory(existing.group, request.category)) groupsToSave.add(existing.group)
             } else {
                 val group = findOrCreateGroup(request, groupsByKey)
+                mergeCategory(group, request.category)
+                groupsToSave.add(group)
                 toSave.add(createNew(request, group))
             }
         }
+
+        jobGroupFacade.saveAll(groupsToSave)
 
         val newCount = toSave.count { it.isNew }
         val updatedCount = toSave.size - newCount
@@ -133,6 +140,16 @@ class JobService(private val jobFacade: JobFacade, private val jobGroupFacade: J
         entity.location = request.location
         entity.remote = request.remote
         entity.publishedAt = parsedPublishedAt ?: entity.publishedAt
+        return true
+    }
+
+    /** Returns true if category was added, false if already present. */
+    private fun mergeCategory(
+        group: JobGroupEntity,
+        category: Category,
+    ): Boolean {
+        if (category in group.categories) return false
+        group.categories += category
         return true
     }
 

@@ -17,6 +17,9 @@ class JobGroupFacade(private val jobGroupRepository: JobGroupRepository) {
     fun save(entity: JobGroupEntity): JobGroupEntity = jobGroupRepository.save(entity)
 
     @Transactional
+    fun saveAll(entities: Collection<JobGroupEntity>): List<JobGroupEntity> = jobGroupRepository.saveAll(entities)
+
+    @Transactional
     fun findOrCreate(
         groupKey: String,
         title: String,
