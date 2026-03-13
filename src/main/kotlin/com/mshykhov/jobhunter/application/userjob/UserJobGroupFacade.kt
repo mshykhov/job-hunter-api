@@ -15,6 +15,11 @@ class UserJobGroupFacade(private val userJobGroupRepository: UserJobGroupReposit
         groupId: UUID,
     ): UserJobGroupEntity? = userJobGroupRepository.findByUserIdAndGroupId(userId, groupId)
 
+    fun findByUserIdAndJobId(
+        userId: UUID,
+        jobId: UUID,
+    ): UserJobGroupEntity? = userJobGroupRepository.findByUserIdAndJobId(userId, jobId)
+
     fun findByGroupId(groupId: UUID): List<UserJobGroupEntity> = userJobGroupRepository.findByGroupId(groupId)
 
     fun findByUserIdAndGroupIds(

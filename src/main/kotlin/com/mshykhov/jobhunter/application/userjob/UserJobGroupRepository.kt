@@ -20,6 +20,13 @@ interface UserJobGroupRepository :
     fun findByGroupId(groupId: UUID): List<UserJobGroupEntity>
 
     @EntityGraph(attributePaths = ["group", "group.jobs"])
+    @Query("SELECT ujg FROM UserJobGroupEntity ujg JOIN ujg.group.jobs j WHERE ujg.user.id = :userId AND j.id = :jobId")
+    fun findByUserIdAndJobId(
+        userId: UUID,
+        jobId: UUID,
+    ): UserJobGroupEntity?
+
+    @EntityGraph(attributePaths = ["group", "group.jobs"])
     @Query("SELECT ujg FROM UserJobGroupEntity ujg WHERE ujg.user.id = :userId AND ujg.group.id IN :groupIds")
     fun findByUserIdAndGroupIdIn(
         userId: UUID,

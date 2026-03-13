@@ -145,9 +145,7 @@ class OutreachService(
         val user =
             userFacade.findByAuth0Sub(auth0Sub)
                 ?: throw NotFoundException("User not found")
-        val userJob =
-            userJobFacade.findByUserIdAndJobId(user.id, jobId)
-                ?: throw NotFoundException("Job not found in your matches")
+        val userJob = userJobFacade.findOrCreateForGroupMember(user, jobId)
         val job = userJob.job
         val settings = outreachSettingsFacade.findByUserId(user.id)
         val sourceConfig = settings?.sourceConfig?.get(job.source)
