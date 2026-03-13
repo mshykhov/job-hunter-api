@@ -1,5 +1,6 @@
 package com.mshykhov.jobhunter.application.ai
 
+import com.mshykhov.jobhunter.application.common.ServiceUnavailableException
 import com.mshykhov.jobhunter.application.job.JobEntity
 import com.mshykhov.jobhunter.application.outreach.OutreachSourceConfig
 import org.slf4j.LoggerFactory
@@ -48,7 +49,8 @@ class OutreachGenerator {
                     .system(systemPrompt)
                     .user(userPrompt)
                     .call()
-                    .content()!!
+                    .content()
+                    ?: throw ServiceUnavailableException("AI returned empty response")
             }
         log.info(
             "Generated {} for job [{}] at [{}] in {}ms ({} chars)",

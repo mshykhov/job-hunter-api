@@ -52,7 +52,6 @@ class OutreachService(
         return OutreachSettingsResponse.from(outreachSettingsFacade.save(entity))
     }
 
-    @Transactional
     fun generateCoverLetter(
         auth0Sub: String,
         jobId: UUID,
@@ -71,7 +70,6 @@ class OutreachService(
         return CoverLetterResponse.of(coverLetter, context.job)
     }
 
-    @Transactional
     fun generateRecruiterMessage(
         auth0Sub: String,
         jobId: UUID,
@@ -90,7 +88,6 @@ class OutreachService(
         return RecruiterMessageResponse.of(recruiterMessage, context.job)
     }
 
-    @Transactional(readOnly = true)
     fun testCoverLetter(
         auth0Sub: String,
         source: JobSource,
@@ -107,7 +104,6 @@ class OutreachService(
         return CoverLetterResponse.of(coverLetter, context.job)
     }
 
-    @Transactional(readOnly = true)
     fun testRecruiterMessage(
         auth0Sub: String,
         source: JobSource,
@@ -135,7 +131,7 @@ class OutreachService(
             jobFacade.findTopBySourceOrderByCreatedAtDesc(source)
                 ?: throw NotFoundException("No jobs found for source ${source.displayName}")
         val settings = outreachSettingsFacade.findByUserId(user.id)
-        val sourceConfig = settings?.sourceConfig?.get(source.name)
+        val sourceConfig = settings?.sourceConfig?.get(source)
         val about = userPreferenceFacade.findByUserId(user.id)?.about
         val aiSettings = userAiSettingsService.resolveForUser(auth0Sub)
         val chatClient = chatClientFactory.createForUser(aiSettings)
@@ -154,7 +150,7 @@ class OutreachService(
                 ?: throw NotFoundException("Job not found in your matches")
         val job = userJob.job
         val settings = outreachSettingsFacade.findByUserId(user.id)
-        val sourceConfig = settings?.sourceConfig?.get(job.source.name)
+        val sourceConfig = settings?.sourceConfig?.get(job.source)
         val about = userPreferenceFacade.findByUserId(user.id)?.about
         val aiSettings = userAiSettingsService.resolveForUser(auth0Sub)
         val chatClient = chatClientFactory.createForUser(aiSettings)
