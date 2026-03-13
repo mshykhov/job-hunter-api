@@ -9,6 +9,7 @@ import com.mshykhov.jobhunter.api.rest.preference.dto.SearchPreferenceRequest
 import com.mshykhov.jobhunter.api.rest.preference.dto.SearchPreferenceResponse
 import com.mshykhov.jobhunter.api.rest.preference.dto.TelegramPreferenceRequest
 import com.mshykhov.jobhunter.api.rest.preference.dto.TelegramPreferenceResponse
+import com.mshykhov.jobhunter.application.ai.AboutOptimizer
 import com.mshykhov.jobhunter.application.ai.ChatClientFactory
 import com.mshykhov.jobhunter.application.ai.PreferenceNormalizer
 import com.mshykhov.jobhunter.application.ai.UserAiSettingsService
@@ -27,6 +28,7 @@ class PreferenceService(
     private val userFacade: UserFacade,
     private val userPreferenceFacade: UserPreferenceFacade,
     private val preferenceNormalizer: PreferenceNormalizer,
+    private val aboutOptimizer: AboutOptimizer,
     private val userAiSettingsService: UserAiSettingsService,
     private val chatClientFactory: ChatClientFactory,
     private val documentParser: DocumentParser,
@@ -64,6 +66,22 @@ class PreferenceService(
         val text = documentParser.extractText(file.inputStream, contentType)
         logger.info { "File parsed, extracted text length: ${text.length}" }
         return saveAbout(auth0Sub, text)
+    }
+
+    fun optimizeAbout(auth0Sub: String): AboutResponse {
+        val user =
+            userFacade.findByAuth0Sub(auth0Sub)
+                ?: throw NotFoundException("User not found")
+        val preference =
+            userPreferenceFacade.findByUserId(user.id)
+                ?: throw NotFoundException("Preferences not found")
+        val about =
+            preference.about
+                ?: throw NotFoundException("About is empty — fill it first")
+        val settings = userAiSettingsService.resolveForUser(auth0Sub)
+        val chatClient = chatClientFactory.createForUser(settings)
+        val optimized = aboutOptimizer.optimize(about, chatClient)
+        return AboutResponse(optimized)
     }
 
     fun generatePreferences(auth0Sub: String): NormalizePreferenceResponse {

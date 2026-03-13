@@ -48,6 +48,12 @@ class PreferenceController(private val preferenceService: PreferenceService) {
         @RequestParam("file") file: MultipartFile,
     ): AboutResponse = preferenceService.saveAboutFromFile(jwt.subject, file)
 
+    @PostMapping("/about/optimize")
+    @PreAuthorize("hasAuthority('SCOPE_write:preferences')")
+    fun optimizeAbout(
+        @AuthenticationPrincipal jwt: Jwt,
+    ): AboutResponse = preferenceService.optimizeAbout(jwt.subject)
+
     @PostMapping("/generate")
     @PreAuthorize("hasAuthority('SCOPE_write:preferences')")
     fun generatePreferences(

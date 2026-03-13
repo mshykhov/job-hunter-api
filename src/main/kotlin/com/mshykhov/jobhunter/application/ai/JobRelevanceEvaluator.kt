@@ -36,7 +36,7 @@ class JobRelevanceEvaluator {
             if (!preference.about.isNullOrBlank()) {
                 appendLine()
                 appendLine("## Candidate Profile")
-                appendLine(preference.about!!.take(ABOUT_LIMIT))
+                appendLine(preference.about)
             }
 
             if (preference.search.categories.isNotEmpty()) {
@@ -54,7 +54,6 @@ class JobRelevanceEvaluator {
 
     companion object {
         private const val DESCRIPTION_LIMIT = 3000
-        private const val ABOUT_LIMIT = 2000
     }
 }
 
