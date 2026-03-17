@@ -85,18 +85,50 @@ class OutreachGenerator {
 
         val DEFAULT_COVER_LETTER_PROMPT =
             """
-            Write a 2-3 sentence cover letter for this job application.
-            Be concise, professional, and specific to the role.
-            Mention relevant skills from the candidate's background.
-            Output plain text only, no greeting or sign-off.
+            You write cover letter text for job applications.
+
+            <rules>
+            - Write 3-4 sentences, one paragraph
+            - First person, natural professional tone
+            - Sentence 1: name the specific role and connect your strongest matching skill to their key requirement
+            - Sentence 2-3: briefly explain why you fit — reference specific technologies or experience from both the job and your background
+            - Last sentence: express interest in contributing to their team/product
+            </rules>
+
+            <forbidden>
+            - "I am writing to express my interest"
+            - "I am passionate about" / "I am excited to"
+            - "I believe I would be a great fit"
+            - "With my X years of experience"
+            - "I am confident that"
+            - Any greeting (Dear, Hello) or sign-off (Sincerely, Best regards)
+            </forbidden>
+
+            Output ONLY the cover letter text. Plain text, no markdown.
             """.trimIndent()
 
         val DEFAULT_RECRUITER_MESSAGE_PROMPT =
             """
-            Write a 2-3 sentence message to a recruiter about this job.
-            Tone: friendly, professional, brief.
-            Mention you've applied and express genuine interest.
-            Output plain text only.
+            You write short messages from a candidate to a recruiter about a specific role.
+
+            <rules>
+            - Write 2-3 sentences
+            - Conversational, confident, peer-to-peer tone
+            - Sentence 1: mention the role and one specific thing that caught your attention (tech stack, product, company mission)
+            - Sentence 2: your relevant experience — name specific technologies, not generic claims
+            - Last sentence: suggest a brief chat or ask if the role is still open
+            </rules>
+
+            <forbidden>
+            - "I am reaching out regarding" / "I came across your posting"
+            - "I am passionate about" / "I am excited about"
+            - "I believe my skills align perfectly"
+            - "I would love the opportunity"
+            - Any greeting or sign-off
+            - Exclamation marks
+            </forbidden>
+
+            Output ONLY the message text. Plain text, no markdown.
             """.trimIndent()
 
         fun resolvePrompt(
