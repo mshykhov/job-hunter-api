@@ -79,17 +79,19 @@ New enum in `application/ai/AiUseCase.kt`:
 enum class AiUseCase(val temperature: Double, val reasoningEffort: String) {
     SCORING(0.2, "low"),
     OUTREACH(0.7, "medium"),
-    EXTRACTION(0.1, "minimal"),
+    EXTRACTION(0.1, "low"),
     OPTIMIZATION(0.3, "low"),
 }
 ```
 
 | Use Case | temperature (non-reasoning) | reasoning_effort (GPT-5/o-series) | Rationale |
 |----------|---------------------------|----------------------------------|-----------|
-| SCORING | 0.2 | low | Deterministic analysis; minimal is risky (Nano hallucinations documented) |
+| SCORING | 0.2 | low | Deterministic analysis; needs consistency but not deep reasoning |
 | OUTREACH | 0.7 | medium | Creative text with forbidden-phrase rules; needs enough reasoning to follow constraints |
-| EXTRACTION | 0.1 | minimal | Pure extraction (text to JSON); OpenAI recommends minimal for extraction tasks |
+| EXTRACTION | 0.1 | low | Pure extraction (text to JSON); low is the minimum valid level for reliable structured output |
 | OPTIMIZATION | 0.3 | low | Semi-creative restructuring; more than extraction, less than creative writing |
+
+> **Note**: OpenAI reasoning_effort only accepts `low`, `medium`, `high` for GPT-5 Nano. The value `minimal` is NOT valid and will cause an API error.
 
 ### 4. ChatClientFactory Changes
 
@@ -107,34 +109,37 @@ fun createForUser(settings: UserAiSettingsEntity, useCase: AiUseCase = AiUseCase
 
 Logic:
 ```kotlin
-fun isReasoningModel(modelId: String): Boolean =
+// Covers OpenAI reasoning models only. Non-OpenAI models (Claude, etc.)
+// go through the OpenAI-compatible API and correctly receive temperature.
+private fun isReasoningModel(modelId: String): Boolean =
     modelId.startsWith("gpt-5") ||
     modelId.startsWith("o1") ||
     modelId.startsWith("o3") ||
     modelId.startsWith("o4")
 
-// In createForUser:
+// In createForUser — REPLACES the existing `if (modelId.contains("nano")) 1.0 else 0.2` hack:
 if (isReasoningModel(settings.modelId)) {
-    // Set reasoning_effort, NO temperature
+    // Reasoning models: reasoning_effort only, NO temperature (API rejects it)
     options.reasoningEffort(useCase.reasoningEffort)
 } else {
-    // Set temperature, NO reasoning_effort
+    // Standard models: temperature only
     options.temperature(useCase.temperature)
 }
 ```
 
 ### 5. Caller Updates
 
-Each AI service passes its use case to `ChatClientFactory`:
+Actual call sites of `ChatClientFactory.createForUser()` (not the AI classes that receive the ChatClient):
 
-| Caller | Use Case |
-|--------|----------|
-| `JobRelevanceEvaluator` | `AiUseCase.SCORING` |
-| `OutreachGenerator` (via `OutreachService`) | `AiUseCase.OUTREACH` |
-| `PreferenceNormalizer` | `AiUseCase.EXTRACTION` |
-| `AboutOptimizer` | `AiUseCase.OPTIMIZATION` |
+| Call Site (file:method) | AiUseCase |
+|------------------------|-----------|
+| `JobMatchingService.buildUserChatClients()` | `SCORING` |
+| `OutreachService.resolveGenerationContext()` | `OUTREACH` |
+| `OutreachService.resolveTestContext()` | `OUTREACH` |
+| `PreferenceService.optimizeAbout()` | `OPTIMIZATION` |
+| `PreferenceService.generatePreferences()` | `EXTRACTION` |
 
-**Note**: Some callers create the ChatClient in the service layer and pass it to the AI class. The use case parameter needs to be threaded through wherever `createForUser()` is called.
+**Design decision**: Default parameter `useCase: AiUseCase = AiUseCase.SCORING` preserves backward compatibility — any caller that doesn't pass a use case gets scoring behavior (the most common case).
 
 ### 6. User Prompt (no changes)
 
@@ -151,11 +156,15 @@ No changes needed here — the system prompt does the heavy lifting.
 | File | Change |
 |------|--------|
 | `application/ai/AiUseCase.kt` | **NEW** — enum with temperature + reasoning_effort per use case |
-| `application/ai/ChatClientFactory.kt` | Add `useCase` parameter, reasoning model detection, conditional config |
+| `application/ai/ChatClientFactory.kt` | Remove `contains("nano")` hack, add `useCase` param, reasoning model detection, conditional config |
 | `application/ai/OutreachGenerator.kt` | Replace both DEFAULT prompts |
-| All callers of `ChatClientFactory.createForUser()` | Pass appropriate `AiUseCase` |
-| `OutreachServiceTest.kt` | Update mock assertions for new prompt text |
-| `ChatClientFactoryTest.kt` | **NEW or update** — test reasoning model detection + use case config |
+| `application/outreach/OutreachService.kt` | Pass `AiUseCase.OUTREACH` to `createForUser()` |
+| `application/preference/PreferenceService.kt` | Pass `AiUseCase.OPTIMIZATION` / `AiUseCase.EXTRACTION` to `createForUser()` |
+| `application/matching/JobMatchingService.kt` | Pass `AiUseCase.SCORING` to `createForUser()` (or rely on default) |
+| `test/.../OutreachServiceTest.kt` | Update mock assertions for new prompt text + `AiUseCase.OUTREACH` |
+| `test/.../JobMatchingServiceTest.kt` | Update mock-s to match `AiUseCase.SCORING` parameter |
+| `test/.../PreferenceServiceTest.kt` | Update mock to match `AiUseCase.OPTIMIZATION` / `AiUseCase.EXTRACTION` |
+| `test/.../ChatClientFactoryTest.kt` | **NEW** — test reasoning model detection + use case config |
 
 ---
 
