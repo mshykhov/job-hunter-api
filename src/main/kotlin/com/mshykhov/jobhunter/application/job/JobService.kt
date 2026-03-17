@@ -103,13 +103,9 @@ class JobService(private val jobFacade: JobFacade, private val jobGroupFacade: J
         groupsByKey: MutableMap<String, JobGroupEntity>,
     ): JobGroupEntity {
         val groupKey = JobGroupKeyComputer.compute(request.title, request.company)
-        groupsByKey[groupKey]?.let {
-            jobGroupFacade.incrementJobCount(it.id)
-            return it
+        return groupsByKey.getOrPut(groupKey) {
+            jobGroupFacade.findOrCreate(groupKey, request.title, request.company)
         }
-        val group = jobGroupFacade.findOrCreate(groupKey, request.title, request.company)
-        groupsByKey[groupKey] = group
-        return group
     }
 
     private fun createNew(

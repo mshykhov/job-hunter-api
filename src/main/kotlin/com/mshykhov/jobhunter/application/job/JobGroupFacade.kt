@@ -30,7 +30,4 @@ class JobGroupFacade(private val jobGroupRepository: JobGroupRepository) {
             "Job group with key $groupKey should exist after upsert"
         }
     }
-
-    @Transactional
-    fun incrementJobCount(id: UUID) = jobGroupRepository.incrementJobCount(id)
 }

@@ -33,7 +33,6 @@ class JobServiceTest {
                     company = thirdArg(),
                 )
             }
-            every { jobGroupFacade.incrementJobCount(any()) } returns Unit
             every { jobGroupFacade.saveAll(any()) } answers { firstArg<Collection<JobGroupEntity>>().toList() }
         }
 
@@ -230,22 +229,19 @@ class JobServiceTest {
             val groups = savedSlot.captured.map { it.group }.distinct()
             assertEquals(1, groups.size)
             verify(exactly = 1) { jobGroupFacade.findOrCreate(any(), any(), any()) }
-            verify(exactly = 1) { jobGroupFacade.incrementJobCount(any()) }
         }
 
         @Test
-        fun `should increment job count when new job matches existing group`() {
+        fun `should reuse existing group without creating new one`() {
             val existingGroup = TestFixtures.jobGroupEntity(title = "Kotlin Dev", company = "ACME")
-            val groupKey = JobGroupKeyComputer.compute("Kotlin Dev", "ACME")
 
-            every { jobGroupFacade.findByGroupKeys(listOf(groupKey)) } returns listOf(existingGroup)
+            every { jobGroupFacade.findByGroupKeys(any()) } returns listOf(existingGroup)
             every { jobFacade.findByUrls(any()) } returns emptyList()
             every { jobFacade.saveAll(any()) } answers { firstArg() }
 
             val request = TestFixtures.jobIngestRequest(title = "Kotlin Dev", company = "ACME")
             service.ingest(listOf(request))
 
-            verify(exactly = 1) { jobGroupFacade.incrementJobCount(existingGroup.id) }
             verify(exactly = 0) { jobGroupFacade.findOrCreate(any(), any(), any()) }
         }
 
@@ -281,7 +277,38 @@ class JobServiceTest {
             service.ingest(listOf(request))
 
             verify(exactly = 0) { jobGroupFacade.findOrCreate(any(), any(), any()) }
-            verify(exactly = 0) { jobGroupFacade.incrementJobCount(any()) }
+        }
+
+        @Test
+        fun `should merge new category into existing group on ingest`() {
+            val existingGroup =
+                TestFixtures.jobGroupEntity(title = "Kotlin Dev", company = "ACME").apply {
+                    categories = setOf(Category("java"))
+                }
+
+            every { jobGroupFacade.findByGroupKeys(any()) } returns listOf(existingGroup)
+            every { jobFacade.findByUrls(any()) } returns emptyList()
+            every { jobFacade.saveAll(any()) } answers { firstArg() }
+
+            val savedGroups = slot<Collection<JobGroupEntity>>()
+            every { jobGroupFacade.saveAll(capture(savedGroups)) } answers {
+                firstArg<Collection<JobGroupEntity>>().toList()
+            }
+
+            val requests =
+                listOf(
+                    TestFixtures.jobIngestRequest(
+                        url = "https://example.com/j1",
+                        title = "Kotlin Dev",
+                        company = "ACME",
+                        category = Category("kotlin"),
+                    ),
+                )
+
+            service.ingest(requests)
+
+            val savedGroup = savedGroups.captured.single()
+            assertEquals(setOf(Category("java"), Category("kotlin")), savedGroup.categories)
         }
 
         @Test

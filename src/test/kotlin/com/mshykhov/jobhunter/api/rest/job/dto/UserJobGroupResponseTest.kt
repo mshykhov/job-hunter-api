@@ -84,12 +84,31 @@ class UserJobGroupResponseTest {
         }
 
         @Test
+        fun `should derive jobCount from actual jobs size`() {
+            val group = TestFixtures.jobGroupEntity()
+            setJobs(
+                group,
+                listOf(
+                    TestFixtures.jobEntity(group = group),
+                    TestFixtures.jobEntity(group = group),
+                    TestFixtures.jobEntity(group = group),
+                ),
+            )
+            val userJobGroup = TestFixtures.userJobGroupEntity(group = group)
+
+            val result = UserJobGroupResponse.from(userJobGroup)
+
+            assertEquals(3, result.jobCount)
+        }
+
+        @Test
         fun `should return empty sources when group has no jobs`() {
             val group = TestFixtures.jobGroupEntity()
             val userJobGroup = TestFixtures.userJobGroupEntity(group = group)
 
             val result = UserJobGroupResponse.from(userJobGroup)
 
+            assertEquals(0, result.jobCount)
             assertTrue(result.sources.isEmpty())
             assertTrue(result.locations.isEmpty())
             assertNull(result.salary)

@@ -47,13 +47,11 @@ object TestFixtures {
     fun jobGroupEntity(
         title: String = "Senior Kotlin Developer",
         company: String? = "TechCorp",
-        jobCount: Int = 1,
     ): JobGroupEntity =
         JobGroupEntity(
             groupKey = JobGroupKeyComputer.compute(title, company),
             title = title,
             company = company,
-            jobCount = jobCount,
         )
 
     fun jobEntity(

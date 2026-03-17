@@ -10,16 +10,12 @@ interface JobGroupRepository : JpaRepository<JobGroupEntity, UUID> {
 
     fun findByGroupKeyIn(groupKeys: List<String>): List<JobGroupEntity>
 
-    @Modifying(clearAutomatically = true)
-    @Query("UPDATE JobGroupEntity g SET g.jobCount = g.jobCount + 1 WHERE g.id = :id")
-    fun incrementJobCount(id: UUID)
-
     @Modifying
     @Query(
         nativeQuery = true,
         value = """
-            INSERT INTO job_groups (id, group_key, title, company, job_count, created_at, updated_at)
-            VALUES (:id, :groupKey, :title, :company, 1, now(), now())
+            INSERT INTO job_groups (id, group_key, title, company, created_at, updated_at)
+            VALUES (:id, :groupKey, :title, :company, now(), now())
             ON CONFLICT (group_key) DO UPDATE SET updated_at = now()
         """,
     )

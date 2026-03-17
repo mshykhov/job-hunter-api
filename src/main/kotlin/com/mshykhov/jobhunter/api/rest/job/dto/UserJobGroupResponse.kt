@@ -35,7 +35,7 @@ data class UserJobGroupResponse(
                 company = entity.group.company,
                 status = entity.status,
                 aiRelevanceScore = entity.aiRelevanceScore,
-                jobCount = entity.group.jobCount,
+                jobCount = jobs.size,
                 categories = entity.group.categories,
                 sources = jobs.map { it.source }.distinct().sortedBy { it.value },
                 locations = jobs.mapNotNull { it.location }.distinct().sorted(),

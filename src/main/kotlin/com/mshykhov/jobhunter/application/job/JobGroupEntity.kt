@@ -30,8 +30,6 @@ class JobGroupEntity(
     @Column(nullable = false)
     val title: String,
     val company: String? = null,
-    @Column(name = "job_count", nullable = false)
-    var jobCount: Int = 1,
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(nullable = false, columnDefinition = "jsonb")
     var categories: Set<Category> = emptySet(),
