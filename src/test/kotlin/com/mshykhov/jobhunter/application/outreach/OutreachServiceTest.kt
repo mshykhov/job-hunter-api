@@ -1,5 +1,6 @@
 package com.mshykhov.jobhunter.application.outreach
 
+import com.mshykhov.jobhunter.application.ai.AiUseCase
 import com.mshykhov.jobhunter.application.ai.ChatClientFactory
 import com.mshykhov.jobhunter.application.ai.OutreachGenerator
 import com.mshykhov.jobhunter.application.ai.UserAiSettingsEntity
@@ -60,7 +61,7 @@ class OutreachServiceTest {
             every { outreachSettingsFacade.findByUserId(user.id) } returns null
             every { userPreferenceFacade.findByUserId(user.id) } returns null
             every { userAiSettingsService.resolveForUser(auth0Sub) } returns aiSettings
-            every { chatClientFactory.createForUser(aiSettings) } returns chatClient
+            every { chatClientFactory.createForUser(aiSettings, AiUseCase.OUTREACH) } returns chatClient
             every {
                 outreachGenerator.generateCoverLetter(job, null, null, null, chatClient)
             } returns "Generated cover letter"
@@ -93,7 +94,7 @@ class OutreachServiceTest {
             every { outreachSettingsFacade.findByUserId(user.id) } returns settings
             every { userPreferenceFacade.findByUserId(user.id) } returns null
             every { userAiSettingsService.resolveForUser(auth0Sub) } returns aiSettings
-            every { chatClientFactory.createForUser(aiSettings) } returns chatClient
+            every { chatClientFactory.createForUser(aiSettings, AiUseCase.OUTREACH) } returns chatClient
             every {
                 outreachGenerator.generateCoverLetter(job, null, sourceConfig, "Default custom", chatClient)
             } returns "Custom cover letter"
@@ -160,7 +161,7 @@ class OutreachServiceTest {
             every { outreachSettingsFacade.findByUserId(user.id) } returns null
             every { userPreferenceFacade.findByUserId(user.id) } returns null
             every { userAiSettingsService.resolveForUser(auth0Sub) } returns aiSettings
-            every { chatClientFactory.createForUser(aiSettings) } returns chatClient
+            every { chatClientFactory.createForUser(aiSettings, AiUseCase.OUTREACH) } returns chatClient
             every {
                 outreachGenerator.generateRecruiterMessage(job, null, null, null, chatClient)
             } returns "Generated recruiter message"
@@ -228,7 +229,7 @@ class OutreachServiceTest {
             every { outreachSettingsFacade.findByUserId(user.id) } returns null
             every { userPreferenceFacade.findByUserId(user.id) } returns null
             every { userAiSettingsService.resolveForUser(auth0Sub) } returns aiSettings
-            every { chatClientFactory.createForUser(aiSettings) } returns chatClient
+            every { chatClientFactory.createForUser(aiSettings, AiUseCase.OUTREACH) } returns chatClient
             every {
                 outreachGenerator.generateCoverLetter(job, null, null, null, chatClient)
             } returns "Test cover letter"
@@ -266,7 +267,7 @@ class OutreachServiceTest {
             every { outreachSettingsFacade.findByUserId(user.id) } returns null
             every { userPreferenceFacade.findByUserId(user.id) } returns null
             every { userAiSettingsService.resolveForUser(auth0Sub) } returns aiSettings
-            every { chatClientFactory.createForUser(aiSettings) } returns chatClient
+            every { chatClientFactory.createForUser(aiSettings, AiUseCase.OUTREACH) } returns chatClient
             every {
                 outreachGenerator.generateRecruiterMessage(job, null, null, null, chatClient)
             } returns "Test recruiter message"

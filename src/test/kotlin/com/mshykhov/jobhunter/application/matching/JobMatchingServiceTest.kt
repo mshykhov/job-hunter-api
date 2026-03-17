@@ -1,5 +1,6 @@
 package com.mshykhov.jobhunter.application.matching
 
+import com.mshykhov.jobhunter.application.ai.AiUseCase
 import com.mshykhov.jobhunter.application.ai.ChatClientFactory
 import com.mshykhov.jobhunter.application.ai.JobRelevanceEvaluator
 import com.mshykhov.jobhunter.application.ai.UserAiSettingsEntity
@@ -113,7 +114,7 @@ class JobMatchingServiceTest {
             every { jobFacade.findUnmatched() } returns listOf(job)
             every { userPreferenceFacade.findAll() } returns listOf(preference)
             every { userAiSettingsFacade.findByUserId(user.id) } returns aiSettings
-            every { chatClientFactory.createForUser(aiSettings) } returns chatClient
+            every { chatClientFactory.createForUser(aiSettings, AiUseCase.SCORING) } returns chatClient
             every { userJobGroupFacade.findByGroupId(group.id) } returns emptyList()
             every { jobRelevanceEvaluator.evaluate(job, preference, chatClient) } returns
                 JobRelevanceResult(score = 85, reasoning = "Strong Kotlin match", inferredRemote = true)
@@ -140,7 +141,7 @@ class JobMatchingServiceTest {
             every { jobFacade.findUnmatched() } returns listOf(job)
             every { userPreferenceFacade.findAll() } returns listOf(preference)
             every { userAiSettingsFacade.findByUserId(user.id) } returns aiSettings
-            every { chatClientFactory.createForUser(aiSettings) } returns chatClient
+            every { chatClientFactory.createForUser(aiSettings, AiUseCase.SCORING) } returns chatClient
             every { userJobGroupFacade.findByGroupId(group.id) } returns emptyList()
             every { jobRelevanceEvaluator.evaluate(job, preference, chatClient) } returns
                 JobRelevanceResult(score = 70, reasoning = "Match but not remote", inferredRemote = false)
@@ -196,7 +197,7 @@ class JobMatchingServiceTest {
             every { jobFacade.findUnmatched() } returns listOf(shortJob, longJob)
             every { userPreferenceFacade.findAll() } returns listOf(preference)
             every { userAiSettingsFacade.findByUserId(user.id) } returns aiSettings
-            every { chatClientFactory.createForUser(aiSettings) } returns chatClient
+            every { chatClientFactory.createForUser(aiSettings, AiUseCase.SCORING) } returns chatClient
             every { userJobGroupFacade.findByGroupId(group.id) } returns emptyList()
             every { jobRelevanceEvaluator.evaluate(longJob, preference, chatClient) } returns
                 JobRelevanceResult(score = 90, reasoning = "Great match", inferredRemote = true)
@@ -303,7 +304,7 @@ class JobMatchingServiceTest {
             every { jobFacade.findUnmatched() } returns listOf(job)
             every { userPreferenceFacade.findAll() } returns listOf(preference)
             every { userAiSettingsFacade.findByUserId(user.id) } returns aiSettings
-            every { chatClientFactory.createForUser(aiSettings) } returns chatClient
+            every { chatClientFactory.createForUser(aiSettings, AiUseCase.SCORING) } returns chatClient
             every { userJobGroupFacade.findByGroupId(group.id) } returns emptyList()
             every { jobRelevanceEvaluator.evaluate(job, preference, chatClient) } throws RuntimeException("API error")
             every { jobFacade.updateMatchedAt(any(), any()) } just Runs

@@ -1,6 +1,7 @@
 package com.mshykhov.jobhunter.application.preference
 
 import com.mshykhov.jobhunter.application.ai.AboutOptimizer
+import com.mshykhov.jobhunter.application.ai.AiUseCase
 import com.mshykhov.jobhunter.application.ai.ChatClientFactory
 import com.mshykhov.jobhunter.application.ai.PreferenceNormalizer
 import com.mshykhov.jobhunter.application.ai.UserAiSettingsEntity
@@ -51,7 +52,7 @@ class PreferenceServiceTest {
             every { userFacade.findByAuth0Sub(auth0Sub) } returns user
             every { userPreferenceFacade.findByUserId(user.id) } returns preference
             every { userAiSettingsService.resolveForUser(auth0Sub) } returns aiSettings
-            every { chatClientFactory.createForUser(aiSettings) } returns chatClient
+            every { chatClientFactory.createForUser(aiSettings, AiUseCase.OPTIMIZATION) } returns chatClient
             every { aboutOptimizer.optimize("raw about text", chatClient) } returns "optimized about"
             every { userPreferenceFacade.save(any()) } answers { firstArg() }
 
