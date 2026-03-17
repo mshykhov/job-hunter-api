@@ -1,5 +1,6 @@
 package com.mshykhov.jobhunter.application.matching
 
+import com.mshykhov.jobhunter.application.ai.AiUseCase
 import com.mshykhov.jobhunter.application.ai.ChatClientFactory
 import com.mshykhov.jobhunter.application.ai.JobRelevanceEvaluator
 import com.mshykhov.jobhunter.application.ai.UserAiSettingsFacade
@@ -215,7 +216,7 @@ class JobMatchingService(
                     logger.warn { "User $userId has matchWithAi=true but no AI settings — falling back to cold-only" }
                     null
                 } else {
-                    userId to chatClientFactory.createForUser(settings)
+                    userId to chatClientFactory.createForUser(settings, AiUseCase.SCORING)
                 }
             }.toMap()
 

@@ -10,6 +10,7 @@ import com.mshykhov.jobhunter.api.rest.preference.dto.SearchPreferenceResponse
 import com.mshykhov.jobhunter.api.rest.preference.dto.TelegramPreferenceRequest
 import com.mshykhov.jobhunter.api.rest.preference.dto.TelegramPreferenceResponse
 import com.mshykhov.jobhunter.application.ai.AboutOptimizer
+import com.mshykhov.jobhunter.application.ai.AiUseCase
 import com.mshykhov.jobhunter.application.ai.ChatClientFactory
 import com.mshykhov.jobhunter.application.ai.PreferenceNormalizer
 import com.mshykhov.jobhunter.application.ai.UserAiSettingsService
@@ -79,7 +80,7 @@ class PreferenceService(
             preference.about
                 ?: throw NotFoundException("About is empty — fill it first")
         val settings = userAiSettingsService.resolveForUser(auth0Sub)
-        val chatClient = chatClientFactory.createForUser(settings)
+        val chatClient = chatClientFactory.createForUser(settings, AiUseCase.OPTIMIZATION)
         val optimized = aboutOptimizer.optimize(about, chatClient)
         preference.about = optimized
         userPreferenceFacade.save(preference)
@@ -97,7 +98,7 @@ class PreferenceService(
             preference.about
                 ?: throw NotFoundException("About is empty — fill it first")
         val settings = userAiSettingsService.resolveForUser(auth0Sub)
-        val chatClient = chatClientFactory.createForUser(settings)
+        val chatClient = chatClientFactory.createForUser(settings, AiUseCase.EXTRACTION)
         val result = preferenceNormalizer.normalize(about, chatClient)
         return NormalizePreferenceResponse.from(result)
     }

@@ -4,6 +4,7 @@ import com.mshykhov.jobhunter.api.rest.job.dto.CoverLetterResponse
 import com.mshykhov.jobhunter.api.rest.job.dto.RecruiterMessageResponse
 import com.mshykhov.jobhunter.api.rest.settings.dto.OutreachSettingsResponse
 import com.mshykhov.jobhunter.api.rest.settings.dto.SaveOutreachSettingsRequest
+import com.mshykhov.jobhunter.application.ai.AiUseCase
 import com.mshykhov.jobhunter.application.ai.ChatClientFactory
 import com.mshykhov.jobhunter.application.ai.OutreachGenerator
 import com.mshykhov.jobhunter.application.ai.UserAiSettingsService
@@ -134,7 +135,7 @@ class OutreachService(
         val sourceConfig = settings?.sourceConfig?.get(source)
         val about = userPreferenceFacade.findByUserId(user.id)?.about
         val aiSettings = userAiSettingsService.resolveForUser(auth0Sub)
-        val chatClient = chatClientFactory.createForUser(aiSettings)
+        val chatClient = chatClientFactory.createForUser(aiSettings, AiUseCase.OUTREACH)
         return TestContext(job, settings, sourceConfig, about, chatClient)
     }
 
@@ -151,7 +152,7 @@ class OutreachService(
         val sourceConfig = settings?.sourceConfig?.get(job.source)
         val about = userPreferenceFacade.findByUserId(user.id)?.about
         val aiSettings = userAiSettingsService.resolveForUser(auth0Sub)
-        val chatClient = chatClientFactory.createForUser(aiSettings)
+        val chatClient = chatClientFactory.createForUser(aiSettings, AiUseCase.OUTREACH)
         return GenerationContext(userJob, job, settings, sourceConfig, about, chatClient)
     }
 }
