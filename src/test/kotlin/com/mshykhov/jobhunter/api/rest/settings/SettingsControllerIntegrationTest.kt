@@ -1,6 +1,7 @@
 package com.mshykhov.jobhunter.api.rest.settings
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.mshykhov.jobhunter.application.ai.UserAiSettingsRepository
 import com.mshykhov.jobhunter.application.job.JobSource
 import com.mshykhov.jobhunter.support.AbstractIntegrationTest
 import org.hamcrest.Matchers.equalTo
@@ -22,6 +23,9 @@ class SettingsControllerIntegrationTest : AbstractIntegrationTest() {
 
     @Autowired
     lateinit var objectMapper: ObjectMapper
+
+    @Autowired
+    lateinit var userAiSettingsRepository: UserAiSettingsRepository
 
     @Nested
     inner class AiProviders {
@@ -81,7 +85,28 @@ class SettingsControllerIntegrationTest : AbstractIntegrationTest() {
         }
 
         @Test
-        fun `should return 400 when apiKey is blank`() {
+        fun `should keep stored key when apiKey is blank on update`() {
+            mockMvc
+                .put("/settings/ai") {
+                    contentType = APPLICATION_JSON
+                    content = """{"apiKey": "sk-keep-me-123456", "modelId": "old-model"}"""
+                }.andExpect { status { isOk() } }
+
+            mockMvc
+                .put("/settings/ai") {
+                    contentType = APPLICATION_JSON
+                    content = """{"apiKey": "", "modelId": "updated-model"}"""
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.modelId", equalTo("updated-model"))
+                    jsonPath("$.apiKeyHint", startsWith("sk-keep-"))
+                }
+        }
+
+        @Test
+        fun `should return 400 when apiKey is blank and no settings exist`() {
+            userAiSettingsRepository.deleteAll()
+
             mockMvc
                 .put("/settings/ai") {
                     contentType = APPLICATION_JSON

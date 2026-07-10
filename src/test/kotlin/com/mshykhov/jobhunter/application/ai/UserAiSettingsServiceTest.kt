@@ -2,6 +2,7 @@ package com.mshykhov.jobhunter.application.ai
 
 import com.mshykhov.jobhunter.api.rest.settings.dto.SaveAiSettingsRequest
 import com.mshykhov.jobhunter.application.common.AiNotConfiguredException
+import com.mshykhov.jobhunter.application.common.ValidationException
 import com.mshykhov.jobhunter.application.user.UserFacade
 import com.mshykhov.jobhunter.support.TestFixtures
 import io.mockk.every
@@ -93,6 +94,45 @@ class UserAiSettingsServiceTest {
 
             assertEquals("new-model", result.modelId)
             assertEquals("sk-new-key", existing.apiKey)
+        }
+
+        @Test
+        fun `should keep stored key when apiKey is blank`() {
+            val existing = UserAiSettingsEntity(user = user, apiKey = "sk-old-key", modelId = "old-model")
+            val request = SaveAiSettingsRequest(apiKey = "", modelId = "new-model")
+            every { userFacade.findOrCreate(auth0Sub) } returns user
+            every { userAiSettingsFacade.findByUserId(user.id) } returns existing
+            every { userAiSettingsFacade.save(existing) } returns existing
+
+            val result = service.save(auth0Sub, request)
+
+            assertEquals("new-model", result.modelId)
+            assertEquals("sk-old-key", existing.apiKey)
+        }
+
+        @Test
+        fun `should keep stored key when apiKey is omitted`() {
+            val existing = UserAiSettingsEntity(user = user, apiKey = "sk-old-key", modelId = "old-model")
+            val request = SaveAiSettingsRequest(modelId = "new-model")
+            every { userFacade.findOrCreate(auth0Sub) } returns user
+            every { userAiSettingsFacade.findByUserId(user.id) } returns existing
+            every { userAiSettingsFacade.save(existing) } returns existing
+
+            val result = service.save(auth0Sub, request)
+
+            assertEquals("new-model", result.modelId)
+            assertEquals("sk-old-key", existing.apiKey)
+        }
+
+        @Test
+        fun `should throw ValidationException when apiKey is blank and no settings exist`() {
+            val request = SaveAiSettingsRequest(apiKey = "", modelId = "new-model")
+            every { userFacade.findOrCreate(auth0Sub) } returns user
+            every { userAiSettingsFacade.findByUserId(user.id) } returns null
+
+            assertThrows<ValidationException> {
+                service.save(auth0Sub, request)
+            }
         }
     }
 
