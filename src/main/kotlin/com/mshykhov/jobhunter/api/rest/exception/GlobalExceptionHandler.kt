@@ -3,6 +3,7 @@ package com.mshykhov.jobhunter.api.rest.exception
 import com.mshykhov.jobhunter.application.common.AiNotConfiguredException
 import com.mshykhov.jobhunter.application.common.NotFoundException
 import com.mshykhov.jobhunter.application.common.ServiceUnavailableException
+import com.mshykhov.jobhunter.application.common.ValidationException
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.http.HttpHeaders
@@ -55,6 +56,14 @@ class GlobalExceptionHandler : ResponseEntityExceptionHandler() {
         return ResponseEntity
             .status(HttpStatus.NOT_FOUND)
             .body(ErrorResponse(ex.message ?: "Not found", "NOT_FOUND"))
+    }
+
+    @ExceptionHandler(ValidationException::class)
+    fun handleValidation(ex: ValidationException): ResponseEntity<ErrorResponse> {
+        log.warn { "Validation error: ${ex.message}" }
+        return ResponseEntity
+            .status(HttpStatus.BAD_REQUEST)
+            .body(ErrorResponse(ex.message ?: "Validation error", "VALIDATION_ERROR"))
     }
 
     @ExceptionHandler(AiNotConfiguredException::class)
