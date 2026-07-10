@@ -25,3 +25,9 @@ Desktop.ini
 
 # MCP
 .mcp.json
+
+# Claude Code config (commit shared rules, keep local settings out)
+!.claude/
+.claude/*
+!.claude/rules/
+!.claude/rules/**
