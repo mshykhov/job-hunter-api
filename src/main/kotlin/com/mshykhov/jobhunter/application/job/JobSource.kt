@@ -9,6 +9,9 @@ enum class JobSource(override val value: String, val displayName: String) : Valu
     LINKEDIN("linkedin", "Linkedin"),
     EUREMOTEJOBS("euremotejobs", "EuRemoteJobs"),
     WEB3CAREER("web3career", "Web3.career"),
+    LANDINGJOBS("landingjobs", "Landing.jobs"),
+    JUSTJOINIT("justjoinit", "JustJoinIT"),
+    NOFLUFFJOBS("nofluffjobs", "NoFluffJobs"),
     ;
 
     override fun toString(): String = value
