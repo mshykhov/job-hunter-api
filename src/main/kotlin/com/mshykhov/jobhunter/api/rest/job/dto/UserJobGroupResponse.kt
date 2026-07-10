@@ -20,6 +20,7 @@ data class UserJobGroupResponse(
     val locations: List<String>,
     val remote: Boolean,
     val salary: String?,
+    val primaryUrl: String?,
     val publishedAt: Instant?,
     val matchedAt: Instant?,
     val createdAt: Instant?,
@@ -28,6 +29,7 @@ data class UserJobGroupResponse(
     companion object {
         fun from(entity: UserJobGroupEntity): UserJobGroupResponse {
             val jobs = entity.group.jobs
+            val sortedSources = jobs.map { it.source }.distinct().sortedBy { it.value }
             return UserJobGroupResponse(
                 id = entity.id,
                 groupId = entity.group.id,
@@ -37,10 +39,12 @@ data class UserJobGroupResponse(
                 aiRelevanceScore = entity.aiRelevanceScore,
                 jobCount = jobs.size,
                 categories = entity.group.categories,
-                sources = jobs.map { it.source }.distinct().sortedBy { it.value },
+                sources = sortedSources,
                 locations = jobs.mapNotNull { it.location }.distinct().sorted(),
                 remote = jobs.any { it.remote == true },
                 salary = jobs.firstNotNullOfOrNull { it.salary },
+                primaryUrl = jobs.firstOrNull { it.source == sortedSources.firstOrNull() }?.url
+                    ?: jobs.firstOrNull()?.url,
                 publishedAt = jobs.mapNotNull { it.publishedAt }.minOrNull(),
                 matchedAt = entity.createdAt,
                 createdAt = entity.group.createdAt,
