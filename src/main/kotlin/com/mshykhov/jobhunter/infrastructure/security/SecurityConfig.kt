@@ -4,22 +4,25 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.mshykhov.jobhunter.api.rest.exception.ErrorResponse
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.EnableConfigurationProperties
+import org.springframework.boot.web.servlet.FilterRegistrationBean
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.core.Ordered
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
+import org.springframework.http.client.SimpleClientHttpRequestFactory
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator
 import org.springframework.security.oauth2.jwt.JwtDecoder
-import org.springframework.security.oauth2.jwt.JwtDecoders
 import org.springframework.security.oauth2.jwt.JwtValidators
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter
 import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
+import org.springframework.web.client.RestTemplate
 
 @Configuration
 @EnableWebSecurity
@@ -103,7 +106,16 @@ class SecurityConfig(private val auth0Properties: Auth0Properties, private val o
         matchIfMissing = true,
     )
     fun jwtDecoder(): JwtDecoder {
-        val jwtDecoder = JwtDecoders.fromIssuerLocation(auth0Properties.issuer) as NimbusJwtDecoder
+        val requestFactory =
+            SimpleClientHttpRequestFactory().apply {
+                setConnectTimeout(JWKS_TIMEOUT_MILLIS)
+                setReadTimeout(JWKS_TIMEOUT_MILLIS)
+            }
+        val jwtDecoder =
+            NimbusJwtDecoder
+                .withIssuerLocation(auth0Properties.issuer)
+                .restOperations(RestTemplate(requestFactory))
+                .build()
 
         val audienceValidator = AudienceValidator(auth0Properties.audience)
         val issuerValidator = JwtValidators.createDefaultWithIssuer(auth0Properties.issuer)
@@ -113,6 +125,22 @@ class SecurityConfig(private val auth0Properties: Auth0Properties, private val o
         )
 
         return jwtDecoder
+    }
+
+    @Bean
+    @ConditionalOnProperty(
+        prefix = "jobhunter.auth0",
+        name = ["enabled"],
+        havingValue = "true",
+        matchIfMissing = true,
+    )
+    fun authServiceUnavailableFilterRegistration(): FilterRegistrationBean<AuthServiceUnavailableFilter> =
+        FilterRegistrationBean(AuthServiceUnavailableFilter(objectMapper)).apply {
+            order = Ordered.HIGHEST_PRECEDENCE
+        }
+
+    private companion object {
+        const val JWKS_TIMEOUT_MILLIS = 5000
     }
 }
 
