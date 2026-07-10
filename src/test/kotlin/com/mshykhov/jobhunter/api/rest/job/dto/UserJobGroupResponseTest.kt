@@ -31,6 +31,33 @@ class UserJobGroupResponseTest {
         }
 
         @Test
+        fun `should pick primary url from the first sorted source`() {
+            val group = TestFixtures.jobGroupEntity()
+            setJobs(
+                group,
+                listOf(
+                    TestFixtures.jobEntity(group = group, source = JobSource.DOU, url = "https://dou.ua/job"),
+                    TestFixtures.jobEntity(group = group, source = JobSource.DJINNI, url = "https://djinni.co/job"),
+                ),
+            )
+            val userJobGroup = TestFixtures.userJobGroupEntity(group = group)
+
+            val result = UserJobGroupResponse.from(userJobGroup)
+
+            assertEquals("https://djinni.co/job", result.primaryUrl)
+        }
+
+        @Test
+        fun `should have null primary url when group has no jobs`() {
+            val group = TestFixtures.jobGroupEntity()
+            val userJobGroup = TestFixtures.userJobGroupEntity(group = group)
+
+            val result = UserJobGroupResponse.from(userJobGroup)
+
+            assertNull(result.primaryUrl)
+        }
+
+        @Test
         fun `should compute distinct sorted locations from group jobs`() {
             val group = TestFixtures.jobGroupEntity()
             setJobs(
