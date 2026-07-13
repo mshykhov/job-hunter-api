@@ -1,6 +1,6 @@
 package com.mshykhov.jobhunter.infrastructure.config
 
-import com.mshykhov.jobhunter.infrastructure.security.Auth0Properties
+import com.mshykhov.jobhunter.infrastructure.security.OidcProperties
 import io.swagger.v3.oas.models.Components
 import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.oas.models.info.Contact
@@ -14,7 +14,7 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
 @Configuration
-class OpenApiConfig(private val auth0Properties: Auth0Properties) {
+class OpenApiConfig(private val oidcProperties: OidcProperties) {
     @Bean
     fun openApi(): OpenAPI {
         val openAPI =
@@ -27,8 +27,11 @@ class OpenApiConfig(private val auth0Properties: Auth0Properties) {
                         .contact(Contact().name("mshykhov").url("https://github.com/mshykhov/job-hunter")),
                 )
 
-        if (auth0Properties.enabled) {
-            val issuer = auth0Properties.issuer.trimEnd('/')
+        val issuer = oidcProperties.issuers.firstOrNull()?.trimEnd('/')
+        if (oidcProperties.enabled && issuer != null) {
+            // Authentik serves authorize/token globally, one level above the
+            // per-application slug issuer (https://.../application/o/{slug}/).
+            val oauthBase = issuer.substringBeforeLast('/')
             openAPI
                 .addSecurityItem(SecurityRequirement().addList("oauth2"))
                 .components(
@@ -39,9 +42,15 @@ class OpenApiConfig(private val auth0Properties: Auth0Properties) {
                             .flows(
                                 OAuthFlows().authorizationCode(
                                     OAuthFlow()
-                                        .authorizationUrl("$issuer/authorize?audience=${auth0Properties.audience}")
-                                        .tokenUrl("$issuer/oauth/token")
-                                        .scopes(Scopes()),
+                                        .authorizationUrl("$oauthBase/authorize/")
+                                        .tokenUrl("$oauthBase/token/")
+                                        .scopes(
+                                            Scopes()
+                                                .addString("openid", "OpenID Connect")
+                                                .addString("profile", "Profile and groups")
+                                                .addString("email", "Email")
+                                                .addString("job-hunter-api", "Job Hunter API audience and permissions"),
+                                        ),
                                 ),
                             ),
                     ),

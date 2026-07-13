@@ -11,7 +11,7 @@ import org.springframework.security.authentication.AuthenticationServiceExceptio
 import org.springframework.web.filter.OncePerRequestFilter
 
 /**
- * Converts server-side authentication infrastructure failures (e.g. the Auth0 JWKS endpoint being
+ * Converts server-side authentication infrastructure failures (e.g. the IdP JWKS endpoint being
  * briefly unreachable) into an honest 503 instead of a bare 500. Spring Security rethrows
  * [AuthenticationServiceException] past the entry point, so it must be caught above the security
  * filter chain rather than in the controller advice.

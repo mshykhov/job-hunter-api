@@ -16,13 +16,13 @@ management:
       show-details: always
 
 jobhunter:
-  auth0:
-    enabled: ${AUTH0_ENABLED:true}
-    issuer: https://${AUTH0_DOMAIN:login.gaynance.com}/
-    audience: ${AUTH0_AUDIENCE:https://api.jobhunter.com}
+  oidc:
+    enabled: ${OIDC_ENABLED:true}
+    issuers: ${OIDC_ISSUERS:https://auth.gaynance.com/application/o/job-hunter-ui/,https://auth.gaynance.com/application/o/job-hunter-m2m/}
+    audience: ${OIDC_AUDIENCE:https://api.jobhunter.com}
 
 springdoc:
   swagger-ui:
     oauth:
-      client-id: ${AUTH0_CLIENT_ID:WJ1Wz0pCVSkITh7toIWPvHIIea5Zo4uW}
+      client-id: ${OIDC_CLIENT_ID:job-hunter-ui}
       use-pkce-with-authorization-code-grant: true

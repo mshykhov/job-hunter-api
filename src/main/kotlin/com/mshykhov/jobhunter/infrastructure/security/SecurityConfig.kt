@@ -11,6 +11,9 @@ import org.springframework.core.Ordered
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.client.SimpleClientHttpRequestFactory
+import org.springframework.security.authentication.AuthenticationManager
+import org.springframework.security.authentication.AuthenticationManagerResolver
+import org.springframework.security.authentication.ProviderManager
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
@@ -19,18 +22,20 @@ import org.springframework.security.oauth2.jwt.JwtDecoder
 import org.springframework.security.oauth2.jwt.JwtValidators
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationProvider
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter
+import org.springframework.security.oauth2.server.resource.authentication.JwtIssuerAuthenticationManagerResolver
 import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
 import org.springframework.web.client.RestTemplate
 
 @Configuration
 @EnableWebSecurity
-@EnableConfigurationProperties(Auth0Properties::class)
-class SecurityConfig(private val auth0Properties: Auth0Properties, private val objectMapper: ObjectMapper) {
+@EnableConfigurationProperties(OidcProperties::class)
+class SecurityConfig(private val oidcProperties: OidcProperties, private val objectMapper: ObjectMapper) {
     @Bean
     @ConditionalOnProperty(
-        prefix = "jobhunter.auth0",
+        prefix = "jobhunter.oidc",
         name = ["enabled"],
         havingValue = "true",
         matchIfMissing = true,
@@ -51,10 +56,7 @@ class SecurityConfig(private val auth0Properties: Auth0Properties, private val o
                     .anyRequest()
                     .permitAll()
             }.oauth2ResourceServer { oauth2 ->
-                oauth2.jwt { jwt ->
-                    jwt.decoder(jwtDecoder())
-                    jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())
-                }
+                oauth2.authenticationManagerResolver(issuerAuthenticationManagerResolver())
                 oauth2.authenticationEntryPoint { _, response, _ ->
                     response.status = HttpStatus.UNAUTHORIZED.value()
                     response.contentType = MediaType.APPLICATION_JSON_VALUE
@@ -72,7 +74,7 @@ class SecurityConfig(private val auth0Properties: Auth0Properties, private val o
 
     @Bean
     @ConditionalOnProperty(
-        prefix = "jobhunter.auth0",
+        prefix = "jobhunter.oidc",
         name = ["enabled"],
         havingValue = "false",
     )
@@ -87,6 +89,21 @@ class SecurityConfig(private val auth0Properties: Auth0Properties, private val o
         return http.build()
     }
 
+    // Authentik issues tokens per application (SPA and M2M providers have their
+    // own slug issuers), so each configured issuer gets its own decoder while
+    // sharing the audience check and authorities mapping.
+    private fun issuerAuthenticationManagerResolver(): JwtIssuerAuthenticationManagerResolver {
+        val managers: Map<String, AuthenticationManager> =
+            oidcProperties.issuers.associateWith { issuer ->
+                val provider =
+                    JwtAuthenticationProvider(jwtDecoder(issuer)).apply {
+                        setJwtAuthenticationConverter(jwtAuthenticationConverter())
+                    }
+                ProviderManager(provider)
+            }
+        return JwtIssuerAuthenticationManagerResolver(AuthenticationManagerResolver { issuer -> managers[issuer] })
+    }
+
     private fun jwtAuthenticationConverter(): JwtAuthenticationConverter {
         val authoritiesConverter =
             JwtGrantedAuthoritiesConverter().apply {
@@ -98,14 +115,7 @@ class SecurityConfig(private val auth0Properties: Auth0Properties, private val o
         }
     }
 
-    @Bean
-    @ConditionalOnProperty(
-        prefix = "jobhunter.auth0",
-        name = ["enabled"],
-        havingValue = "true",
-        matchIfMissing = true,
-    )
-    fun jwtDecoder(): JwtDecoder {
+    private fun jwtDecoder(issuer: String): JwtDecoder {
         val requestFactory =
             SimpleClientHttpRequestFactory().apply {
                 setConnectTimeout(JWKS_TIMEOUT_MILLIS)
@@ -113,12 +123,12 @@ class SecurityConfig(private val auth0Properties: Auth0Properties, private val o
             }
         val jwtDecoder =
             NimbusJwtDecoder
-                .withIssuerLocation(auth0Properties.issuer)
+                .withIssuerLocation(issuer)
                 .restOperations(RestTemplate(requestFactory))
                 .build()
 
-        val audienceValidator = AudienceValidator(auth0Properties.audience)
-        val issuerValidator = JwtValidators.createDefaultWithIssuer(auth0Properties.issuer)
+        val audienceValidator = AudienceValidator(oidcProperties.audience)
+        val issuerValidator = JwtValidators.createDefaultWithIssuer(issuer)
 
         jwtDecoder.setJwtValidator(
             DelegatingOAuth2TokenValidator(issuerValidator, audienceValidator),
@@ -129,7 +139,7 @@ class SecurityConfig(private val auth0Properties: Auth0Properties, private val o
 
     @Bean
     @ConditionalOnProperty(
-        prefix = "jobhunter.auth0",
+        prefix = "jobhunter.oidc",
         name = ["enabled"],
         havingValue = "true",
         matchIfMissing = true,
@@ -146,7 +156,7 @@ class SecurityConfig(private val auth0Properties: Auth0Properties, private val o
 
 @Configuration
 @ConditionalOnProperty(
-    prefix = "jobhunter.auth0",
+    prefix = "jobhunter.oidc",
     name = ["enabled"],
     havingValue = "true",
     matchIfMissing = true,

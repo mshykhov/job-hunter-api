@@ -17,7 +17,7 @@ spring:
       moderation: none
 
 jobhunter:
-  auth0:
+  oidc:
     enabled: false
   ai:
     encryption-key: CSu23FAzyV9SgyFGddYe1Pshd5v91WyshJxMog1aRsU=

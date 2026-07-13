@@ -54,10 +54,10 @@ jobhunter:
     encryption-key: ${AI_ENCRYPTION_KEY:}
     matching:
       concurrency: ${AI_MATCHING_CONCURRENCY:10}
-  auth0:
-    enabled: ${AUTH0_ENABLED:true}
-    issuer: https://${AUTH0_DOMAIN:}/
-    audience: ${AUTH0_AUDIENCE:}
+  oidc:
+    enabled: ${OIDC_ENABLED:true}
+    issuers: ${OIDC_ISSUERS:}
+    audience: ${OIDC_AUDIENCE:}
   proxy:
     enabled: ${PROXY_ENABLED:false}
     api-key: ${WEBSHARE_API_KEY:}
