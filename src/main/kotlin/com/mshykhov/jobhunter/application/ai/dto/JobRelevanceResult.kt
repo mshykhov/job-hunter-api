@@ -1,3 +1,5 @@
 package com.mshykhov.jobhunter.application.ai.dto
 
-data class JobRelevanceResult(val score: Int, val reasoning: String, val inferredRemote: Boolean)
+// Field order mirrors the response schema: reasoning is generated before the
+// score so the model commits to its analysis first (chain-of-thought ordering).
+data class JobRelevanceResult(val reasoning: String, val score: Int, val inferredRemote: Boolean)

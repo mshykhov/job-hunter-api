@@ -39,6 +39,7 @@ n8n scrapers ──POST /jobs/ingest──▶ JobEntity (dedup by URL)
 |-------|------|
 | `application/matching/JobMatchingService` | Orchestrates groups × users; concurrency via semaphore (`jobhunter.ai.matching.concurrency`, default 10) |
 | `application/matching/ColdFilterChain` | Deterministic pre-filters — reject before AI spend |
+| `application/matching/ColdFilterRetroService` | Listens to `PreferenceChangedEvent`, re-runs the cold filter over the user's NEW groups and deletes the ones that stopped passing |
 | `application/ai/JobRelevanceEvaluator` | Scoring system prompt + Spring AI `.entity()` structured output |
 | `application/ai/ChatClientFactory` | Per-user OpenAI-compatible client; reasoning models get `reasoning_effort`, others `temperature` (per `AiUseCase`) |
 | `application/ai/UserAiSettingsEntity` | BYOK: encrypted API key + model id per user |
@@ -50,3 +51,5 @@ n8n scrapers ──POST /jobs/ingest──▶ JobEntity (dedup by URL)
 - **remoteOnly enforced twice** — cold filter rejects explicit `remote=false`; post-AI check rejects `inferredRemote=false`. AI backfills `job.remote` when null.
 - **Failure handling** — group failure is logged and `matched_at` stays NULL, so the next cycle retries; a single AI failure skips that user only.
 - **No server-side score threshold** — every passed group is saved with its score; filtering by score is a client concern (`minScore` query param).
+- **Retro-clean on preference change** — saving search/matching preferences deletes NEW groups that no longer pass the cold filter; reviewed statuses (APPLIED/IRRELEVANT) are never touched.
+- **Structured output** — the relevance evaluator forces OpenAI strict `json_schema` (`reasoning` before `score`, so the model reasons before committing to a number).
