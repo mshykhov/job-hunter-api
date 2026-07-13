@@ -1,5 +1,7 @@
 package com.mshykhov.jobhunter.application.preference
 
+import com.mshykhov.jobhunter.api.rest.preference.dto.MatchingPreferenceRequest
+import com.mshykhov.jobhunter.api.rest.preference.dto.SearchPreferenceRequest
 import com.mshykhov.jobhunter.application.ai.AboutOptimizer
 import com.mshykhov.jobhunter.application.ai.AiUseCase
 import com.mshykhov.jobhunter.application.ai.ChatClientFactory
@@ -17,6 +19,7 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.springframework.ai.chat.client.ChatClient
+import org.springframework.context.ApplicationEventPublisher
 import kotlin.test.assertEquals
 
 class PreferenceServiceTest {
@@ -27,6 +30,7 @@ class PreferenceServiceTest {
     private val userAiSettingsService = mockk<UserAiSettingsService>()
     private val chatClientFactory = mockk<ChatClientFactory>()
     private val documentParser = mockk<DocumentParser>()
+    private val eventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
 
     private val service =
         PreferenceService(
@@ -37,7 +41,48 @@ class PreferenceServiceTest {
             userAiSettingsService,
             chatClientFactory,
             documentParser,
+            eventPublisher,
         )
+
+    @Nested
+    inner class PreferenceChangePublishing {
+        private val auth0Sub = "auth0|test-user"
+        private val user = TestFixtures.userEntity(auth0Sub)
+        private val preference = TestFixtures.userPreferenceEntity(user = user)
+
+        @Test
+        fun `should publish PreferenceChangedEvent when search preferences saved`() {
+            every { userFacade.findOrCreate(auth0Sub) } returns user
+            every { userPreferenceFacade.findByUserId(user.id) } returns preference
+            every { userPreferenceFacade.save(any()) } answers { firstArg() }
+
+            service.saveSearch(auth0Sub, SearchPreferenceRequest())
+
+            verify { eventPublisher.publishEvent(PreferenceChangedEvent(user.id)) }
+        }
+
+        @Test
+        fun `should publish PreferenceChangedEvent when matching preferences saved`() {
+            every { userFacade.findOrCreate(auth0Sub) } returns user
+            every { userPreferenceFacade.findByUserId(user.id) } returns preference
+            every { userPreferenceFacade.save(any()) } answers { firstArg() }
+
+            service.saveMatching(auth0Sub, MatchingPreferenceRequest())
+
+            verify { eventPublisher.publishEvent(PreferenceChangedEvent(user.id)) }
+        }
+
+        @Test
+        fun `should not publish event when about saved`() {
+            every { userFacade.findOrCreate(auth0Sub) } returns user
+            every { userPreferenceFacade.findByUserId(user.id) } returns preference
+            every { userPreferenceFacade.save(any()) } answers { firstArg() }
+
+            service.saveAbout(auth0Sub, "new about")
+
+            verify(exactly = 0) { eventPublisher.publishEvent(any()) }
+        }
+    }
 
     @Nested
     inner class OptimizeAbout {

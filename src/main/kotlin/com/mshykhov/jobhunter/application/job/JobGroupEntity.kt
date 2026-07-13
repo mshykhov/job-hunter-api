@@ -39,11 +39,10 @@ class JobGroupEntity(
     @LastModifiedDate
     @Column(name = "updated_at", insertable = false)
     var updatedAt: Instant? = null,
-) : Persistable<UUID> {
     @OneToMany(mappedBy = "group")
     @BatchSize(size = 100)
-    val jobs: List<JobEntity> = emptyList()
-
+    val jobs: List<JobEntity> = emptyList(),
+) : Persistable<UUID> {
     @Transient
     private var isNew: Boolean = true
 

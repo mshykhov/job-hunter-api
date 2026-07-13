@@ -32,4 +32,11 @@ interface UserJobGroupRepository :
         userId: UUID,
         groupIds: List<UUID>,
     ): List<UserJobGroupEntity>
+
+    @EntityGraph(attributePaths = ["group", "group.jobs"])
+    @Query("SELECT ujg FROM UserJobGroupEntity ujg WHERE ujg.user.id = :userId AND ujg.status = :status")
+    fun findByUserIdAndStatus(
+        userId: UUID,
+        status: UserJobStatus,
+    ): List<UserJobGroupEntity>
 }

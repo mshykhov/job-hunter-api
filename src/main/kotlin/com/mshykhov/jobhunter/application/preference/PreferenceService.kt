@@ -18,6 +18,7 @@ import com.mshykhov.jobhunter.application.common.NotFoundException
 import com.mshykhov.jobhunter.application.user.UserFacade
 import com.mshykhov.jobhunter.infrastructure.document.DocumentParser
 import io.github.oshai.kotlinlogging.KotlinLogging
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.multipart.MultipartFile
@@ -33,6 +34,7 @@ class PreferenceService(
     private val userAiSettingsService: UserAiSettingsService,
     private val chatClientFactory: ChatClientFactory,
     private val documentParser: DocumentParser,
+    private val eventPublisher: ApplicationEventPublisher,
 ) {
     @Transactional(readOnly = true)
     fun get(auth0Sub: String): PreferenceResponse {
@@ -110,7 +112,9 @@ class PreferenceService(
     ): SearchPreferenceResponse {
         val entity = findOrCreatePreference(auth0Sub)
         request.applyTo(entity.search)
-        return SearchPreferenceResponse.from(userPreferenceFacade.save(entity).search)
+        val saved = userPreferenceFacade.save(entity)
+        eventPublisher.publishEvent(PreferenceChangedEvent(saved.user.id))
+        return SearchPreferenceResponse.from(saved.search)
     }
 
     @Transactional
@@ -120,7 +124,9 @@ class PreferenceService(
     ): MatchingPreferenceResponse {
         val entity = findOrCreatePreference(auth0Sub)
         request.applyTo(entity.matching)
-        return MatchingPreferenceResponse.from(userPreferenceFacade.save(entity).matching)
+        val saved = userPreferenceFacade.save(entity)
+        eventPublisher.publishEvent(PreferenceChangedEvent(saved.user.id))
+        return MatchingPreferenceResponse.from(saved.matching)
     }
 
     @Transactional
