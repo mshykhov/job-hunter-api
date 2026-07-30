@@ -6,8 +6,8 @@ import com.mshykhov.jobhunter.application.ai.AboutOptimizer
 import com.mshykhov.jobhunter.application.ai.AiUseCase
 import com.mshykhov.jobhunter.application.ai.ChatClientFactory
 import com.mshykhov.jobhunter.application.ai.PreferenceNormalizer
-import com.mshykhov.jobhunter.application.ai.UserAiSettingsEntity
-import com.mshykhov.jobhunter.application.ai.UserAiSettingsService
+import com.mshykhov.jobhunter.application.ai.UserAiProviderEntity
+import com.mshykhov.jobhunter.application.ai.UserAiProviderService
 import com.mshykhov.jobhunter.application.common.NotFoundException
 import com.mshykhov.jobhunter.application.user.UserFacade
 import com.mshykhov.jobhunter.infrastructure.document.DocumentParser
@@ -27,7 +27,7 @@ class PreferenceServiceTest {
     private val userPreferenceFacade = mockk<UserPreferenceFacade>()
     private val preferenceNormalizer = mockk<PreferenceNormalizer>()
     private val aboutOptimizer = mockk<AboutOptimizer>()
-    private val userAiSettingsService = mockk<UserAiSettingsService>()
+    private val userAiProviderService = mockk<UserAiProviderService>()
     private val chatClientFactory = mockk<ChatClientFactory>()
     private val documentParser = mockk<DocumentParser>()
     private val eventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
@@ -38,7 +38,7 @@ class PreferenceServiceTest {
             userPreferenceFacade,
             preferenceNormalizer,
             aboutOptimizer,
-            userAiSettingsService,
+            userAiProviderService,
             chatClientFactory,
             documentParser,
             eventPublisher,
@@ -89,15 +89,15 @@ class PreferenceServiceTest {
         private val auth0Sub = "auth0|test-user"
         private val user = TestFixtures.userEntity(auth0Sub)
         private val chatClient = mockk<ChatClient>()
-        private val aiSettings = mockk<UserAiSettingsEntity>()
+        private val provider = mockk<UserAiProviderEntity>()
 
         @Test
         fun `should optimize about and save result`() {
             val preference = TestFixtures.userPreferenceEntity(user = user, about = "raw about text")
             every { userFacade.findByAuth0Sub(auth0Sub) } returns user
             every { userPreferenceFacade.findByUserId(user.id) } returns preference
-            every { userAiSettingsService.resolveForUser(auth0Sub) } returns aiSettings
-            every { chatClientFactory.createForUser(aiSettings, AiUseCase.OPTIMIZATION) } returns chatClient
+            every { userAiProviderService.resolvePrimary(auth0Sub) } returns provider
+            every { chatClientFactory.createForProvider(provider, AiUseCase.OPTIMIZATION) } returns chatClient
             every { aboutOptimizer.optimize("raw about text", chatClient) } returns "optimized about"
             every { userPreferenceFacade.save(any()) } answers { firstArg() }
 

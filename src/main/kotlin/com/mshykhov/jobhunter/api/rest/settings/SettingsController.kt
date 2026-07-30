@@ -2,13 +2,15 @@ package com.mshykhov.jobhunter.api.rest.settings
 
 import com.mshykhov.jobhunter.api.rest.job.dto.CoverLetterResponse
 import com.mshykhov.jobhunter.api.rest.job.dto.RecruiterMessageResponse
+import com.mshykhov.jobhunter.api.rest.settings.dto.AiProviderChainResponse
 import com.mshykhov.jobhunter.api.rest.settings.dto.AiProvidersResponse
 import com.mshykhov.jobhunter.api.rest.settings.dto.AiSettingsResponse
 import com.mshykhov.jobhunter.api.rest.settings.dto.OutreachSettingsResponse
 import com.mshykhov.jobhunter.api.rest.settings.dto.OutreachTestRequest
+import com.mshykhov.jobhunter.api.rest.settings.dto.SaveAiProviderChainRequest
 import com.mshykhov.jobhunter.api.rest.settings.dto.SaveAiSettingsRequest
 import com.mshykhov.jobhunter.api.rest.settings.dto.SaveOutreachSettingsRequest
-import com.mshykhov.jobhunter.application.ai.UserAiSettingsService
+import com.mshykhov.jobhunter.application.ai.UserAiProviderService
 import com.mshykhov.jobhunter.application.outreach.OutreachService
 import com.mshykhov.jobhunter.application.settings.SettingsService
 import jakarta.validation.Valid
@@ -26,7 +28,7 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping("/settings")
 class SettingsController(
     private val settingsService: SettingsService,
-    private val userAiSettingsService: UserAiSettingsService,
+    private val userAiProviderService: UserAiProviderService,
     private val outreachService: OutreachService,
 ) {
     @GetMapping("/ai-providers")
@@ -37,14 +39,27 @@ class SettingsController(
     @PreAuthorize("hasAuthority('SCOPE_read:settings')")
     fun getAiSettings(
         @AuthenticationPrincipal jwt: Jwt,
-    ): AiSettingsResponse = userAiSettingsService.get(jwt.subject)
+    ): AiSettingsResponse = userAiProviderService.get(jwt.subject)
 
     @PutMapping("/ai")
     @PreAuthorize("hasAuthority('SCOPE_write:settings')")
     fun saveAiSettings(
         @AuthenticationPrincipal jwt: Jwt,
         @Valid @RequestBody request: SaveAiSettingsRequest,
-    ): AiSettingsResponse = userAiSettingsService.save(jwt.subject, request)
+    ): AiSettingsResponse = userAiProviderService.save(jwt.subject, request)
+
+    @GetMapping("/ai/providers")
+    @PreAuthorize("hasAuthority('SCOPE_read:settings')")
+    fun getAiProviderChain(
+        @AuthenticationPrincipal jwt: Jwt,
+    ): AiProviderChainResponse = userAiProviderService.getChain(jwt.subject)
+
+    @PutMapping("/ai/providers")
+    @PreAuthorize("hasAuthority('SCOPE_write:settings')")
+    fun saveAiProviderChain(
+        @AuthenticationPrincipal jwt: Jwt,
+        @Valid @RequestBody request: SaveAiProviderChainRequest,
+    ): AiProviderChainResponse = userAiProviderService.replaceChain(jwt.subject, request)
 
     @GetMapping("/outreach")
     @PreAuthorize("hasAuthority('SCOPE_read:settings')")
