@@ -1,11 +1,14 @@
 package com.mshykhov.jobhunter.application.ai
 
+import com.mshykhov.jobhunter.application.settings.AiProvider
 import com.mshykhov.jobhunter.application.user.UserEntity
 import com.mshykhov.jobhunter.infrastructure.ai.AiEncryptionConverter
 import jakarta.persistence.Column
 import jakarta.persistence.Convert
 import jakarta.persistence.Entity
 import jakarta.persistence.EntityListeners
+import jakarta.persistence.EnumType
+import jakarta.persistence.Enumerated
 import jakarta.persistence.FetchType
 import jakarta.persistence.Id
 import jakarta.persistence.JoinColumn
@@ -31,8 +34,9 @@ class UserAiProviderEntity(
     @JoinColumn(name = "user_id", nullable = false)
     val user: UserEntity,
     var priority: Int,
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
-    var provider: String,
+    var provider: AiProvider,
     @Convert(converter = AiEncryptionConverter::class)
     @Column(name = "api_key_encrypted", nullable = false)
     var apiKey: String,

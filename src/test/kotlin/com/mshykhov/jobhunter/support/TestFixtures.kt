@@ -11,6 +11,7 @@ import com.mshykhov.jobhunter.application.preference.MatchingPreferences
 import com.mshykhov.jobhunter.application.preference.SearchPreferences
 import com.mshykhov.jobhunter.application.preference.TelegramPreferences
 import com.mshykhov.jobhunter.application.preference.UserPreferenceEntity
+import com.mshykhov.jobhunter.application.settings.AiProvider
 import com.mshykhov.jobhunter.application.user.UserEntity
 import com.mshykhov.jobhunter.application.userjob.UserJobEntity
 import com.mshykhov.jobhunter.application.userjob.UserJobGroupEntity
@@ -139,7 +140,7 @@ object TestFixtures {
     fun userAiProviderEntity(
         user: UserEntity = userEntity(),
         priority: Int = 1,
-        provider: String = "OPENAI",
+        provider: AiProvider = AiProvider.OPENAI,
         apiKey: String = "sk-test-key-${UUID.randomUUID()}",
         modelId: String = "gpt-4o-mini",
         enabled: Boolean = true,

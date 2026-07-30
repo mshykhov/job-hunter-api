@@ -54,6 +54,9 @@ jobhunter:
     encryption-key: ${AI_ENCRYPTION_KEY:}
     matching:
       concurrency: ${AI_MATCHING_CONCURRENCY:10}
+    providers:
+      codex-base-url: ${AI_CODEX_BASE_URL:}
+      gemini-base-url: ${AI_GEMINI_BASE_URL:https://generativelanguage.googleapis.com/v1beta/openai/}
   matching:
     interval-ms: ${MATCHING_INTERVAL_MS:60000}
     batch-size: ${MATCHING_BATCH_SIZE:200}

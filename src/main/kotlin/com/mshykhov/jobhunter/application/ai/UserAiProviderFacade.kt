@@ -1,5 +1,6 @@
 package com.mshykhov.jobhunter.application.ai
 
+import com.mshykhov.jobhunter.application.settings.AiProvider
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
@@ -11,7 +12,7 @@ class UserAiProviderFacade(private val userAiProviderRepository: UserAiProviderR
 
     fun findByUserIdAndProvider(
         userId: UUID,
-        provider: String,
+        provider: AiProvider,
     ): UserAiProviderEntity? = userAiProviderRepository.findByUserIdAndProvider(userId, provider)
 
     @Transactional

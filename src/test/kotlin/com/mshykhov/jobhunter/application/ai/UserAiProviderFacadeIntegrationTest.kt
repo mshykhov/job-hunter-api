@@ -1,5 +1,6 @@
 package com.mshykhov.jobhunter.application.ai
 
+import com.mshykhov.jobhunter.application.settings.AiProvider
 import com.mshykhov.jobhunter.application.user.UserRepository
 import com.mshykhov.jobhunter.support.AbstractIntegrationTest
 import com.mshykhov.jobhunter.support.TestFixtures
@@ -27,14 +28,14 @@ class UserAiProviderFacadeIntegrationTest : AbstractIntegrationTest() {
             val user = userRepository.save(TestFixtures.userEntity())
             userAiProviderFacade.saveAll(
                 listOf(
-                    TestFixtures.userAiProviderEntity(user = user, priority = 2, provider = "ANTHROPIC"),
-                    TestFixtures.userAiProviderEntity(user = user, priority = 1, provider = "OPENAI"),
+                    TestFixtures.userAiProviderEntity(user = user, priority = 2, provider = AiProvider.GEMINI),
+                    TestFixtures.userAiProviderEntity(user = user, priority = 1, provider = AiProvider.OPENAI),
                 ),
             )
 
             val result = userAiProviderFacade.findByUserId(user.id)
 
-            assertEquals(listOf("OPENAI", "ANTHROPIC"), result.map { it.provider })
+            assertEquals(listOf(AiProvider.OPENAI, AiProvider.GEMINI), result.map { it.provider })
         }
     }
 
@@ -44,12 +45,12 @@ class UserAiProviderFacadeIntegrationTest : AbstractIntegrationTest() {
         fun `should reject a duplicate provider for the same user`() {
             val user = userRepository.save(TestFixtures.userEntity())
             userAiProviderRepository.saveAndFlush(
-                TestFixtures.userAiProviderEntity(user = user, priority = 1, provider = "OPENAI"),
+                TestFixtures.userAiProviderEntity(user = user, priority = 1, provider = AiProvider.OPENAI),
             )
 
             assertThrows<DataIntegrityViolationException> {
                 userAiProviderRepository.saveAndFlush(
-                    TestFixtures.userAiProviderEntity(user = user, priority = 2, provider = "OPENAI"),
+                    TestFixtures.userAiProviderEntity(user = user, priority = 2, provider = AiProvider.OPENAI),
                 )
             }
         }
@@ -62,10 +63,10 @@ class UserAiProviderFacadeIntegrationTest : AbstractIntegrationTest() {
             val user = userRepository.save(TestFixtures.userEntity())
             val plainApiKey = "sk-test-round-trip-key"
             userAiProviderFacade.saveAll(
-                listOf(TestFixtures.userAiProviderEntity(user = user, provider = "OPENAI", apiKey = plainApiKey)),
+                listOf(TestFixtures.userAiProviderEntity(user = user, provider = AiProvider.OPENAI, apiKey = plainApiKey)),
             )
 
-            val result = userAiProviderFacade.findByUserIdAndProvider(user.id, "OPENAI")
+            val result = userAiProviderFacade.findByUserIdAndProvider(user.id, AiProvider.OPENAI)
 
             assertEquals(plainApiKey, result?.apiKey)
         }
