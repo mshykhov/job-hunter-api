@@ -54,6 +54,12 @@ jobhunter:
     encryption-key: ${AI_ENCRYPTION_KEY:}
     matching:
       concurrency: ${AI_MATCHING_CONCURRENCY:10}
+  matching:
+    interval-ms: ${MATCHING_INTERVAL_MS:60000}
+    batch-size: ${MATCHING_BATCH_SIZE:200}
+    max-attempts: ${MATCHING_MAX_ATTEMPTS:5}
+    backoff-initial: ${MATCHING_BACKOFF_INITIAL:1m}
+    backoff-max: ${MATCHING_BACKOFF_MAX:30m}
   oidc:
     enabled: ${OIDC_ENABLED:true}
     issuers: ${OIDC_ISSUERS:}

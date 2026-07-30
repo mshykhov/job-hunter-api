@@ -12,6 +12,7 @@ import com.mshykhov.jobhunter.application.preference.UserPreferenceFacade
 import com.mshykhov.jobhunter.application.userjob.UserJobGroupEntity
 import com.mshykhov.jobhunter.application.userjob.UserJobGroupFacade
 import com.mshykhov.jobhunter.infrastructure.ai.AiProperties
+import com.mshykhov.jobhunter.infrastructure.matching.MatchingProperties
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -38,20 +39,29 @@ class JobMatchingService(
     private val jobRelevanceEvaluator: JobRelevanceEvaluator,
     private val chatClientFactory: ChatClientFactory,
     private val aiProperties: AiProperties,
+    private val matchingProperties: MatchingProperties,
     private val clock: Clock,
 ) {
     private val coldFilterChain = ColdFilterChain()
 
-    fun processUnmatchedJobs() {
-        val jobs = jobFacade.findUnmatched()
-        if (jobs.isEmpty()) return
+    fun processUnmatchedJobs(): MatchingOutcome {
+        val page = jobFacade.findUnmatched(matchingProperties.batchSize, matchingProperties.maxAttempts)
+        if (page.isEmpty()) return MatchingOutcome.IDLE
 
         val preferences = userPreferenceFacade.findAll()
         if (preferences.isEmpty()) {
-            markMatched(jobs)
-            return
+            markMatched(page)
+            return MatchingOutcome.COMPLETED
         }
 
+        val groupIds = page.map { it.group.id }.distinct()
+        val fanoutLimit = matchingProperties.batchSize * GROUP_FANOUT_LIMIT
+        val jobs = jobFacade.findByGroupIds(groupIds, fanoutLimit, matchingProperties.maxAttempts)
+        if (jobs.size >= fanoutLimit) {
+            logger.warn {
+                "Group re-fetch truncated at $fanoutLimit jobs across ${groupIds.size} groups - some groups may be split"
+            }
+        }
         val jobsByGroup = jobs.groupBy { it.group }
         val userChatClients = buildUserChatClients(preferences)
 
@@ -73,15 +83,23 @@ class JobMatchingService(
                     }.awaitAll()
             }
 
-        val successResults = results.filterIsInstance<MatchResult.Success>()
-        val matchedJobs = successResults.flatMap { it.jobs }
-        val failedCount = results.count { it is MatchResult.Failure }
-        val totalStats = successResults.fold(MatchingStats()) { acc, r -> acc.merge(r.stats) }
+        val matchedJobs = results.filterIsInstance<MatchResult.Success>().flatMap { it.jobs }
+        val failedResults = results.filterIsInstance<MatchResult.Failure>()
+        val totalStats = results.fold(MatchingStats()) { acc, r -> acc.merge(r.stats) }
 
         if (matchedJobs.isNotEmpty()) markMatched(matchedJobs)
+        if (totalStats.aiEvaluated > 0 && failedResults.isNotEmpty()) {
+            jobFacade.incrementMatchAttempts(failedResults.flatMap { it.jobs }.map { it.id })
+        }
 
         logger.info {
-            "Matching complete: ${matchedJobs.size}/${jobs.size} processed ($failedCount failed) — ${totalStats.summary()}"
+            "Matching complete: ${matchedJobs.size}/${jobs.size} processed (${failedResults.size} failed) - ${totalStats.summary()}"
+        }
+
+        return if (totalStats.aiFailed > 0 && totalStats.aiEvaluated == 0) {
+            MatchingOutcome.AI_UNAVAILABLE
+        } else {
+            MatchingOutcome.COMPLETED
         }
     }
 
@@ -90,9 +108,9 @@ class JobMatchingService(
         groupJobs: List<JobEntity>,
         preferences: List<UserPreferenceEntity>,
         userChatClients: Map<UUID, ChatClient>,
-    ): MatchResult =
-        try {
-            val stats = MatchingStats()
+    ): MatchResult {
+        val stats = MatchingStats()
+        return try {
             val representative = selectRepresentative(groupJobs)
             val userJobGroups = matchGroupToUsers(group, representative, preferences, userChatClients, stats)
             if (userJobGroups.isNotEmpty()) {
@@ -103,11 +121,19 @@ class JobMatchingService(
                         "(scores: ${userJobGroups.map { it.aiRelevanceScore }})"
                 }
             }
-            MatchResult.Success(groupJobs, stats)
+            if (stats.aiFailed > 0) {
+                logger.warn {
+                    "Group '${group.title}' left unmatched: ${stats.aiFailed} AI evaluation(s) failed"
+                }
+                MatchResult.Failure(groupJobs, stats)
+            } else {
+                MatchResult.Success(groupJobs, stats)
+            }
         } catch (e: Exception) {
             logger.error(e) { "Matching failed for group '${group.title}'" }
-            MatchResult.Failure
+            MatchResult.Failure(groupJobs, stats)
         }
+    }
 
     private fun selectRepresentative(groupJobs: List<JobEntity>): JobEntity = groupJobs.maxBy { it.description.length }
 
@@ -216,7 +242,12 @@ class JobMatchingService(
                     logger.warn { "User $userId has matchWithAi=true but no AI settings — falling back to cold-only" }
                     null
                 } else {
-                    userId to chatClientFactory.createForUser(settings, AiUseCase.SCORING)
+                    try {
+                        userId to chatClientFactory.createForUser(settings, AiUseCase.SCORING)
+                    } catch (e: Exception) {
+                        logger.warn(e) { "Failed to create AI chat client for user $userId - falling back to cold-only" }
+                        null
+                    }
                 }
             }.toMap()
 
@@ -243,13 +274,16 @@ class JobMatchingService(
     }
 
     private sealed interface MatchResult {
-        data class Success(val jobs: List<JobEntity>, val stats: MatchingStats) : MatchResult
+        val stats: MatchingStats
 
-        data object Failure : MatchResult
+        data class Success(val jobs: List<JobEntity>, override val stats: MatchingStats) : MatchResult
+
+        data class Failure(val jobs: List<JobEntity>, override val stats: MatchingStats) : MatchResult
     }
 
     companion object {
         private val MAX_REMATCH_PERIOD = Duration.ofDays(3)
         private const val COLD_ONLY_REASONING = "Cold filter match only — AI evaluation disabled"
+        private const val GROUP_FANOUT_LIMIT = 5
     }
 }

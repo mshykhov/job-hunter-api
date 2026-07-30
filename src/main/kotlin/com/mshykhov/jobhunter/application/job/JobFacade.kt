@@ -1,7 +1,9 @@
 package com.mshykhov.jobhunter.application.job
 
 import org.springframework.data.domain.Page
+import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Pageable
+import org.springframework.data.domain.Sort
 import org.springframework.data.jpa.domain.Specification
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -20,7 +22,25 @@ class JobFacade(private val jobRepository: JobRepository) {
 
     fun findByGroupId(groupId: UUID): List<JobEntity> = jobRepository.findByGroupId(groupId)
 
-    fun findUnmatched(): List<JobEntity> = jobRepository.findByMatchedAtIsNull()
+    fun findByGroupIds(
+        groupIds: List<UUID>,
+        limit: Int,
+        maxAttempts: Int,
+    ): List<JobEntity> =
+        jobRepository.findByGroupIdInAndMatchedAtIsNullAndMatchAttemptsLessThan(
+            groupIds,
+            maxAttempts,
+            PageRequest.of(0, limit, Sort.by(Sort.Direction.ASC, "createdAt")),
+        )
+
+    fun findUnmatched(
+        limit: Int,
+        maxAttempts: Int,
+    ): List<JobEntity> =
+        jobRepository.findByMatchedAtIsNullAndMatchAttemptsLessThan(
+            maxAttempts,
+            PageRequest.of(0, limit, Sort.by(Sort.Direction.ASC, "createdAt")),
+        )
 
     fun findAllMatched(): List<JobEntity> = jobRepository.findByMatchedAtIsNotNull()
 
@@ -42,4 +62,7 @@ class JobFacade(private val jobRepository: JobRepository) {
         id: UUID,
         remote: Boolean,
     ) = jobRepository.updateRemote(id, remote)
+
+    @Transactional
+    fun incrementMatchAttempts(ids: List<UUID>) = jobRepository.incrementMatchAttempts(ids)
 }

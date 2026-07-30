@@ -1,5 +1,6 @@
 package com.mshykhov.jobhunter.application.job
 
+import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.EntityGraph
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor
@@ -16,7 +17,17 @@ interface JobRepository :
     fun findByGroupId(groupId: UUID): List<JobEntity>
 
     @EntityGraph(attributePaths = ["group"])
-    fun findByMatchedAtIsNull(): List<JobEntity>
+    fun findByGroupIdInAndMatchedAtIsNullAndMatchAttemptsLessThan(
+        groupIds: List<UUID>,
+        maxAttempts: Int,
+        pageable: Pageable,
+    ): List<JobEntity>
+
+    @EntityGraph(attributePaths = ["group"])
+    fun findByMatchedAtIsNullAndMatchAttemptsLessThan(
+        maxAttempts: Int,
+        pageable: Pageable,
+    ): List<JobEntity>
 
     fun findByMatchedAtIsNotNull(): List<JobEntity>
 
@@ -37,4 +48,8 @@ interface JobRepository :
         id: UUID,
         remote: Boolean,
     )
+
+    @Modifying
+    @Query("UPDATE JobEntity j SET j.matchAttempts = j.matchAttempts + 1 WHERE j.id IN :ids")
+    fun incrementMatchAttempts(ids: List<UUID>)
 }
