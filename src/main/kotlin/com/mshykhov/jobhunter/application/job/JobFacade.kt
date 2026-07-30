@@ -22,8 +22,16 @@ class JobFacade(private val jobRepository: JobRepository) {
 
     fun findByGroupId(groupId: UUID): List<JobEntity> = jobRepository.findByGroupId(groupId)
 
-    fun findUnmatched(limit: Int): List<JobEntity> =
-        jobRepository.findByMatchedAtIsNull(PageRequest.of(0, limit, Sort.by(Sort.Direction.ASC, "createdAt")))
+    fun findByGroupIds(groupIds: List<UUID>): List<JobEntity> = jobRepository.findByGroupIdInAndMatchedAtIsNull(groupIds)
+
+    fun findUnmatched(
+        limit: Int,
+        maxAttempts: Int,
+    ): List<JobEntity> =
+        jobRepository.findByMatchedAtIsNullAndMatchAttemptsLessThan(
+            maxAttempts,
+            PageRequest.of(0, limit, Sort.by(Sort.Direction.ASC, "createdAt")),
+        )
 
     fun findAllMatched(): List<JobEntity> = jobRepository.findByMatchedAtIsNotNull()
 
@@ -45,4 +53,7 @@ class JobFacade(private val jobRepository: JobRepository) {
         id: UUID,
         remote: Boolean,
     ) = jobRepository.updateRemote(id, remote)
+
+    @Transactional
+    fun incrementMatchAttempts(ids: List<UUID>) = jobRepository.incrementMatchAttempts(ids)
 }

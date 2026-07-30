@@ -45,15 +45,16 @@ class JobMatchingService(
     private val coldFilterChain = ColdFilterChain()
 
     fun processUnmatchedJobs(): MatchingOutcome {
-        val jobs = jobFacade.findUnmatched(matchingProperties.batchSize)
-        if (jobs.isEmpty()) return MatchingOutcome.IDLE
+        val page = jobFacade.findUnmatched(matchingProperties.batchSize, matchingProperties.maxAttempts)
+        if (page.isEmpty()) return MatchingOutcome.IDLE
 
         val preferences = userPreferenceFacade.findAll()
         if (preferences.isEmpty()) {
-            markMatched(jobs)
+            markMatched(page)
             return MatchingOutcome.COMPLETED
         }
 
+        val jobs = jobFacade.findByGroupIds(page.map { it.group.id }.distinct())
         val jobsByGroup = jobs.groupBy { it.group }
         val userChatClients = buildUserChatClients(preferences)
 
@@ -76,13 +77,16 @@ class JobMatchingService(
             }
 
         val matchedJobs = results.filterIsInstance<MatchResult.Success>().flatMap { it.jobs }
-        val failedCount = results.count { it is MatchResult.Failure }
+        val failedResults = results.filterIsInstance<MatchResult.Failure>()
         val totalStats = results.fold(MatchingStats()) { acc, r -> acc.merge(r.stats) }
 
         if (matchedJobs.isNotEmpty()) markMatched(matchedJobs)
+        if (totalStats.aiEvaluated > 0 && failedResults.isNotEmpty()) {
+            jobFacade.incrementMatchAttempts(failedResults.flatMap { it.jobs }.map { it.id })
+        }
 
         logger.info {
-            "Matching complete: ${matchedJobs.size}/${jobs.size} processed ($failedCount failed) - ${totalStats.summary()}"
+            "Matching complete: ${matchedJobs.size}/${jobs.size} processed (${failedResults.size} failed) - ${totalStats.summary()}"
         }
 
         return if (totalStats.aiFailed > 0 && totalStats.aiEvaluated == 0) {
@@ -114,13 +118,13 @@ class JobMatchingService(
                 logger.warn {
                     "Group '${group.title}' left unmatched: ${stats.aiFailed} AI evaluation(s) failed"
                 }
-                MatchResult.Failure(stats)
+                MatchResult.Failure(groupJobs, stats)
             } else {
                 MatchResult.Success(groupJobs, stats)
             }
         } catch (e: Exception) {
             logger.error(e) { "Matching failed for group '${group.title}'" }
-            MatchResult.Failure(stats)
+            MatchResult.Failure(groupJobs, stats)
         }
     }
 
@@ -262,7 +266,7 @@ class JobMatchingService(
 
         data class Success(val jobs: List<JobEntity>, override val stats: MatchingStats) : MatchResult
 
-        data class Failure(override val stats: MatchingStats) : MatchResult
+        data class Failure(val jobs: List<JobEntity>, override val stats: MatchingStats) : MatchResult
     }
 
     companion object {

@@ -51,6 +51,8 @@ class JobEntity(
     var publishedAt: Instant? = null,
     @Column(name = "matched_at")
     var matchedAt: Instant? = null,
+    @Column(name = "match_attempts", nullable = false)
+    var matchAttempts: Int = 0,
     @CreatedDate
     @Column(name = "created_at", updatable = false)
     var createdAt: Instant? = null,

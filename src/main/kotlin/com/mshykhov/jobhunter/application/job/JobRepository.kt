@@ -17,7 +17,13 @@ interface JobRepository :
     fun findByGroupId(groupId: UUID): List<JobEntity>
 
     @EntityGraph(attributePaths = ["group"])
-    fun findByMatchedAtIsNull(pageable: Pageable): List<JobEntity>
+    fun findByGroupIdInAndMatchedAtIsNull(groupIds: List<UUID>): List<JobEntity>
+
+    @EntityGraph(attributePaths = ["group"])
+    fun findByMatchedAtIsNullAndMatchAttemptsLessThan(
+        maxAttempts: Int,
+        pageable: Pageable,
+    ): List<JobEntity>
 
     fun findByMatchedAtIsNotNull(): List<JobEntity>
 
@@ -38,4 +44,8 @@ interface JobRepository :
         id: UUID,
         remote: Boolean,
     )
+
+    @Modifying
+    @Query("UPDATE JobEntity j SET j.matchAttempts = j.matchAttempts + 1 WHERE j.id IN :ids")
+    fun incrementMatchAttempts(ids: List<UUID>)
 }
