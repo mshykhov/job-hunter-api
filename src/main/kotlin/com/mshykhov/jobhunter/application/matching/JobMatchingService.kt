@@ -1,17 +1,15 @@
 package com.mshykhov.jobhunter.application.matching
 
 import com.mshykhov.jobhunter.application.ai.AiClientChain
-import com.mshykhov.jobhunter.application.ai.AiClientLink
 import com.mshykhov.jobhunter.application.ai.AiUseCase
 import com.mshykhov.jobhunter.application.ai.ChatClientFactory
 import com.mshykhov.jobhunter.application.ai.JobRelevanceEvaluator
-import com.mshykhov.jobhunter.application.ai.UserAiSettingsFacade
+import com.mshykhov.jobhunter.application.ai.UserAiProviderService
 import com.mshykhov.jobhunter.application.job.JobEntity
 import com.mshykhov.jobhunter.application.job.JobFacade
 import com.mshykhov.jobhunter.application.job.JobGroupEntity
 import com.mshykhov.jobhunter.application.preference.UserPreferenceEntity
 import com.mshykhov.jobhunter.application.preference.UserPreferenceFacade
-import com.mshykhov.jobhunter.application.settings.AiProvider
 import com.mshykhov.jobhunter.application.userjob.UserJobGroupEntity
 import com.mshykhov.jobhunter.application.userjob.UserJobGroupFacade
 import com.mshykhov.jobhunter.infrastructure.ai.AiProperties
@@ -37,7 +35,7 @@ class JobMatchingService(
     private val jobFacade: JobFacade,
     private val userPreferenceFacade: UserPreferenceFacade,
     private val userJobGroupFacade: UserJobGroupFacade,
-    private val userAiSettingsFacade: UserAiSettingsFacade,
+    private val userAiProviderService: UserAiProviderService,
     private val jobRelevanceEvaluator: JobRelevanceEvaluator,
     private val chatClientFactory: ChatClientFactory,
     private val aiProperties: AiProperties,
@@ -238,21 +236,22 @@ class JobMatchingService(
             .filter { it.matching.matchWithAi }
             .map { it.user.id }
             .distinct()
-            .mapNotNull { userId ->
-                val settings = userAiSettingsFacade.findByUserId(userId)
-                if (settings == null) {
-                    logger.warn { "User $userId has matchWithAi=true but no AI settings — falling back to cold-only" }
-                    null
-                } else {
-                    try {
-                        val client = chatClientFactory.createForUser(settings, AiUseCase.SCORING)
-                        userId to AiClientChain(listOf(AiClientLink(AiProvider.OPENAI, settings.modelId, client)))
-                    } catch (e: Exception) {
-                        logger.warn(e) { "Failed to create AI chat client for user $userId - falling back to cold-only" }
-                        null
-                    }
-                }
-            }.toMap()
+            .map { userId -> userId to buildUserChain(userId) }
+            .filter { (_, chain) -> chain.links.isNotEmpty() }
+            .toMap()
+
+    private fun buildUserChain(userId: UUID): AiClientChain =
+        try {
+            val providers = userAiProviderService.chainFor(userId)
+            val chain = chatClientFactory.createChain(providers, AiUseCase.SCORING)
+            if (chain.links.isEmpty()) {
+                logger.warn { "User $userId has matchWithAi=true but no usable AI providers - falling back to cold-only" }
+            }
+            chain
+        } catch (e: Exception) {
+            logger.warn(e) { "Failed to build AI provider chain for user $userId - falling back to cold-only" }
+            AiClientChain(emptyList())
+        }
 
     @Transactional
     fun rematch(since: Instant?): Int {
