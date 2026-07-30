@@ -16,7 +16,7 @@ class JobRelevanceEvaluator {
         preference: UserPreferenceEntity,
         chain: AiClientChain,
     ): JobRelevanceResult {
-        val failures = mutableListOf<String>()
+        val failures = chain.buildFailures.toMutableList()
         for (link in chain.links) {
             try {
                 return evaluateWithClient(job, preference, link.client)

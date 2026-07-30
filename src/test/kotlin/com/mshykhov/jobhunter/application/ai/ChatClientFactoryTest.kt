@@ -146,5 +146,19 @@ class ChatClientFactoryTest {
 
             assertEquals(listOf(AiProvider.CODEX), chain.links.map { it.provider })
         }
+
+        @Test
+        fun `should name every provider when all rows fail to build`() {
+            val brokenOpenAi = TestFixtures.userAiProviderEntity(priority = 1, provider = AiProvider.OPENAI, apiKey = "")
+            val brokenGemini = TestFixtures.userAiProviderEntity(priority = 2, provider = AiProvider.GEMINI, apiKey = "")
+            val plainFactory = ChatClientFactory(AiProviderProperties())
+
+            val chain = plainFactory.createChain(listOf(brokenOpenAi, brokenGemini))
+
+            assertTrue(chain.links.isEmpty())
+            assertEquals(2, chain.buildFailures.size)
+            assertTrue(chain.buildFailures.any { it.contains("OPENAI") })
+            assertTrue(chain.buildFailures.any { it.contains("GEMINI") })
+        }
     }
 }

@@ -5,4 +5,4 @@ import org.springframework.ai.chat.client.ChatClient
 
 data class AiClientLink(val provider: AiProvider, val modelId: String, val client: ChatClient)
 
-data class AiClientChain(val links: List<AiClientLink>)
+data class AiClientChain(val links: List<AiClientLink>, val buildFailures: List<String> = emptyList())

@@ -142,6 +142,23 @@ class JobRelevanceEvaluatorTest {
         assertTrue(exception.message!!.contains("invalid_api_key"))
     }
 
+    @Test
+    fun `should throw AllProvidersFailedException naming providers that failed to build when the chain has no links`() {
+        val chain =
+            AiClientChain(
+                links = emptyList(),
+                buildFailures = listOf("OPENAI: API key is missing", "CODEX: no base URL configured"),
+            )
+
+        val exception =
+            assertThrows<AllProvidersFailedException> {
+                evaluator.evaluate(job(), preference(), chain)
+            }
+
+        assertTrue(exception.message!!.contains("OPENAI: API key is missing"))
+        assertTrue(exception.message!!.contains("CODEX: no base URL configured"))
+    }
+
     private fun job(title: String = "Senior Kotlin Developer"): JobEntity =
         JobEntity(
             title = title,

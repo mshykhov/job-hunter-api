@@ -33,6 +33,7 @@ class UserAiProviderEntity(
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     val user: UserEntity,
+    @Column(nullable = false)
     var priority: Int,
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
@@ -42,6 +43,7 @@ class UserAiProviderEntity(
     var apiKey: String,
     @Column(name = "model_id", nullable = false, length = 100)
     var modelId: String,
+    @Column(nullable = false)
     var enabled: Boolean = true,
     @CreatedDate
     @Column(name = "created_at", insertable = false, updatable = false)

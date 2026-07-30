@@ -51,24 +51,25 @@ class ChatClientFactory(private val aiProviderProperties: AiProviderProperties) 
     fun createChain(
         providers: List<UserAiProviderEntity>,
         useCase: AiUseCase = AiUseCase.SCORING,
-    ): AiClientChain =
-        AiClientChain(
+    ): AiClientChain {
+        val attempts =
             providers
                 .filter { it.enabled }
                 .sortedBy { it.priority }
-                .mapNotNull { provider -> buildLinkOrNull(provider, useCase) },
-        )
-
-    private fun buildLinkOrNull(
-        provider: UserAiProviderEntity,
-        useCase: AiUseCase,
-    ): AiClientLink? =
-        try {
-            AiClientLink(provider.provider, provider.modelId, createForProvider(provider, useCase))
-        } catch (e: Exception) {
-            logger.warn(e) { "Skipping AI provider ${provider.provider} at priority ${provider.priority}: ${e.message}" }
-            null
-        }
+                .map { provider -> provider to runCatching { createForProvider(provider, useCase) } }
+        val links =
+            attempts.mapNotNull { (provider, result) ->
+                result.getOrNull()?.let { AiClientLink(provider.provider, provider.modelId, it) }
+            }
+        val buildFailures =
+            attempts.mapNotNull { (provider, result) ->
+                result.exceptionOrNull()?.let { e ->
+                    logger.warn(e) { "Skipping AI provider ${provider.provider} at priority ${provider.priority}: ${e.message}" }
+                    "${provider.provider}: ${e.message}"
+                }
+            }
+        return AiClientChain(links, buildFailures)
+    }
 
     private fun resolveApiKey(provider: UserAiProviderEntity): String =
         if (provider.provider.requiresApiKey) {
