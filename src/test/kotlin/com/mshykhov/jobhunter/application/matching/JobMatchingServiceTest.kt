@@ -6,6 +6,7 @@ import com.mshykhov.jobhunter.application.ai.JobRelevanceEvaluator
 import com.mshykhov.jobhunter.application.ai.UserAiSettingsEntity
 import com.mshykhov.jobhunter.application.ai.UserAiSettingsFacade
 import com.mshykhov.jobhunter.application.ai.dto.JobRelevanceResult
+import com.mshykhov.jobhunter.application.common.AiNotConfiguredException
 import com.mshykhov.jobhunter.application.job.JobEntity
 import com.mshykhov.jobhunter.application.job.JobFacade
 import com.mshykhov.jobhunter.application.job.JobGroupEntity
@@ -244,6 +245,45 @@ class JobMatchingServiceTest {
 
             verify(exactly = 0) { jobRelevanceEvaluator.evaluate(any(), any(), any()) }
             verify(exactly = 0) { userJobGroupFacade.saveAll(any()) }
+        }
+    }
+
+    @Nested
+    inner class AiClientResilience {
+        @Test
+        fun `should fall back to cold-only for a user whose AI client cannot be created without affecting other users`() {
+            val brokenUser = UserEntity(auth0Sub = "user-broken")
+            val healthyUser = UserEntity(auth0Sub = "user-healthy")
+            val group = testGroup()
+            val job = testJob(group = group)
+            val brokenPreference = testPreference(brokenUser, matchWithAi = true)
+            val healthyPreference = testPreference(healthyUser, matchWithAi = true)
+            val brokenSettings = mockk<UserAiSettingsEntity>()
+            val healthySettings = mockk<UserAiSettingsEntity>()
+            val chatClient = mockk<ChatClient>()
+            val savedSlot = slot<List<UserJobGroupEntity>>()
+
+            every { jobFacade.findUnmatched(200, 5) } returns listOf(job)
+            every { jobFacade.findByGroupIds(listOf(group.id)) } returns listOf(job)
+            every { userPreferenceFacade.findAll() } returns listOf(brokenPreference, healthyPreference)
+            every { userAiSettingsFacade.findByUserId(brokenUser.id) } returns brokenSettings
+            every { userAiSettingsFacade.findByUserId(healthyUser.id) } returns healthySettings
+            every { chatClientFactory.createForUser(brokenSettings, AiUseCase.SCORING) } throws
+                AiNotConfiguredException("API key is corrupted or missing")
+            every { chatClientFactory.createForUser(healthySettings, AiUseCase.SCORING) } returns chatClient
+            every { userJobGroupFacade.findByGroupId(group.id) } returns emptyList()
+            every { jobRelevanceEvaluator.evaluate(job, healthyPreference, chatClient) } returns
+                JobRelevanceResult(score = 80, reasoning = "Good match", inferredRemote = true)
+            every { userJobGroupFacade.saveAll(capture(savedSlot)) } answers { savedSlot.captured }
+            every { jobFacade.updateMatchedAt(any(), any()) } just Runs
+            every { jobFacade.updateRemote(job.id, true) } just Runs
+
+            service.processUnmatchedJobs()
+
+            assertEquals(2, savedSlot.captured.size)
+            val byUserId = savedSlot.captured.associateBy { it.user.id }
+            assertEquals("Cold filter match only — AI evaluation disabled", byUserId.getValue(brokenUser.id).aiReasoning)
+            assertEquals("Good match", byUserId.getValue(healthyUser.id).aiReasoning)
         }
     }
 

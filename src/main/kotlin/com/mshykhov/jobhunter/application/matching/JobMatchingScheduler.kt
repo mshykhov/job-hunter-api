@@ -20,7 +20,15 @@ class JobMatchingScheduler(private val jobMatchingService: JobMatchingService, p
         val now = Instant.now(clock)
         if (now.isBefore(skipUntil)) return
 
-        when (jobMatchingService.processUnmatchedJobs()) {
+        val outcome =
+            try {
+                jobMatchingService.processUnmatchedJobs()
+            } catch (e: Exception) {
+                logger.error(e) { "Job matching run failed unexpectedly" }
+                MatchingOutcome.AI_UNAVAILABLE
+            }
+
+        when (outcome) {
             MatchingOutcome.AI_UNAVAILABLE -> {
                 consecutiveFailures++
                 val delay = backoffDelay(consecutiveFailures)

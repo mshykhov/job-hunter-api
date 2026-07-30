@@ -235,7 +235,12 @@ class JobMatchingService(
                     logger.warn { "User $userId has matchWithAi=true but no AI settings — falling back to cold-only" }
                     null
                 } else {
-                    userId to chatClientFactory.createForUser(settings, AiUseCase.SCORING)
+                    try {
+                        userId to chatClientFactory.createForUser(settings, AiUseCase.SCORING)
+                    } catch (e: Exception) {
+                        logger.warn(e) { "Failed to create AI chat client for user $userId - falling back to cold-only" }
+                        null
+                    }
                 }
             }.toMap()
 
