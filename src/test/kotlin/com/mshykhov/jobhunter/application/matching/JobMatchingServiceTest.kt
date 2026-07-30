@@ -166,6 +166,62 @@ class JobMatchingServiceTest {
         }
 
         @Test
+        fun `should not mark jobs as matched when AI evaluation fails`() {
+            val user = UserEntity(auth0Sub = "user-1")
+            val group = testGroup()
+            val job = testJob(group = group)
+            val preference = testPreference(user, matchWithAi = true)
+            val aiSettings = mockk<UserAiSettingsEntity>()
+            val chatClient = mockk<ChatClient>()
+
+            every { jobFacade.findUnmatched(200) } returns listOf(job)
+            every { userPreferenceFacade.findAll() } returns listOf(preference)
+            every { userAiSettingsFacade.findByUserId(user.id) } returns aiSettings
+            every { chatClientFactory.createForUser(aiSettings, AiUseCase.SCORING) } returns chatClient
+            every { userJobGroupFacade.findByGroupId(group.id) } returns emptyList()
+            every { jobRelevanceEvaluator.evaluate(job, preference, chatClient) } throws
+                RuntimeException("429 insufficient_quota")
+
+            val outcome = service.processUnmatchedJobs()
+
+            assertEquals(MatchingOutcome.AI_UNAVAILABLE, outcome)
+            verify(exactly = 0) { jobFacade.updateMatchedAt(any(), any()) }
+        }
+
+        @Test
+        fun `should report completed when at least one AI evaluation succeeds`() {
+            val user = UserEntity(auth0Sub = "user-1")
+            val group = testGroup()
+            val job = testJob(group = group)
+            val preference = testPreference(user, matchWithAi = true)
+            val aiSettings = mockk<UserAiSettingsEntity>()
+            val chatClient = mockk<ChatClient>()
+            val savedSlot = slot<List<UserJobGroupEntity>>()
+
+            every { jobFacade.findUnmatched(200) } returns listOf(job)
+            every { userPreferenceFacade.findAll() } returns listOf(preference)
+            every { userAiSettingsFacade.findByUserId(user.id) } returns aiSettings
+            every { chatClientFactory.createForUser(aiSettings, AiUseCase.SCORING) } returns chatClient
+            every { userJobGroupFacade.findByGroupId(group.id) } returns emptyList()
+            every { jobRelevanceEvaluator.evaluate(job, preference, chatClient) } returns
+                JobRelevanceResult(score = 85, reasoning = "Strong Kotlin match", inferredRemote = true)
+            every { userJobGroupFacade.saveAll(capture(savedSlot)) } answers { savedSlot.captured }
+            every { jobFacade.updateMatchedAt(any(), any()) } just Runs
+
+            val outcome = service.processUnmatchedJobs()
+
+            assertEquals(MatchingOutcome.COMPLETED, outcome)
+            verify { jobFacade.updateMatchedAt(listOf(job.id), any()) }
+        }
+
+        @Test
+        fun `should report idle when there is nothing to match`() {
+            every { jobFacade.findUnmatched(200) } returns emptyList()
+
+            assertEquals(MatchingOutcome.IDLE, service.processUnmatchedJobs())
+        }
+
+        @Test
         fun `should skip cold-filtered jobs and not call AI`() {
             val user = UserEntity(auth0Sub = "user-1")
             val group = testGroup()
@@ -305,7 +361,7 @@ class JobMatchingServiceTest {
         }
 
         @Test
-        fun `should handle AI evaluation failure gracefully and not save group`() {
+        fun `should handle AI evaluation failure gracefully and leave group unmatched`() {
             val user = UserEntity(auth0Sub = "user-1")
             val group = testGroup()
             val job = testJob(group = group)
@@ -319,12 +375,11 @@ class JobMatchingServiceTest {
             every { chatClientFactory.createForUser(aiSettings, AiUseCase.SCORING) } returns chatClient
             every { userJobGroupFacade.findByGroupId(group.id) } returns emptyList()
             every { jobRelevanceEvaluator.evaluate(job, preference, chatClient) } throws RuntimeException("API error")
-            every { jobFacade.updateMatchedAt(any(), any()) } just Runs
 
             service.processUnmatchedJobs()
 
             verify(exactly = 0) { userJobGroupFacade.saveAll(any()) }
-            verify { jobFacade.updateMatchedAt(listOf(job.id), any()) }
+            verify(exactly = 0) { jobFacade.updateMatchedAt(any(), any()) }
         }
     }
 

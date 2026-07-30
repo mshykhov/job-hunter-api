@@ -44,14 +44,14 @@ class JobMatchingService(
 ) {
     private val coldFilterChain = ColdFilterChain()
 
-    fun processUnmatchedJobs() {
+    fun processUnmatchedJobs(): MatchingOutcome {
         val jobs = jobFacade.findUnmatched(matchingProperties.batchSize)
-        if (jobs.isEmpty()) return
+        if (jobs.isEmpty()) return MatchingOutcome.IDLE
 
         val preferences = userPreferenceFacade.findAll()
         if (preferences.isEmpty()) {
             markMatched(jobs)
-            return
+            return MatchingOutcome.COMPLETED
         }
 
         val jobsByGroup = jobs.groupBy { it.group }
@@ -75,15 +75,20 @@ class JobMatchingService(
                     }.awaitAll()
             }
 
-        val successResults = results.filterIsInstance<MatchResult.Success>()
-        val matchedJobs = successResults.flatMap { it.jobs }
+        val matchedJobs = results.filterIsInstance<MatchResult.Success>().flatMap { it.jobs }
         val failedCount = results.count { it is MatchResult.Failure }
-        val totalStats = successResults.fold(MatchingStats()) { acc, r -> acc.merge(r.stats) }
+        val totalStats = results.fold(MatchingStats()) { acc, r -> acc.merge(r.stats) }
 
         if (matchedJobs.isNotEmpty()) markMatched(matchedJobs)
 
         logger.info {
-            "Matching complete: ${matchedJobs.size}/${jobs.size} processed ($failedCount failed) — ${totalStats.summary()}"
+            "Matching complete: ${matchedJobs.size}/${jobs.size} processed ($failedCount failed) - ${totalStats.summary()}"
+        }
+
+        return if (totalStats.aiFailed > 0 && totalStats.aiEvaluated == 0) {
+            MatchingOutcome.AI_UNAVAILABLE
+        } else {
+            MatchingOutcome.COMPLETED
         }
     }
 
@@ -92,9 +97,9 @@ class JobMatchingService(
         groupJobs: List<JobEntity>,
         preferences: List<UserPreferenceEntity>,
         userChatClients: Map<UUID, ChatClient>,
-    ): MatchResult =
-        try {
-            val stats = MatchingStats()
+    ): MatchResult {
+        val stats = MatchingStats()
+        return try {
             val representative = selectRepresentative(groupJobs)
             val userJobGroups = matchGroupToUsers(group, representative, preferences, userChatClients, stats)
             if (userJobGroups.isNotEmpty()) {
@@ -105,11 +110,19 @@ class JobMatchingService(
                         "(scores: ${userJobGroups.map { it.aiRelevanceScore }})"
                 }
             }
-            MatchResult.Success(groupJobs, stats)
+            if (stats.aiFailed > 0) {
+                logger.warn {
+                    "Group '${group.title}' left unmatched: ${stats.aiFailed} AI evaluation(s) failed"
+                }
+                MatchResult.Failure(stats)
+            } else {
+                MatchResult.Success(groupJobs, stats)
+            }
         } catch (e: Exception) {
             logger.error(e) { "Matching failed for group '${group.title}'" }
-            MatchResult.Failure
+            MatchResult.Failure(stats)
         }
+    }
 
     private fun selectRepresentative(groupJobs: List<JobEntity>): JobEntity = groupJobs.maxBy { it.description.length }
 
@@ -245,9 +258,11 @@ class JobMatchingService(
     }
 
     private sealed interface MatchResult {
-        data class Success(val jobs: List<JobEntity>, val stats: MatchingStats) : MatchResult
+        val stats: MatchingStats
 
-        data object Failure : MatchResult
+        data class Success(val jobs: List<JobEntity>, override val stats: MatchingStats) : MatchResult
+
+        data class Failure(override val stats: MatchingStats) : MatchResult
     }
 
     companion object {
