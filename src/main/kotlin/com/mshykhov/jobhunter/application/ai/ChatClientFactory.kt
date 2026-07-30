@@ -14,24 +14,6 @@ private val logger = KotlinLogging.logger {}
 
 @Component
 class ChatClientFactory(private val aiProviderProperties: AiProviderProperties) {
-    fun createForUser(
-        settings: UserAiSettingsEntity,
-        useCase: AiUseCase = AiUseCase.SCORING,
-    ): ChatClient {
-        if (settings.apiKey.isBlank()) {
-            throw AiNotConfiguredException("API key is corrupted or missing — please re-enter your API key in settings.")
-        }
-        val api = OpenAiApi.builder().apiKey(settings.apiKey).build()
-        val options = buildOptions(settings.modelId, useCase)
-        val model =
-            OpenAiChatModel
-                .builder()
-                .openAiApi(api)
-                .defaultOptions(options)
-                .build()
-        return ChatClient.builder(model).build()
-    }
-
     fun createForProvider(
         provider: UserAiProviderEntity,
         useCase: AiUseCase = AiUseCase.SCORING,
