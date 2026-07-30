@@ -1,5 +1,7 @@
 package com.mshykhov.jobhunter.application.matching
 
+import com.mshykhov.jobhunter.application.ai.AiClientChain
+import com.mshykhov.jobhunter.application.ai.AiClientLink
 import com.mshykhov.jobhunter.application.ai.AiUseCase
 import com.mshykhov.jobhunter.application.ai.ChatClientFactory
 import com.mshykhov.jobhunter.application.ai.JobRelevanceEvaluator
@@ -9,6 +11,7 @@ import com.mshykhov.jobhunter.application.job.JobFacade
 import com.mshykhov.jobhunter.application.job.JobGroupEntity
 import com.mshykhov.jobhunter.application.preference.UserPreferenceEntity
 import com.mshykhov.jobhunter.application.preference.UserPreferenceFacade
+import com.mshykhov.jobhunter.application.settings.AiProvider
 import com.mshykhov.jobhunter.application.userjob.UserJobGroupEntity
 import com.mshykhov.jobhunter.application.userjob.UserJobGroupFacade
 import com.mshykhov.jobhunter.infrastructure.ai.AiProperties
@@ -20,7 +23,6 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
-import org.springframework.ai.chat.client.ChatClient
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
@@ -63,11 +65,11 @@ class JobMatchingService(
             }
         }
         val jobsByGroup = jobs.groupBy { it.group }
-        val userChatClients = buildUserChatClients(preferences)
+        val userChains = buildUserChains(preferences)
 
         logger.info {
             "Matching ${jobs.size} jobs (${jobsByGroup.size} groups) against ${preferences.size} user preferences " +
-                "(${userChatClients.size} AI-enabled)"
+                "(${userChains.size} AI-enabled)"
         }
 
         val semaphore = Semaphore(aiProperties.matching.concurrency)
@@ -77,7 +79,7 @@ class JobMatchingService(
                     .map { (group, groupJobs) ->
                         async {
                             semaphore.withPermit {
-                                processGroup(group, groupJobs, preferences, userChatClients)
+                                processGroup(group, groupJobs, preferences, userChains)
                             }
                         }
                     }.awaitAll()
@@ -107,12 +109,12 @@ class JobMatchingService(
         group: JobGroupEntity,
         groupJobs: List<JobEntity>,
         preferences: List<UserPreferenceEntity>,
-        userChatClients: Map<UUID, ChatClient>,
+        userChains: Map<UUID, AiClientChain>,
     ): MatchResult {
         val stats = MatchingStats()
         return try {
             val representative = selectRepresentative(groupJobs)
-            val userJobGroups = matchGroupToUsers(group, representative, preferences, userChatClients, stats)
+            val userJobGroups = matchGroupToUsers(group, representative, preferences, userChains, stats)
             if (userJobGroups.isNotEmpty()) {
                 userJobGroupFacade.saveAll(userJobGroups)
                 stats.saved += userJobGroups.size
@@ -141,7 +143,7 @@ class JobMatchingService(
         group: JobGroupEntity,
         representative: JobEntity,
         preferences: List<UserPreferenceEntity>,
-        userChatClients: Map<UUID, ChatClient>,
+        userChains: Map<UUID, AiClientChain>,
         stats: MatchingStats,
     ): List<UserJobGroupEntity> {
         val existingByUserId = userJobGroupFacade.findByGroupId(group.id).associateBy { it.user.id }
@@ -159,10 +161,10 @@ class JobMatchingService(
             }
 
             val existing = existingByUserId[preference.user.id]
-            val chatClient = userChatClients[preference.user.id]
+            val chain = userChains[preference.user.id]
 
-            if (chatClient != null) {
-                val result = evaluateWithAi(group, representative, preference, chatClient, stats, existing)
+            if (chain != null) {
+                val result = evaluateWithAi(group, representative, preference, chain, stats, existing)
                 if (result != null) userJobGroups += result
             } else {
                 stats.coldOnly++
@@ -185,13 +187,13 @@ class JobMatchingService(
         group: JobGroupEntity,
         representative: JobEntity,
         preference: UserPreferenceEntity,
-        chatClient: ChatClient,
+        chain: AiClientChain,
         stats: MatchingStats,
         existing: UserJobGroupEntity?,
     ): UserJobGroupEntity? {
         val aiResult =
             try {
-                jobRelevanceEvaluator.evaluate(representative, preference, chatClient)
+                jobRelevanceEvaluator.evaluate(representative, preference, chain)
             } catch (e: Exception) {
                 logger.warn(e) { "AI evaluation failed for group '${group.title}', user ${preference.user.id}" }
                 stats.aiFailed++
@@ -231,7 +233,7 @@ class JobMatchingService(
         logger.debug { "Backfilled remote=$inferredRemote for job '${job.title}'" }
     }
 
-    private fun buildUserChatClients(preferences: List<UserPreferenceEntity>): Map<UUID, ChatClient> =
+    private fun buildUserChains(preferences: List<UserPreferenceEntity>): Map<UUID, AiClientChain> =
         preferences
             .filter { it.matching.matchWithAi }
             .map { it.user.id }
@@ -243,7 +245,8 @@ class JobMatchingService(
                     null
                 } else {
                     try {
-                        userId to chatClientFactory.createForUser(settings, AiUseCase.SCORING)
+                        val client = chatClientFactory.createForUser(settings, AiUseCase.SCORING)
+                        userId to AiClientChain(listOf(AiClientLink(AiProvider.OPENAI, settings.modelId, client)))
                     } catch (e: Exception) {
                         logger.warn(e) { "Failed to create AI chat client for user $userId - falling back to cold-only" }
                         null

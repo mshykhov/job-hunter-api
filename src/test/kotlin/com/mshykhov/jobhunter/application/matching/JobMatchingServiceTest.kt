@@ -1,5 +1,7 @@
 package com.mshykhov.jobhunter.application.matching
 
+import com.mshykhov.jobhunter.application.ai.AiClientChain
+import com.mshykhov.jobhunter.application.ai.AiClientLink
 import com.mshykhov.jobhunter.application.ai.AiUseCase
 import com.mshykhov.jobhunter.application.ai.ChatClientFactory
 import com.mshykhov.jobhunter.application.ai.JobRelevanceEvaluator
@@ -17,6 +19,7 @@ import com.mshykhov.jobhunter.application.preference.SearchPreferences
 import com.mshykhov.jobhunter.application.preference.TelegramPreferences
 import com.mshykhov.jobhunter.application.preference.UserPreferenceEntity
 import com.mshykhov.jobhunter.application.preference.UserPreferenceFacade
+import com.mshykhov.jobhunter.application.settings.AiProvider
 import com.mshykhov.jobhunter.application.user.UserEntity
 import com.mshykhov.jobhunter.application.userjob.UserJobGroupEntity
 import com.mshykhov.jobhunter.application.userjob.UserJobGroupFacade
@@ -59,6 +62,11 @@ class JobMatchingServiceTest {
             matchingProperties = matchingProperties,
             clock = clock,
         )
+
+    private fun chainOf(
+        client: ChatClient,
+        modelId: String = "gpt-4o-mini",
+    ): AiClientChain = AiClientChain(listOf(AiClientLink(AiProvider.OPENAI, modelId, client)))
 
     @Nested
     inner class ProcessUnmatchedJobs {
@@ -129,9 +137,10 @@ class JobMatchingServiceTest {
             every { jobFacade.findByGroupIds(listOf(group.id), 1000, 5) } returns listOf(job)
             every { userPreferenceFacade.findAll() } returns listOf(preference)
             every { userAiSettingsFacade.findByUserId(user.id) } returns aiSettings
+            every { aiSettings.modelId } returns "gpt-4o-mini"
             every { chatClientFactory.createForUser(aiSettings, AiUseCase.SCORING) } returns chatClient
             every { userJobGroupFacade.findByGroupId(group.id) } returns emptyList()
-            every { jobRelevanceEvaluator.evaluate(job, preference, chatClient) } returns
+            every { jobRelevanceEvaluator.evaluate(job, preference, chainOf(chatClient)) } returns
                 JobRelevanceResult(score = 85, reasoning = "Strong Kotlin match", inferredRemote = true)
             every { userJobGroupFacade.saveAll(capture(savedSlot)) } answers { savedSlot.captured }
             every { jobFacade.updateMatchedAt(any(), any()) } just Runs
@@ -157,9 +166,10 @@ class JobMatchingServiceTest {
             every { jobFacade.findByGroupIds(listOf(group.id), 1000, 5) } returns listOf(job)
             every { userPreferenceFacade.findAll() } returns listOf(preference)
             every { userAiSettingsFacade.findByUserId(user.id) } returns aiSettings
+            every { aiSettings.modelId } returns "gpt-4o-mini"
             every { chatClientFactory.createForUser(aiSettings, AiUseCase.SCORING) } returns chatClient
             every { userJobGroupFacade.findByGroupId(group.id) } returns emptyList()
-            every { jobRelevanceEvaluator.evaluate(job, preference, chatClient) } returns
+            every { jobRelevanceEvaluator.evaluate(job, preference, chainOf(chatClient)) } returns
                 JobRelevanceResult(score = 70, reasoning = "Match but not remote", inferredRemote = false)
             every { jobFacade.updateMatchedAt(any(), any()) } just Runs
             every { jobFacade.updateRemote(job.id, false) } just Runs
@@ -182,9 +192,10 @@ class JobMatchingServiceTest {
             every { jobFacade.findByGroupIds(listOf(group.id), 1000, 5) } returns listOf(job)
             every { userPreferenceFacade.findAll() } returns listOf(preference)
             every { userAiSettingsFacade.findByUserId(user.id) } returns aiSettings
+            every { aiSettings.modelId } returns "gpt-4o-mini"
             every { chatClientFactory.createForUser(aiSettings, AiUseCase.SCORING) } returns chatClient
             every { userJobGroupFacade.findByGroupId(group.id) } returns emptyList()
-            every { jobRelevanceEvaluator.evaluate(job, preference, chatClient) } throws
+            every { jobRelevanceEvaluator.evaluate(job, preference, chainOf(chatClient)) } throws
                 RuntimeException("429 insufficient_quota")
 
             val outcome = service.processUnmatchedJobs()
@@ -207,9 +218,10 @@ class JobMatchingServiceTest {
             every { jobFacade.findByGroupIds(listOf(group.id), 1000, 5) } returns listOf(job)
             every { userPreferenceFacade.findAll() } returns listOf(preference)
             every { userAiSettingsFacade.findByUserId(user.id) } returns aiSettings
+            every { aiSettings.modelId } returns "gpt-4o-mini"
             every { chatClientFactory.createForUser(aiSettings, AiUseCase.SCORING) } returns chatClient
             every { userJobGroupFacade.findByGroupId(group.id) } returns emptyList()
-            every { jobRelevanceEvaluator.evaluate(job, preference, chatClient) } returns
+            every { jobRelevanceEvaluator.evaluate(job, preference, chainOf(chatClient)) } returns
                 JobRelevanceResult(score = 85, reasoning = "Strong Kotlin match", inferredRemote = true)
             every { userJobGroupFacade.saveAll(capture(savedSlot)) } answers { savedSlot.captured }
             every { jobFacade.updateMatchedAt(any(), any()) } just Runs
@@ -270,9 +282,10 @@ class JobMatchingServiceTest {
             every { userAiSettingsFacade.findByUserId(healthyUser.id) } returns healthySettings
             every { chatClientFactory.createForUser(brokenSettings, AiUseCase.SCORING) } throws
                 AiNotConfiguredException("API key is corrupted or missing")
+            every { healthySettings.modelId } returns "gpt-4o-mini"
             every { chatClientFactory.createForUser(healthySettings, AiUseCase.SCORING) } returns chatClient
             every { userJobGroupFacade.findByGroupId(group.id) } returns emptyList()
-            every { jobRelevanceEvaluator.evaluate(job, healthyPreference, chatClient) } returns
+            every { jobRelevanceEvaluator.evaluate(job, healthyPreference, chainOf(chatClient)) } returns
                 JobRelevanceResult(score = 80, reasoning = "Good match", inferredRemote = true)
             every { userJobGroupFacade.saveAll(capture(savedSlot)) } answers { savedSlot.captured }
             every { jobFacade.updateMatchedAt(any(), any()) } just Runs
@@ -304,12 +317,13 @@ class JobMatchingServiceTest {
             every { jobFacade.findByGroupIds(listOf(okGroup.id, failGroup.id), 1000, 5) } returns listOf(okJob, failJob)
             every { userPreferenceFacade.findAll() } returns listOf(preference)
             every { userAiSettingsFacade.findByUserId(user.id) } returns aiSettings
+            every { aiSettings.modelId } returns "gpt-4o-mini"
             every { chatClientFactory.createForUser(aiSettings, AiUseCase.SCORING) } returns chatClient
             every { userJobGroupFacade.findByGroupId(okGroup.id) } returns emptyList()
             every { userJobGroupFacade.findByGroupId(failGroup.id) } returns emptyList()
-            every { jobRelevanceEvaluator.evaluate(okJob, preference, chatClient) } returns
+            every { jobRelevanceEvaluator.evaluate(okJob, preference, chainOf(chatClient)) } returns
                 JobRelevanceResult(score = 85, reasoning = "Great match", inferredRemote = true)
-            every { jobRelevanceEvaluator.evaluate(failJob, preference, chatClient) } throws
+            every { jobRelevanceEvaluator.evaluate(failJob, preference, chainOf(chatClient)) } throws
                 RuntimeException("context length exceeded")
             every { userJobGroupFacade.saveAll(any()) } answers { firstArg() }
             every { jobFacade.updateMatchedAt(any(), any()) } just Runs
@@ -334,9 +348,10 @@ class JobMatchingServiceTest {
             every { jobFacade.findByGroupIds(listOf(group.id), 1000, 5) } returns listOf(job)
             every { userPreferenceFacade.findAll() } returns listOf(preference)
             every { userAiSettingsFacade.findByUserId(user.id) } returns aiSettings
+            every { aiSettings.modelId } returns "gpt-4o-mini"
             every { chatClientFactory.createForUser(aiSettings, AiUseCase.SCORING) } returns chatClient
             every { userJobGroupFacade.findByGroupId(group.id) } returns emptyList()
-            every { jobRelevanceEvaluator.evaluate(job, preference, chatClient) } throws
+            every { jobRelevanceEvaluator.evaluate(job, preference, chainOf(chatClient)) } throws
                 RuntimeException("connection refused")
 
             service.processUnmatchedJobs()
@@ -370,9 +385,10 @@ class JobMatchingServiceTest {
             every { jobFacade.findByGroupIds(listOf(group.id), 1000, 5) } returns listOf(shortJob, longJob)
             every { userPreferenceFacade.findAll() } returns listOf(preference)
             every { userAiSettingsFacade.findByUserId(user.id) } returns aiSettings
+            every { aiSettings.modelId } returns "gpt-4o-mini"
             every { chatClientFactory.createForUser(aiSettings, AiUseCase.SCORING) } returns chatClient
             every { userJobGroupFacade.findByGroupId(group.id) } returns emptyList()
-            every { jobRelevanceEvaluator.evaluate(longJob, preference, chatClient) } returns
+            every { jobRelevanceEvaluator.evaluate(longJob, preference, chainOf(chatClient)) } returns
                 JobRelevanceResult(score = 90, reasoning = "Great match", inferredRemote = true)
             every { userJobGroupFacade.saveAll(capture(savedSlot)) } answers { savedSlot.captured }
             every { jobFacade.updateMatchedAt(any(), any()) } just Runs
@@ -380,7 +396,7 @@ class JobMatchingServiceTest {
 
             service.processUnmatchedJobs()
 
-            verify { jobRelevanceEvaluator.evaluate(longJob, preference, chatClient) }
+            verify { jobRelevanceEvaluator.evaluate(longJob, preference, chainOf(chatClient)) }
             verify(exactly = 0) { jobRelevanceEvaluator.evaluate(shortJob, any(), any()) }
         }
 
@@ -558,9 +574,10 @@ class JobMatchingServiceTest {
             every { jobFacade.findByGroupIds(listOf(group.id), 1000, 5) } returns listOf(job)
             every { userPreferenceFacade.findAll() } returns listOf(preference)
             every { userAiSettingsFacade.findByUserId(user.id) } returns aiSettings
+            every { aiSettings.modelId } returns "gpt-4o-mini"
             every { chatClientFactory.createForUser(aiSettings, AiUseCase.SCORING) } returns chatClient
             every { userJobGroupFacade.findByGroupId(group.id) } returns emptyList()
-            every { jobRelevanceEvaluator.evaluate(job, preference, chatClient) } throws RuntimeException("API error")
+            every { jobRelevanceEvaluator.evaluate(job, preference, chainOf(chatClient)) } throws RuntimeException("API error")
 
             service.processUnmatchedJobs()
 

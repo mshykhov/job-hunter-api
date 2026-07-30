@@ -1,6 +1,7 @@
 package com.mshykhov.jobhunter.application.ai
 
 import com.mshykhov.jobhunter.application.ai.dto.JobRelevanceResult
+import com.mshykhov.jobhunter.application.common.AllProvidersFailedException
 import com.mshykhov.jobhunter.application.job.JobEntity
 import com.mshykhov.jobhunter.application.preference.UserPreferenceEntity
 import org.springframework.ai.chat.client.ChatClient
@@ -13,6 +14,22 @@ class JobRelevanceEvaluator {
     fun evaluate(
         job: JobEntity,
         preference: UserPreferenceEntity,
+        chain: AiClientChain,
+    ): JobRelevanceResult {
+        val failures = mutableListOf<String>()
+        for (link in chain.links) {
+            try {
+                return evaluateWithClient(job, preference, link.client)
+            } catch (e: Exception) {
+                failures += "${link.provider}: ${e.message}"
+            }
+        }
+        throw AllProvidersFailedException("All AI providers failed: ${failures.joinToString(", ")}")
+    }
+
+    private fun evaluateWithClient(
+        job: JobEntity,
+        preference: UserPreferenceEntity,
         chatClient: ChatClient,
     ): JobRelevanceResult =
         chatClient
@@ -21,7 +38,8 @@ class JobRelevanceEvaluator {
             .user(buildUserPrompt(job, preference))
             .options(STRUCTURED_OUTPUT_OPTIONS)
             .call()
-            .entity(JobRelevanceResult::class.java)!!
+            .entity(JobRelevanceResult::class.java)
+            ?: throw IllegalStateException("AI response could not be parsed as JobRelevanceResult")
 
     private fun buildUserPrompt(
         job: JobEntity,
