@@ -1,7 +1,9 @@
 package com.mshykhov.jobhunter.application.job
 
 import org.springframework.data.domain.Page
+import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Pageable
+import org.springframework.data.domain.Sort
 import org.springframework.data.jpa.domain.Specification
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -20,7 +22,8 @@ class JobFacade(private val jobRepository: JobRepository) {
 
     fun findByGroupId(groupId: UUID): List<JobEntity> = jobRepository.findByGroupId(groupId)
 
-    fun findUnmatched(): List<JobEntity> = jobRepository.findByMatchedAtIsNull()
+    fun findUnmatched(limit: Int): List<JobEntity> =
+        jobRepository.findByMatchedAtIsNull(PageRequest.of(0, limit, Sort.by(Sort.Direction.ASC, "createdAt")))
 
     fun findAllMatched(): List<JobEntity> = jobRepository.findByMatchedAtIsNotNull()
 

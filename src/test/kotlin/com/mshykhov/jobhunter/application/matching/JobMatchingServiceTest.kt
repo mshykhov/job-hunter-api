@@ -20,6 +20,7 @@ import com.mshykhov.jobhunter.application.user.UserEntity
 import com.mshykhov.jobhunter.application.userjob.UserJobGroupEntity
 import com.mshykhov.jobhunter.application.userjob.UserJobGroupFacade
 import com.mshykhov.jobhunter.infrastructure.ai.AiProperties
+import com.mshykhov.jobhunter.infrastructure.matching.MatchingProperties
 import io.mockk.Runs
 import io.mockk.every
 import io.mockk.just
@@ -42,6 +43,7 @@ class JobMatchingServiceTest {
     private val jobRelevanceEvaluator = mockk<JobRelevanceEvaluator>()
     private val chatClientFactory = mockk<ChatClientFactory>()
     private val aiProperties = AiProperties(matching = AiProperties.MatchingProperties(concurrency = 2))
+    private val matchingProperties = MatchingProperties(batchSize = 200)
     private val clock = Clock.fixed(Instant.parse("2026-03-09T12:00:00Z"), ZoneOffset.UTC)
 
     private val service =
@@ -53,6 +55,7 @@ class JobMatchingServiceTest {
             jobRelevanceEvaluator = jobRelevanceEvaluator,
             chatClientFactory = chatClientFactory,
             aiProperties = aiProperties,
+            matchingProperties = matchingProperties,
             clock = clock,
         )
 
@@ -60,7 +63,7 @@ class JobMatchingServiceTest {
     inner class ProcessUnmatchedJobs {
         @Test
         fun `should do nothing when no unmatched jobs`() {
-            every { jobFacade.findUnmatched() } returns emptyList()
+            every { jobFacade.findUnmatched(200) } returns emptyList()
 
             service.processUnmatchedJobs()
 
@@ -68,9 +71,18 @@ class JobMatchingServiceTest {
         }
 
         @Test
+        fun `should request unmatched jobs bounded by configured batch size`() {
+            every { jobFacade.findUnmatched(200) } returns emptyList()
+
+            service.processUnmatchedJobs()
+
+            verify { jobFacade.findUnmatched(200) }
+        }
+
+        @Test
         fun `should mark jobs as matched when no user preferences exist`() {
             val job = testJob()
-            every { jobFacade.findUnmatched() } returns listOf(job)
+            every { jobFacade.findUnmatched(200) } returns listOf(job)
             every { userPreferenceFacade.findAll() } returns emptyList()
             every { jobFacade.updateMatchedAt(listOf(job.id), any()) } just Runs
 
@@ -87,7 +99,7 @@ class JobMatchingServiceTest {
             val preference = testPreference(user, matchWithAi = true)
             val savedSlot = slot<List<UserJobGroupEntity>>()
 
-            every { jobFacade.findUnmatched() } returns listOf(job)
+            every { jobFacade.findUnmatched(200) } returns listOf(job)
             every { userPreferenceFacade.findAll() } returns listOf(preference)
             every { userAiSettingsFacade.findByUserId(user.id) } returns null
             every { userJobGroupFacade.findByGroupId(group.id) } returns emptyList()
@@ -111,7 +123,7 @@ class JobMatchingServiceTest {
             val chatClient = mockk<ChatClient>()
             val savedSlot = slot<List<UserJobGroupEntity>>()
 
-            every { jobFacade.findUnmatched() } returns listOf(job)
+            every { jobFacade.findUnmatched(200) } returns listOf(job)
             every { userPreferenceFacade.findAll() } returns listOf(preference)
             every { userAiSettingsFacade.findByUserId(user.id) } returns aiSettings
             every { chatClientFactory.createForUser(aiSettings, AiUseCase.SCORING) } returns chatClient
@@ -138,7 +150,7 @@ class JobMatchingServiceTest {
             val aiSettings = mockk<UserAiSettingsEntity>()
             val chatClient = mockk<ChatClient>()
 
-            every { jobFacade.findUnmatched() } returns listOf(job)
+            every { jobFacade.findUnmatched(200) } returns listOf(job)
             every { userPreferenceFacade.findAll() } returns listOf(preference)
             every { userAiSettingsFacade.findByUserId(user.id) } returns aiSettings
             every { chatClientFactory.createForUser(aiSettings, AiUseCase.SCORING) } returns chatClient
@@ -160,7 +172,7 @@ class JobMatchingServiceTest {
             val job = testJob(group = group, source = JobSource.DJINNI)
             val preference = testPreference(user, disabledSources = listOf(JobSource.DJINNI))
 
-            every { jobFacade.findUnmatched() } returns listOf(job)
+            every { jobFacade.findUnmatched(200) } returns listOf(job)
             every { userPreferenceFacade.findAll() } returns listOf(preference)
             every { userAiSettingsFacade.findByUserId(user.id) } returns null
             every { userJobGroupFacade.findByGroupId(group.id) } returns emptyList()
@@ -194,7 +206,7 @@ class JobMatchingServiceTest {
             val chatClient = mockk<ChatClient>()
             val savedSlot = slot<List<UserJobGroupEntity>>()
 
-            every { jobFacade.findUnmatched() } returns listOf(shortJob, longJob)
+            every { jobFacade.findUnmatched(200) } returns listOf(shortJob, longJob)
             every { userPreferenceFacade.findAll() } returns listOf(preference)
             every { userAiSettingsFacade.findByUserId(user.id) } returns aiSettings
             every { chatClientFactory.createForUser(aiSettings, AiUseCase.SCORING) } returns chatClient
@@ -221,7 +233,7 @@ class JobMatchingServiceTest {
             val preference2 = testPreference(user2, matchWithAi = false)
             val savedSlot = slot<List<UserJobGroupEntity>>()
 
-            every { jobFacade.findUnmatched() } returns listOf(job)
+            every { jobFacade.findUnmatched(200) } returns listOf(job)
             every { userPreferenceFacade.findAll() } returns listOf(preference1, preference2)
             every { userAiSettingsFacade.findByUserId(any()) } returns null
             every { userJobGroupFacade.findByGroupId(group.id) } returns emptyList()
@@ -250,7 +262,7 @@ class JobMatchingServiceTest {
                 )
             val savedSlot = slot<List<UserJobGroupEntity>>()
 
-            every { jobFacade.findUnmatched() } returns listOf(job)
+            every { jobFacade.findUnmatched(200) } returns listOf(job)
             every { userPreferenceFacade.findAll() } returns listOf(preference)
             every { userAiSettingsFacade.findByUserId(user.id) } returns null
             every { userJobGroupFacade.findByGroupId(group.id) } returns listOf(existingUserJobGroup)
@@ -280,7 +292,7 @@ class JobMatchingServiceTest {
                 )
             val preference = testPreference(user, disabledSources = listOf(JobSource.DJINNI))
 
-            every { jobFacade.findUnmatched() } returns listOf(job1, job2)
+            every { jobFacade.findUnmatched(200) } returns listOf(job1, job2)
             every { userPreferenceFacade.findAll() } returns listOf(preference)
             every { userAiSettingsFacade.findByUserId(user.id) } returns null
             every { userJobGroupFacade.findByGroupId(group.id) } returns emptyList()
@@ -301,7 +313,7 @@ class JobMatchingServiceTest {
             val aiSettings = mockk<UserAiSettingsEntity>()
             val chatClient = mockk<ChatClient>()
 
-            every { jobFacade.findUnmatched() } returns listOf(job)
+            every { jobFacade.findUnmatched(200) } returns listOf(job)
             every { userPreferenceFacade.findAll() } returns listOf(preference)
             every { userAiSettingsFacade.findByUserId(user.id) } returns aiSettings
             every { chatClientFactory.createForUser(aiSettings, AiUseCase.SCORING) } returns chatClient

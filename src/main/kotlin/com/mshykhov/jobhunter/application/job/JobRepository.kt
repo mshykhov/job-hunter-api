@@ -1,5 +1,6 @@
 package com.mshykhov.jobhunter.application.job
 
+import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.EntityGraph
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor
@@ -16,7 +17,7 @@ interface JobRepository :
     fun findByGroupId(groupId: UUID): List<JobEntity>
 
     @EntityGraph(attributePaths = ["group"])
-    fun findByMatchedAtIsNull(): List<JobEntity>
+    fun findByMatchedAtIsNull(pageable: Pageable): List<JobEntity>
 
     fun findByMatchedAtIsNotNull(): List<JobEntity>
 

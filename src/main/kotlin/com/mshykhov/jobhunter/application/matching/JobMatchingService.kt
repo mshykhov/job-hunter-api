@@ -12,6 +12,7 @@ import com.mshykhov.jobhunter.application.preference.UserPreferenceFacade
 import com.mshykhov.jobhunter.application.userjob.UserJobGroupEntity
 import com.mshykhov.jobhunter.application.userjob.UserJobGroupFacade
 import com.mshykhov.jobhunter.infrastructure.ai.AiProperties
+import com.mshykhov.jobhunter.infrastructure.matching.MatchingProperties
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -38,12 +39,13 @@ class JobMatchingService(
     private val jobRelevanceEvaluator: JobRelevanceEvaluator,
     private val chatClientFactory: ChatClientFactory,
     private val aiProperties: AiProperties,
+    private val matchingProperties: MatchingProperties,
     private val clock: Clock,
 ) {
     private val coldFilterChain = ColdFilterChain()
 
     fun processUnmatchedJobs() {
-        val jobs = jobFacade.findUnmatched()
+        val jobs = jobFacade.findUnmatched(matchingProperties.batchSize)
         if (jobs.isEmpty()) return
 
         val preferences = userPreferenceFacade.findAll()
