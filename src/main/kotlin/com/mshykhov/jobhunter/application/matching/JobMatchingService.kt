@@ -54,7 +54,14 @@ class JobMatchingService(
             return MatchingOutcome.COMPLETED
         }
 
-        val jobs = jobFacade.findByGroupIds(page.map { it.group.id }.distinct())
+        val groupIds = page.map { it.group.id }.distinct()
+        val fanoutLimit = matchingProperties.batchSize * GROUP_FANOUT_LIMIT
+        val jobs = jobFacade.findByGroupIds(groupIds, fanoutLimit, matchingProperties.maxAttempts)
+        if (jobs.size >= fanoutLimit) {
+            logger.warn {
+                "Group re-fetch truncated at $fanoutLimit jobs across ${groupIds.size} groups - some groups may be split"
+            }
+        }
         val jobsByGroup = jobs.groupBy { it.group }
         val userChatClients = buildUserChatClients(preferences)
 
@@ -277,5 +284,6 @@ class JobMatchingService(
     companion object {
         private val MAX_REMATCH_PERIOD = Duration.ofDays(3)
         private const val COLD_ONLY_REASONING = "Cold filter match only — AI evaluation disabled"
+        private const val GROUP_FANOUT_LIMIT = 5
     }
 }

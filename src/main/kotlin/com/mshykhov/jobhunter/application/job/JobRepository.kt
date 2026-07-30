@@ -17,7 +17,11 @@ interface JobRepository :
     fun findByGroupId(groupId: UUID): List<JobEntity>
 
     @EntityGraph(attributePaths = ["group"])
-    fun findByGroupIdInAndMatchedAtIsNull(groupIds: List<UUID>): List<JobEntity>
+    fun findByGroupIdInAndMatchedAtIsNullAndMatchAttemptsLessThan(
+        groupIds: List<UUID>,
+        maxAttempts: Int,
+        pageable: Pageable,
+    ): List<JobEntity>
 
     @EntityGraph(attributePaths = ["group"])
     fun findByMatchedAtIsNullAndMatchAttemptsLessThan(

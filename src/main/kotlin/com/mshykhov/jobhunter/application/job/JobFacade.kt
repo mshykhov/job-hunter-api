@@ -22,7 +22,16 @@ class JobFacade(private val jobRepository: JobRepository) {
 
     fun findByGroupId(groupId: UUID): List<JobEntity> = jobRepository.findByGroupId(groupId)
 
-    fun findByGroupIds(groupIds: List<UUID>): List<JobEntity> = jobRepository.findByGroupIdInAndMatchedAtIsNull(groupIds)
+    fun findByGroupIds(
+        groupIds: List<UUID>,
+        limit: Int,
+        maxAttempts: Int,
+    ): List<JobEntity> =
+        jobRepository.findByGroupIdInAndMatchedAtIsNullAndMatchAttemptsLessThan(
+            groupIds,
+            maxAttempts,
+            PageRequest.of(0, limit, Sort.by(Sort.Direction.ASC, "createdAt")),
+        )
 
     fun findUnmatched(
         limit: Int,
