@@ -11,14 +11,7 @@ class SettingsService {
         val providers =
             AiModel.entries
                 .groupBy { it.provider }
-                .map { (provider, models) ->
-                    AiProviderResponse(
-                        id = provider.id,
-                        name = provider.displayName,
-                        recommended = provider.recommended,
-                        models = models.map { AiModelResponse.from(it) },
-                    )
-                }
+                .map { (provider, models) -> AiProviderResponse.from(provider, models.map { AiModelResponse.from(it) }) }
         return AiProvidersResponse(providers = providers)
     }
 }

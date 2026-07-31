@@ -16,6 +16,7 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import org.springframework.test.web.servlet.put
+import kotlin.test.assertEquals
 
 class SettingsControllerIntegrationTest : AbstractIntegrationTest() {
     @Autowired
@@ -36,6 +37,15 @@ class SettingsControllerIntegrationTest : AbstractIntegrationTest() {
                 jsonPath("$.providers", hasSize<Any>(greaterThan(0)))
                 jsonPath("$.providers[0].id") { isNotEmpty() }
                 jsonPath("$.providers[0].models", hasSize<Any>(greaterThan(0)))
+            }
+        }
+
+        @Test
+        fun `should expose requiresApiKey per provider`() {
+            mockMvc.get("/settings/ai-providers").andExpect {
+                status { isOk() }
+                jsonPath("$.providers[?(@.id=='codex')].requiresApiKey", equalTo(listOf(false)))
+                jsonPath("$.providers[?(@.id=='openai')].requiresApiKey", equalTo(listOf(true)))
             }
         }
     }
@@ -154,16 +164,86 @@ class SettingsControllerIntegrationTest : AbstractIntegrationTest() {
                 }.andExpect {
                     status { isOk() }
                     jsonPath("$.chain", hasSize<Any>(2))
-                    jsonPath("$.chain[0].provider", equalTo("CODEX"))
-                    jsonPath("$.chain[1].provider", equalTo("OPENAI"))
+                    jsonPath("$.chain[0].provider", equalTo("codex"))
+                    jsonPath("$.chain[1].provider", equalTo("openai"))
                     jsonPath("$.chain[1].apiKeyHint", startsWith("sk-chain"))
                 }
 
             mockMvc.get("/settings/ai/providers").andExpect {
                 status { isOk() }
                 jsonPath("$.chain", hasSize<Any>(2))
-                jsonPath("$.chain[0].provider", equalTo("CODEX"))
+                jsonPath("$.chain[0].provider", equalTo("codex"))
             }
+        }
+
+        @Test
+        fun `should accept the exact provider spelling that the catalogue and the chain GET both return`() {
+            val providersResponse = mockMvc.get("/settings/ai-providers").andReturn().response.contentAsString
+            val catalogueId = objectMapper.readTree(providersResponse).get("providers").first { it.get("id").asText() == "codex" }.get("id").asText()
+
+            val body = mapOf("chain" to listOf(mapOf("priority" to 1, "provider" to catalogueId, "modelId" to "gpt-5.6-luna")))
+
+            mockMvc
+                .put("/settings/ai/providers") {
+                    contentType = APPLICATION_JSON
+                    content = objectMapper.writeValueAsString(body)
+                }.andExpect { status { isOk() } }
+
+            val chainGetResponse = mockMvc.get("/settings/ai/providers").andReturn().response.contentAsString
+            val returnedProvider = objectMapper.readTree(chainGetResponse).get("chain")[0].get("provider").asText()
+            assertEquals(catalogueId, returnedProvider)
+
+            val roundTripBody = mapOf("chain" to listOf(mapOf("priority" to 1, "provider" to returnedProvider, "modelId" to "gpt-5.6-luna")))
+
+            mockMvc
+                .put("/settings/ai/providers") {
+                    contentType = APPLICATION_JSON
+                    content = objectMapper.writeValueAsString(roundTripBody)
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.chain[0].provider", equalTo(returnedProvider))
+                }
+        }
+
+        @Test
+        fun `should keep the stored key when a reorder omits it`() {
+            val initialBody =
+                mapOf(
+                    "chain" to
+                        listOf(
+                            mapOf(
+                                "priority" to 1,
+                                "provider" to "openai",
+                                "modelId" to "gpt-4o-mini",
+                                "apiKey" to "sk-keep-on-reorder-123456",
+                            ),
+                        ),
+                )
+
+            mockMvc
+                .put("/settings/ai/providers") {
+                    contentType = APPLICATION_JSON
+                    content = objectMapper.writeValueAsString(initialBody)
+                }.andExpect { status { isOk() } }
+
+            val reorderedBody =
+                mapOf(
+                    "chain" to
+                        listOf(
+                            mapOf("priority" to 1, "provider" to "codex", "modelId" to "gpt-5.6-luna"),
+                            mapOf("priority" to 2, "provider" to "openai", "modelId" to "gpt-4o-mini"),
+                        ),
+                )
+
+            mockMvc
+                .put("/settings/ai/providers") {
+                    contentType = APPLICATION_JSON
+                    content = objectMapper.writeValueAsString(reorderedBody)
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.chain[1].provider", equalTo("openai"))
+                    jsonPath("$.chain[1].apiKeyHint", startsWith("sk-keep-"))
+                }
         }
 
         @Test
@@ -222,8 +302,8 @@ class SettingsControllerIntegrationTest : AbstractIntegrationTest() {
                 }.andExpect {
                     status { isOk() }
                     jsonPath("$.chain", hasSize<Any>(2))
-                    jsonPath("$.chain[0].provider", equalTo("CODEX"))
-                    jsonPath("$.chain[1].provider", equalTo("OPENAI"))
+                    jsonPath("$.chain[0].provider", equalTo("codex"))
+                    jsonPath("$.chain[1].provider", equalTo("openai"))
                 }
         }
 

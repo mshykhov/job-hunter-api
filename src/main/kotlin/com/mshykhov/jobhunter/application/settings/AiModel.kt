@@ -1,9 +1,22 @@
 package com.mshykhov.jobhunter.application.settings
 
-enum class AiProvider(val id: String, val displayName: String, val requiresApiKey: Boolean = true, val recommended: Boolean = false) {
+import com.fasterxml.jackson.annotation.JsonCreator
+import com.mshykhov.jobhunter.application.common.ValueMappedEnum
+
+enum class AiProvider(override val value: String, val displayName: String, val requiresApiKey: Boolean = true, val recommended: Boolean = false) :
+    ValueMappedEnum {
     CODEX("codex", "Codex subscription", requiresApiKey = false, recommended = true),
     OPENAI("openai", "OpenAI"),
     GEMINI("gemini", "Google Gemini"),
+    ;
+
+    override fun toString(): String = value
+
+    companion object {
+        @JvmStatic
+        @JsonCreator
+        fun fromValue(value: String): AiProvider = entries.first { it.value.equals(value, ignoreCase = true) }
+    }
 }
 
 @Suppress("EnumNaming")

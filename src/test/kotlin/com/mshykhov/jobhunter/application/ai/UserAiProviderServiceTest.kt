@@ -226,6 +226,7 @@ class UserAiProviderServiceTest {
                 )
             val savedSlot = slot<List<UserAiProviderEntity>>()
             every { userFacade.findOrCreate(auth0Sub) } returns user
+            every { userAiProviderFacade.findByUserId(user.id) } returns emptyList()
             every { userAiProviderFacade.deleteAll(user.id) } just Runs
             every { userAiProviderFacade.saveAll(capture(savedSlot)) } answers { savedSlot.captured }
 
@@ -252,6 +253,7 @@ class UserAiProviderServiceTest {
                     ),
                 )
             every { userFacade.findOrCreate(auth0Sub) } returns user
+            every { userAiProviderFacade.findByUserId(user.id) } returns emptyList()
 
             assertThrows<ValidationException> { service.replaceChain(auth0Sub, request) }
         }
@@ -277,6 +279,7 @@ class UserAiProviderServiceTest {
                     ),
                 )
             every { userFacade.findOrCreate(auth0Sub) } returns user
+            every { userAiProviderFacade.findByUserId(user.id) } returns emptyList()
 
             assertThrows<ValidationException> { service.replaceChain(auth0Sub, request) }
         }
@@ -289,6 +292,7 @@ class UserAiProviderServiceTest {
                 )
             val savedSlot = slot<List<UserAiProviderEntity>>()
             every { userFacade.findOrCreate(auth0Sub) } returns user
+            every { userAiProviderFacade.findByUserId(user.id) } returns emptyList()
             every { userAiProviderFacade.deleteAll(user.id) } just Runs
             every { userAiProviderFacade.saveAll(capture(savedSlot)) } answers { savedSlot.captured }
 
@@ -298,14 +302,78 @@ class UserAiProviderServiceTest {
         }
 
         @Test
-        fun `should reject an OPENAI entry with a blank api key`() {
+        fun `should reject a new OPENAI entry with a blank api key when no stored row exists`() {
             val request =
                 SaveAiProviderChainRequest(
                     chain = listOf(SaveAiProviderChainEntryRequest(priority = 1, provider = AiProvider.OPENAI, modelId = "gpt-4o-mini")),
                 )
             every { userFacade.findOrCreate(auth0Sub) } returns user
+            every { userAiProviderFacade.findByUserId(user.id) } returns emptyList()
 
             assertThrows<ValidationException> { service.replaceChain(auth0Sub, request) }
+        }
+
+        @Test
+        fun `should carry over the stored key when an existing entry omits it during a reorder`() {
+            val storedOpenAi =
+                TestFixtures.userAiProviderEntity(
+                    user = user,
+                    priority = 1,
+                    provider = AiProvider.OPENAI,
+                    apiKey = "sk-stored-key-123456",
+                    modelId = "gpt-4o-mini",
+                )
+            val request =
+                SaveAiProviderChainRequest(
+                    chain =
+                    listOf(
+                        SaveAiProviderChainEntryRequest(priority = 1, provider = AiProvider.CODEX, modelId = "gpt-5.6-luna"),
+                        SaveAiProviderChainEntryRequest(priority = 2, provider = AiProvider.OPENAI, modelId = "gpt-4o-mini"),
+                    ),
+                )
+            val savedSlot = slot<List<UserAiProviderEntity>>()
+            every { userFacade.findOrCreate(auth0Sub) } returns user
+            every { userAiProviderFacade.findByUserId(user.id) } returns listOf(storedOpenAi)
+            every { userAiProviderFacade.deleteAll(user.id) } just Runs
+            every { userAiProviderFacade.saveAll(capture(savedSlot)) } answers { savedSlot.captured }
+
+            service.replaceChain(auth0Sub, request)
+
+            val openAiEntity = savedSlot.captured.first { it.provider == AiProvider.OPENAI }
+            assertEquals("sk-stored-key-123456", openAiEntity.apiKey)
+        }
+
+        @Test
+        fun `should replace the stored key when an entry supplies a new one`() {
+            val storedOpenAi =
+                TestFixtures.userAiProviderEntity(
+                    user = user,
+                    priority = 1,
+                    provider = AiProvider.OPENAI,
+                    apiKey = "sk-old-key-123456",
+                    modelId = "gpt-4o-mini",
+                )
+            val request =
+                SaveAiProviderChainRequest(
+                    chain =
+                    listOf(
+                        SaveAiProviderChainEntryRequest(
+                            priority = 1,
+                            provider = AiProvider.OPENAI,
+                            modelId = "gpt-4o-mini",
+                            apiKey = "sk-new-key-123456",
+                        ),
+                    ),
+                )
+            val savedSlot = slot<List<UserAiProviderEntity>>()
+            every { userFacade.findOrCreate(auth0Sub) } returns user
+            every { userAiProviderFacade.findByUserId(user.id) } returns listOf(storedOpenAi)
+            every { userAiProviderFacade.deleteAll(user.id) } just Runs
+            every { userAiProviderFacade.saveAll(capture(savedSlot)) } answers { savedSlot.captured }
+
+            service.replaceChain(auth0Sub, request)
+
+            assertEquals("sk-new-key-123456", savedSlot.captured[0].apiKey)
         }
     }
 }

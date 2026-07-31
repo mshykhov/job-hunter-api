@@ -251,8 +251,8 @@ class JobRelevanceEvaluatorTest {
                 evaluator.evaluate(job(), preference(), AiClientChain(listOf(first, second)))
             }
 
-        assertTrue(exception.message.orEmpty().contains("CODEX"))
-        assertTrue(exception.message.orEmpty().contains("OPENAI"))
+        assertTrue(exception.message.orEmpty().contains("codex"))
+        assertTrue(exception.message.orEmpty().contains("openai"))
         assertTrue(exception.message.orEmpty().contains("insufficient_quota"))
         assertTrue(exception.message.orEmpty().contains("invalid_api_key"))
     }
