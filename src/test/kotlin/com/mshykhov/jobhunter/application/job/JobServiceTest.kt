@@ -1,6 +1,7 @@
 package com.mshykhov.jobhunter.application.job
 
 import com.mshykhov.jobhunter.api.rest.job.dto.JobCheckRequest
+import com.mshykhov.jobhunter.infrastructure.metrics.MatchingMetrics
 import com.mshykhov.jobhunter.support.TestFixtures
 import io.mockk.every
 import io.mockk.mockk
@@ -19,7 +20,8 @@ import java.time.Instant
 class JobServiceTest {
     private val jobFacade = mockk<JobFacade>()
     private val jobGroupFacade = mockk<JobGroupFacade>()
-    private val service = JobService(jobFacade, jobGroupFacade)
+    private val matchingMetrics = mockk<MatchingMetrics>(relaxed = true)
+    private val service = JobService(jobFacade, jobGroupFacade, matchingMetrics)
 
     @Nested
     inner class Ingest {
@@ -200,6 +202,17 @@ class JobServiceTest {
             service.ingest(listOf(request))
 
             assertEquals(existingDate, existing.publishedAt)
+        }
+
+        @Test
+        fun `should record ingest count per source`() {
+            val request = TestFixtures.jobIngestRequest(url = "https://example.com/metrics-job", source = JobSource.DOU)
+            every { jobFacade.findByUrls(listOf(request.url)) } returns emptyList()
+            every { jobFacade.saveAll(any<List<JobEntity>>()) } answers { firstArg() }
+
+            service.ingest(listOf(request))
+
+            verify { matchingMetrics.recordIngest(JobSource.DOU, 1) }
         }
 
         @Test

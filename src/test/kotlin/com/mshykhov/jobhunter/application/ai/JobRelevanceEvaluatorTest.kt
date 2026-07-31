@@ -12,6 +12,7 @@ import com.mshykhov.jobhunter.application.preference.TelegramPreferences
 import com.mshykhov.jobhunter.application.preference.UserPreferenceEntity
 import com.mshykhov.jobhunter.application.settings.AiProvider
 import com.mshykhov.jobhunter.application.user.UserEntity
+import com.mshykhov.jobhunter.infrastructure.metrics.MatchingMetrics
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
@@ -22,6 +23,11 @@ import org.springframework.ai.chat.client.ChatClient
 import org.springframework.ai.chat.prompt.ChatOptions
 import org.springframework.ai.openai.OpenAiChatOptions
 import org.springframework.ai.openai.api.ResponseFormat
+import org.springframework.ai.retry.NonTransientAiException
+import org.springframework.ai.retry.TransientAiException
+import java.net.ConnectException
+import java.net.SocketTimeoutException
+import java.time.Duration
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
@@ -29,8 +35,9 @@ class JobRelevanceEvaluatorTest {
     private val chatClient = mockk<ChatClient>()
     private val requestSpec = mockk<ChatClient.ChatClientRequestSpec>()
     private val callSpec = mockk<ChatClient.CallResponseSpec>()
+    private val matchingMetrics = mockk<MatchingMetrics>(relaxed = true)
 
-    private val evaluator = JobRelevanceEvaluator()
+    private val evaluator = JobRelevanceEvaluator(matchingMetrics)
 
     private val systemSlot = slot<String>()
     private val userSlot = slot<String>()
@@ -124,6 +131,113 @@ class JobRelevanceEvaluatorTest {
         val result = evaluator.evaluate(job(), preference(), AiClientChain(listOf(first, second)))
 
         assertEquals(secondResult, result)
+    }
+
+    @Test
+    fun `should record a success metric tagged with the link's provider and model`() {
+        val result = JobRelevanceResult("fits", 80, true)
+        val link = mockLink(AiProvider.OPENAI, result = result)
+
+        evaluator.evaluate(job(), preference(), AiClientChain(listOf(link)))
+
+        verify { matchingMetrics.recordEvaluation(AiProvider.OPENAI, "model-${AiProvider.OPENAI}", "success", any()) }
+    }
+
+    @Test
+    fun `should classify an HTTP 429 quota exhaustion body as the quota outcome`() {
+        val quotaBody =
+            """429 - {"error": {"message": "You exceeded your quota", "code": "credit_balance_exhausted", "type": "insufficient_quota"}}"""
+        val first = mockLink(AiProvider.CODEX, failure = NonTransientAiException(quotaBody))
+        val second = mockLink(AiProvider.OPENAI, result = JobRelevanceResult("fits", 70, true))
+
+        evaluator.evaluate(job(), preference(), AiClientChain(listOf(first, second)))
+
+        verify { matchingMetrics.recordEvaluation(AiProvider.CODEX, "model-${AiProvider.CODEX}", "quota", any()) }
+        verify { matchingMetrics.recordEvaluation(AiProvider.OPENAI, "model-${AiProvider.OPENAI}", "success", any()) }
+    }
+
+    @Test
+    fun `should classify a bare insufficient_quota message as the quota outcome`() {
+        val first = mockLink(AiProvider.CODEX, failure = RuntimeException("insufficient_quota"))
+        val second = mockLink(AiProvider.OPENAI, result = JobRelevanceResult("fits", 70, true))
+
+        evaluator.evaluate(job(), preference(), AiClientChain(listOf(first, second)))
+
+        verify { matchingMetrics.recordEvaluation(AiProvider.CODEX, "model-${AiProvider.CODEX}", "quota", any()) }
+    }
+
+    @Test
+    fun `should classify an HTTP 401 as the auth outcome`() {
+        val link = mockLink(AiProvider.OPENAI, failure = NonTransientAiException("""401 - {"error": {"message": "Invalid API key"}}"""))
+
+        assertThrows<AllProvidersFailedException> { evaluator.evaluate(job(), preference(), AiClientChain(listOf(link))) }
+
+        verify { matchingMetrics.recordEvaluation(AiProvider.OPENAI, "model-${AiProvider.OPENAI}", "auth", any()) }
+    }
+
+    @Test
+    fun `should classify an HTTP 403 as the auth outcome`() {
+        val link = mockLink(AiProvider.OPENAI, failure = NonTransientAiException("""403 - {"error": {"message": "Forbidden"}}"""))
+
+        assertThrows<AllProvidersFailedException> { evaluator.evaluate(job(), preference(), AiClientChain(listOf(link))) }
+
+        verify { matchingMetrics.recordEvaluation(AiProvider.OPENAI, "model-${AiProvider.OPENAI}", "auth", any()) }
+    }
+
+    @Test
+    fun `should classify an HTTP 5xx as the transient outcome`() {
+        val link = mockLink(AiProvider.OPENAI, failure = TransientAiException("""503 - {"error": {"message": "Service unavailable"}}"""))
+
+        assertThrows<AllProvidersFailedException> { evaluator.evaluate(job(), preference(), AiClientChain(listOf(link))) }
+
+        verify { matchingMetrics.recordEvaluation(AiProvider.OPENAI, "model-${AiProvider.OPENAI}", "transient", any()) }
+    }
+
+    @Test
+    fun `should classify a socket timeout as the transient outcome`() {
+        val link = mockLink(AiProvider.OPENAI, failure = SocketTimeoutException("Read timed out"))
+
+        assertThrows<AllProvidersFailedException> { evaluator.evaluate(job(), preference(), AiClientChain(listOf(link))) }
+
+        verify { matchingMetrics.recordEvaluation(AiProvider.OPENAI, "model-${AiProvider.OPENAI}", "transient", any()) }
+    }
+
+    @Test
+    fun `should classify a connect failure as the transient outcome`() {
+        val link = mockLink(AiProvider.OPENAI, failure = ConnectException("Connection refused"))
+
+        assertThrows<AllProvidersFailedException> { evaluator.evaluate(job(), preference(), AiClientChain(listOf(link))) }
+
+        verify { matchingMetrics.recordEvaluation(AiProvider.OPENAI, "model-${AiProvider.OPENAI}", "transient", any()) }
+    }
+
+    @Test
+    fun `should classify an unparseable response as the parse_error outcome`() {
+        val link = mockLink(AiProvider.OPENAI, result = null)
+
+        assertThrows<AllProvidersFailedException> { evaluator.evaluate(job(), preference(), AiClientChain(listOf(link))) }
+
+        verify { matchingMetrics.recordEvaluation(AiProvider.OPENAI, "model-${AiProvider.OPENAI}", "parse_error", any()) }
+    }
+
+    @Test
+    fun `should classify an unrecognised failure as the unavailable outcome`() {
+        val link = mockLink(AiProvider.OPENAI, failure = RuntimeException("context length exceeded"))
+
+        assertThrows<AllProvidersFailedException> { evaluator.evaluate(job(), preference(), AiClientChain(listOf(link))) }
+
+        verify { matchingMetrics.recordEvaluation(AiProvider.OPENAI, "model-${AiProvider.OPENAI}", "unavailable", any()) }
+    }
+
+    @Test
+    fun `should record elapsed time on the evaluation metric`() {
+        val link = mockLink(AiProvider.OPENAI, result = JobRelevanceResult("fits", 60, true))
+        val durationSlot = slot<Duration>()
+        every { matchingMetrics.recordEvaluation(any(), any(), any(), capture(durationSlot)) } returns Unit
+
+        evaluator.evaluate(job(), preference(), AiClientChain(listOf(link)))
+
+        assertTrue(!durationSlot.captured.isNegative)
     }
 
     @Test

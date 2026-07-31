@@ -4,6 +4,7 @@ import com.mshykhov.jobhunter.application.common.AiNotConfiguredException
 import com.mshykhov.jobhunter.application.settings.AiProvider
 import com.mshykhov.jobhunter.infrastructure.ai.AiProviderProperties
 import io.github.oshai.kotlinlogging.KotlinLogging
+import io.micrometer.observation.ObservationRegistry
 import org.springframework.ai.chat.client.ChatClient
 import org.springframework.ai.openai.OpenAiChatModel
 import org.springframework.ai.openai.OpenAiChatOptions
@@ -17,7 +18,7 @@ import org.springframework.web.client.RestClient
 private val logger = KotlinLogging.logger {}
 
 @Component
-class ChatClientFactory(private val aiProviderProperties: AiProviderProperties) {
+class ChatClientFactory(private val aiProviderProperties: AiProviderProperties, private val observationRegistry: ObservationRegistry) {
     private val retryTemplate: RetryTemplate =
         RetryTemplate
             .builder()
@@ -47,6 +48,7 @@ class ChatClientFactory(private val aiProviderProperties: AiProviderProperties) 
                 .openAiApi(builder.build())
                 .defaultOptions(buildOptions(provider.modelId, useCase))
                 .retryTemplate(retryTemplate)
+                .observationRegistry(observationRegistry)
                 .build()
         return ChatClient.builder(model).build()
     }

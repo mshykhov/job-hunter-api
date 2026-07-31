@@ -31,6 +31,8 @@ interface JobRepository :
 
     fun findByMatchedAtIsNotNull(): List<JobEntity>
 
+    fun countByMatchedAtIsNull(): Long
+
     fun findByMatchedAtGreaterThanEqual(since: Instant): List<JobEntity>
 
     fun findTopBySourceOrderByCreatedAtDesc(source: JobSource): JobEntity?

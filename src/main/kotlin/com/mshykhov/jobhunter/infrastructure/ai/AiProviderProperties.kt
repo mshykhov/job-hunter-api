@@ -15,8 +15,10 @@ data class AiProviderProperties(
 ) {
     fun baseUrlFor(provider: AiProvider): String? =
         when (provider) {
-            AiProvider.CODEX -> codexBaseUrl.takeIf { it.isNotBlank() }
-            AiProvider.GEMINI -> geminiBaseUrl.takeIf { it.isNotBlank() }
+            AiProvider.CODEX -> codexBaseUrl.takeIf { it.isNotBlank() }?.let(::normalizeBaseUrl)
+            AiProvider.GEMINI -> geminiBaseUrl.takeIf { it.isNotBlank() }?.let(::normalizeBaseUrl)
             AiProvider.OPENAI -> null
         }
+
+    private fun normalizeBaseUrl(url: String): String = url.removeSuffix("/v1/").removeSuffix("/v1")
 }

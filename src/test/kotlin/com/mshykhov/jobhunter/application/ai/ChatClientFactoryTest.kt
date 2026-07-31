@@ -4,26 +4,31 @@ import com.mshykhov.jobhunter.application.common.AiNotConfiguredException
 import com.mshykhov.jobhunter.application.settings.AiProvider
 import com.mshykhov.jobhunter.infrastructure.ai.AiProviderProperties
 import com.mshykhov.jobhunter.support.TestFixtures
+import io.micrometer.observation.Observation
+import io.micrometer.observation.ObservationHandler
+import io.micrometer.observation.ObservationRegistry
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
+import org.springframework.ai.chat.observation.ChatModelObservationContext
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 private const val CODEX_BASE_URL = "http://cli-proxy-api-prd.cli-proxy-api-prd.svc:8317/v1"
+private const val UNREACHABLE_BASE_URL = "http://localhost:1"
 
 class ChatClientFactoryTest {
-    private val factory = ChatClientFactory(AiProviderProperties())
+    private val factory = ChatClientFactory(AiProviderProperties(), ObservationRegistry.NOOP)
 
     @Nested
     inner class CreateForProvider {
         @Test
         fun `should build client for a CODEX row without an API key`() {
-            val factory = ChatClientFactory(AiProviderProperties(codexBaseUrl = CODEX_BASE_URL))
+            val factory = ChatClientFactory(AiProviderProperties(codexBaseUrl = CODEX_BASE_URL), ObservationRegistry.NOOP)
             val provider =
                 TestFixtures.userAiProviderEntity(provider = AiProvider.CODEX, apiKey = "", modelId = "gpt-5.6-luna")
 
@@ -83,7 +88,7 @@ class ChatClientFactoryTest {
 
     @Nested
     inner class CreateChain {
-        private val factory = ChatClientFactory(AiProviderProperties(codexBaseUrl = CODEX_BASE_URL))
+        private val factory = ChatClientFactory(AiProviderProperties(codexBaseUrl = CODEX_BASE_URL), ObservationRegistry.NOOP)
 
         @Test
         fun `should exclude disabled rows from the chain`() {
@@ -121,7 +126,7 @@ class ChatClientFactoryTest {
         fun `should name every provider when all rows fail to build`() {
             val brokenOpenAi = TestFixtures.userAiProviderEntity(priority = 1, provider = AiProvider.OPENAI, apiKey = "")
             val brokenGemini = TestFixtures.userAiProviderEntity(priority = 2, provider = AiProvider.GEMINI, apiKey = "")
-            val plainFactory = ChatClientFactory(AiProviderProperties())
+            val plainFactory = ChatClientFactory(AiProviderProperties(), ObservationRegistry.NOOP)
 
             val chain = plainFactory.createChain(listOf(brokenOpenAi, brokenGemini))
 
@@ -129,6 +134,32 @@ class ChatClientFactoryTest {
             assertEquals(2, chain.buildFailures.size)
             assertTrue(chain.buildFailures.any { it.contains("OPENAI") })
             assertTrue(chain.buildFailures.any { it.contains("GEMINI") })
+        }
+    }
+
+    @Nested
+    inner class ObservationWiring {
+        @Test
+        fun `should route a chat model call through the injected observation registry`() {
+            val observedContexts = mutableListOf<Observation.Context>()
+            val recordingHandler =
+                object : ObservationHandler<Observation.Context> {
+                    override fun onStart(context: Observation.Context) {
+                        observedContexts += context
+                    }
+
+                    override fun supportsContext(context: Observation.Context) = true
+                }
+            val registry = ObservationRegistry.create()
+            registry.observationConfig().observationHandler(recordingHandler)
+            val factory = ChatClientFactory(AiProviderProperties(codexBaseUrl = UNREACHABLE_BASE_URL), registry)
+            val provider =
+                TestFixtures.userAiProviderEntity(provider = AiProvider.CODEX, apiKey = "", modelId = "gpt-4o-mini")
+            val chatClient = factory.createForProvider(provider)
+
+            runCatching { chatClient.prompt("ping").call().content() }
+
+            assertTrue(observedContexts.any { it is ChatModelObservationContext })
         }
     }
 }
