@@ -68,6 +68,7 @@ interface JobRepository :
         WHERE j.lastSeenAt < :threshold
           AND j.matchedAt IS NOT NULL
           AND NOT EXISTS (SELECT 1 FROM UserJobGroupEntity u WHERE u.group.id = j.group.id)
+          AND NOT EXISTS (SELECT 1 FROM UserJobEntity uj WHERE uj.job.id = j.id)
         ORDER BY j.lastSeenAt ASC
         """,
     )
