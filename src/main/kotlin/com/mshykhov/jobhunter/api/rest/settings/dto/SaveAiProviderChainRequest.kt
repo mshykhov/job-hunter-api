@@ -4,9 +4,11 @@ import com.mshykhov.jobhunter.application.ai.UserAiProviderEntity
 import com.mshykhov.jobhunter.application.common.ValidationException
 import com.mshykhov.jobhunter.application.user.UserEntity
 import jakarta.validation.Valid
+import jakarta.validation.constraints.NotEmpty
 
 data class SaveAiProviderChainRequest(
     @field:Valid
+    @field:NotEmpty
     val chain: List<SaveAiProviderChainEntryRequest>,
 ) {
     fun toEntities(user: UserEntity): List<UserAiProviderEntity> {
