@@ -1,12 +1,13 @@
 package com.mshykhov.jobhunter.application.matching
 
+import com.mshykhov.jobhunter.application.ai.AiClientChain
+import com.mshykhov.jobhunter.application.ai.AiClientLink
 import com.mshykhov.jobhunter.application.ai.AiUseCase
 import com.mshykhov.jobhunter.application.ai.ChatClientFactory
 import com.mshykhov.jobhunter.application.ai.JobRelevanceEvaluator
-import com.mshykhov.jobhunter.application.ai.UserAiSettingsEntity
-import com.mshykhov.jobhunter.application.ai.UserAiSettingsFacade
+import com.mshykhov.jobhunter.application.ai.UserAiProviderService
 import com.mshykhov.jobhunter.application.ai.dto.JobRelevanceResult
-import com.mshykhov.jobhunter.application.common.AiNotConfiguredException
+import com.mshykhov.jobhunter.application.common.AllProvidersFailedException
 import com.mshykhov.jobhunter.application.job.JobEntity
 import com.mshykhov.jobhunter.application.job.JobFacade
 import com.mshykhov.jobhunter.application.job.JobGroupEntity
@@ -17,11 +18,13 @@ import com.mshykhov.jobhunter.application.preference.SearchPreferences
 import com.mshykhov.jobhunter.application.preference.TelegramPreferences
 import com.mshykhov.jobhunter.application.preference.UserPreferenceEntity
 import com.mshykhov.jobhunter.application.preference.UserPreferenceFacade
+import com.mshykhov.jobhunter.application.settings.AiProvider
 import com.mshykhov.jobhunter.application.user.UserEntity
 import com.mshykhov.jobhunter.application.userjob.UserJobGroupEntity
 import com.mshykhov.jobhunter.application.userjob.UserJobGroupFacade
 import com.mshykhov.jobhunter.infrastructure.ai.AiProperties
 import com.mshykhov.jobhunter.infrastructure.matching.MatchingProperties
+import com.mshykhov.jobhunter.support.TestFixtures
 import io.mockk.Runs
 import io.mockk.every
 import io.mockk.just
@@ -40,7 +43,7 @@ class JobMatchingServiceTest {
     private val jobFacade = mockk<JobFacade>()
     private val userPreferenceFacade = mockk<UserPreferenceFacade>()
     private val userJobGroupFacade = mockk<UserJobGroupFacade>()
-    private val userAiSettingsFacade = mockk<UserAiSettingsFacade>()
+    private val userAiProviderService = mockk<UserAiProviderService>()
     private val jobRelevanceEvaluator = mockk<JobRelevanceEvaluator>()
     private val chatClientFactory = mockk<ChatClientFactory>()
     private val aiProperties = AiProperties(matching = AiProperties.MatchingProperties(concurrency = 2))
@@ -52,13 +55,18 @@ class JobMatchingServiceTest {
             jobFacade = jobFacade,
             userPreferenceFacade = userPreferenceFacade,
             userJobGroupFacade = userJobGroupFacade,
-            userAiSettingsFacade = userAiSettingsFacade,
+            userAiProviderService = userAiProviderService,
             jobRelevanceEvaluator = jobRelevanceEvaluator,
             chatClientFactory = chatClientFactory,
             aiProperties = aiProperties,
             matchingProperties = matchingProperties,
             clock = clock,
         )
+
+    private fun chainOf(
+        client: ChatClient,
+        modelId: String = "gpt-4o-mini",
+    ): AiClientChain = AiClientChain(listOf(AiClientLink(AiProvider.OPENAI, modelId, client)))
 
     @Nested
     inner class ProcessUnmatchedJobs {
@@ -93,45 +101,43 @@ class JobMatchingServiceTest {
         }
 
         @Test
-        fun `should create user job group with cold-only reasoning when user has no AI settings`() {
+        fun `should fail matching instead of falling back to cold-only when user has matchWithAi enabled but no AI providers configured`() {
             val user = UserEntity(auth0Sub = "user-1")
             val group = testGroup()
             val job = testJob(group = group)
             val preference = testPreference(user, matchWithAi = true)
-            val savedSlot = slot<List<UserJobGroupEntity>>()
 
             every { jobFacade.findUnmatched(200, 5) } returns listOf(job)
             every { jobFacade.findByGroupIds(listOf(group.id), 1000, 5) } returns listOf(job)
             every { userPreferenceFacade.findAll() } returns listOf(preference)
-            every { userAiSettingsFacade.findByUserId(user.id) } returns null
+            every { userAiProviderService.chainFor(user.id) } returns emptyList()
+            every { chatClientFactory.createChain(emptyList(), AiUseCase.SCORING) } returns AiClientChain(emptyList())
             every { userJobGroupFacade.findByGroupId(group.id) } returns emptyList()
-            every { userJobGroupFacade.saveAll(capture(savedSlot)) } answers { savedSlot.captured }
-            every { jobFacade.updateMatchedAt(any(), any()) } just Runs
 
-            service.processUnmatchedJobs()
+            val outcome = service.processUnmatchedJobs()
 
-            assertEquals(1, savedSlot.captured.size)
-            assertEquals(0, savedSlot.captured[0].aiRelevanceScore)
-            assertEquals("Cold filter match only — AI evaluation disabled", savedSlot.captured[0].aiReasoning)
+            assertEquals(MatchingOutcome.AI_UNAVAILABLE, outcome)
+            verify(exactly = 0) { userJobGroupFacade.saveAll(any()) }
+            verify(exactly = 0) { jobFacade.updateMatchedAt(any(), any()) }
         }
 
         @Test
-        fun `should evaluate with AI and save result when user has AI settings`() {
+        fun `should evaluate with AI and save result when user has AI providers configured`() {
             val user = UserEntity(auth0Sub = "user-1")
             val group = testGroup()
             val job = testJob(group = group)
             val preference = testPreference(user, matchWithAi = true)
-            val aiSettings = mockk<UserAiSettingsEntity>()
+            val provider = TestFixtures.userAiProviderEntity(user = user, modelId = "gpt-4o-mini")
             val chatClient = mockk<ChatClient>()
             val savedSlot = slot<List<UserJobGroupEntity>>()
 
             every { jobFacade.findUnmatched(200, 5) } returns listOf(job)
             every { jobFacade.findByGroupIds(listOf(group.id), 1000, 5) } returns listOf(job)
             every { userPreferenceFacade.findAll() } returns listOf(preference)
-            every { userAiSettingsFacade.findByUserId(user.id) } returns aiSettings
-            every { chatClientFactory.createForUser(aiSettings, AiUseCase.SCORING) } returns chatClient
+            every { userAiProviderService.chainFor(user.id) } returns listOf(provider)
+            every { chatClientFactory.createChain(listOf(provider), AiUseCase.SCORING) } returns chainOf(chatClient)
             every { userJobGroupFacade.findByGroupId(group.id) } returns emptyList()
-            every { jobRelevanceEvaluator.evaluate(job, preference, chatClient) } returns
+            every { jobRelevanceEvaluator.evaluate(job, preference, chainOf(chatClient)) } returns
                 JobRelevanceResult(score = 85, reasoning = "Strong Kotlin match", inferredRemote = true)
             every { userJobGroupFacade.saveAll(capture(savedSlot)) } answers { savedSlot.captured }
             every { jobFacade.updateMatchedAt(any(), any()) } just Runs
@@ -150,16 +156,16 @@ class JobMatchingServiceTest {
             val group = testGroup()
             val job = testJob(group = group, remote = null)
             val preference = testPreference(user, matchWithAi = true, remoteOnly = true)
-            val aiSettings = mockk<UserAiSettingsEntity>()
+            val provider = TestFixtures.userAiProviderEntity(user = user, modelId = "gpt-4o-mini")
             val chatClient = mockk<ChatClient>()
 
             every { jobFacade.findUnmatched(200, 5) } returns listOf(job)
             every { jobFacade.findByGroupIds(listOf(group.id), 1000, 5) } returns listOf(job)
             every { userPreferenceFacade.findAll() } returns listOf(preference)
-            every { userAiSettingsFacade.findByUserId(user.id) } returns aiSettings
-            every { chatClientFactory.createForUser(aiSettings, AiUseCase.SCORING) } returns chatClient
+            every { userAiProviderService.chainFor(user.id) } returns listOf(provider)
+            every { chatClientFactory.createChain(listOf(provider), AiUseCase.SCORING) } returns chainOf(chatClient)
             every { userJobGroupFacade.findByGroupId(group.id) } returns emptyList()
-            every { jobRelevanceEvaluator.evaluate(job, preference, chatClient) } returns
+            every { jobRelevanceEvaluator.evaluate(job, preference, chainOf(chatClient)) } returns
                 JobRelevanceResult(score = 70, reasoning = "Match but not remote", inferredRemote = false)
             every { jobFacade.updateMatchedAt(any(), any()) } just Runs
             every { jobFacade.updateRemote(job.id, false) } just Runs
@@ -175,16 +181,16 @@ class JobMatchingServiceTest {
             val group = testGroup()
             val job = testJob(group = group)
             val preference = testPreference(user, matchWithAi = true)
-            val aiSettings = mockk<UserAiSettingsEntity>()
+            val provider = TestFixtures.userAiProviderEntity(user = user, modelId = "gpt-4o-mini")
             val chatClient = mockk<ChatClient>()
 
             every { jobFacade.findUnmatched(200, 5) } returns listOf(job)
             every { jobFacade.findByGroupIds(listOf(group.id), 1000, 5) } returns listOf(job)
             every { userPreferenceFacade.findAll() } returns listOf(preference)
-            every { userAiSettingsFacade.findByUserId(user.id) } returns aiSettings
-            every { chatClientFactory.createForUser(aiSettings, AiUseCase.SCORING) } returns chatClient
+            every { userAiProviderService.chainFor(user.id) } returns listOf(provider)
+            every { chatClientFactory.createChain(listOf(provider), AiUseCase.SCORING) } returns chainOf(chatClient)
             every { userJobGroupFacade.findByGroupId(group.id) } returns emptyList()
-            every { jobRelevanceEvaluator.evaluate(job, preference, chatClient) } throws
+            every { jobRelevanceEvaluator.evaluate(job, preference, chainOf(chatClient)) } throws
                 RuntimeException("429 insufficient_quota")
 
             val outcome = service.processUnmatchedJobs()
@@ -199,17 +205,17 @@ class JobMatchingServiceTest {
             val group = testGroup()
             val job = testJob(group = group)
             val preference = testPreference(user, matchWithAi = true)
-            val aiSettings = mockk<UserAiSettingsEntity>()
+            val provider = TestFixtures.userAiProviderEntity(user = user, modelId = "gpt-4o-mini")
             val chatClient = mockk<ChatClient>()
             val savedSlot = slot<List<UserJobGroupEntity>>()
 
             every { jobFacade.findUnmatched(200, 5) } returns listOf(job)
             every { jobFacade.findByGroupIds(listOf(group.id), 1000, 5) } returns listOf(job)
             every { userPreferenceFacade.findAll() } returns listOf(preference)
-            every { userAiSettingsFacade.findByUserId(user.id) } returns aiSettings
-            every { chatClientFactory.createForUser(aiSettings, AiUseCase.SCORING) } returns chatClient
+            every { userAiProviderService.chainFor(user.id) } returns listOf(provider)
+            every { chatClientFactory.createChain(listOf(provider), AiUseCase.SCORING) } returns chainOf(chatClient)
             every { userJobGroupFacade.findByGroupId(group.id) } returns emptyList()
-            every { jobRelevanceEvaluator.evaluate(job, preference, chatClient) } returns
+            every { jobRelevanceEvaluator.evaluate(job, preference, chainOf(chatClient)) } returns
                 JobRelevanceResult(score = 85, reasoning = "Strong Kotlin match", inferredRemote = true)
             every { userJobGroupFacade.saveAll(capture(savedSlot)) } answers { savedSlot.captured }
             every { jobFacade.updateMatchedAt(any(), any()) } just Runs
@@ -237,7 +243,6 @@ class JobMatchingServiceTest {
             every { jobFacade.findUnmatched(200, 5) } returns listOf(job)
             every { jobFacade.findByGroupIds(listOf(group.id), 1000, 5) } returns listOf(job)
             every { userPreferenceFacade.findAll() } returns listOf(preference)
-            every { userAiSettingsFacade.findByUserId(user.id) } returns null
             every { userJobGroupFacade.findByGroupId(group.id) } returns emptyList()
             every { jobFacade.updateMatchedAt(any(), any()) } just Runs
 
@@ -251,39 +256,88 @@ class JobMatchingServiceTest {
     @Nested
     inner class AiClientResilience {
         @Test
-        fun `should fall back to cold-only for a user whose AI client cannot be created without affecting other users`() {
+        fun `should fail only the broken user without affecting a healthy user in the same group`() {
             val brokenUser = UserEntity(auth0Sub = "user-broken")
             val healthyUser = UserEntity(auth0Sub = "user-healthy")
             val group = testGroup()
             val job = testJob(group = group)
             val brokenPreference = testPreference(brokenUser, matchWithAi = true)
             val healthyPreference = testPreference(healthyUser, matchWithAi = true)
-            val brokenSettings = mockk<UserAiSettingsEntity>()
-            val healthySettings = mockk<UserAiSettingsEntity>()
+            val healthyProvider = TestFixtures.userAiProviderEntity(user = healthyUser, modelId = "gpt-4o-mini")
             val chatClient = mockk<ChatClient>()
             val savedSlot = slot<List<UserJobGroupEntity>>()
 
             every { jobFacade.findUnmatched(200, 5) } returns listOf(job)
             every { jobFacade.findByGroupIds(listOf(group.id), 1000, 5) } returns listOf(job)
             every { userPreferenceFacade.findAll() } returns listOf(brokenPreference, healthyPreference)
-            every { userAiSettingsFacade.findByUserId(brokenUser.id) } returns brokenSettings
-            every { userAiSettingsFacade.findByUserId(healthyUser.id) } returns healthySettings
-            every { chatClientFactory.createForUser(brokenSettings, AiUseCase.SCORING) } throws
-                AiNotConfiguredException("API key is corrupted or missing")
-            every { chatClientFactory.createForUser(healthySettings, AiUseCase.SCORING) } returns chatClient
+            every { userAiProviderService.chainFor(brokenUser.id) } throws RuntimeException("connection reset")
+            every { userAiProviderService.chainFor(healthyUser.id) } returns listOf(healthyProvider)
+            every { chatClientFactory.createChain(listOf(healthyProvider), AiUseCase.SCORING) } returns chainOf(chatClient)
             every { userJobGroupFacade.findByGroupId(group.id) } returns emptyList()
-            every { jobRelevanceEvaluator.evaluate(job, healthyPreference, chatClient) } returns
+            every { jobRelevanceEvaluator.evaluate(job, healthyPreference, chainOf(chatClient)) } returns
                 JobRelevanceResult(score = 80, reasoning = "Good match", inferredRemote = true)
             every { userJobGroupFacade.saveAll(capture(savedSlot)) } answers { savedSlot.captured }
-            every { jobFacade.updateMatchedAt(any(), any()) } just Runs
             every { jobFacade.updateRemote(job.id, true) } just Runs
+            every { jobFacade.incrementMatchAttempts(listOf(job.id)) } just Runs
 
             service.processUnmatchedJobs()
 
-            assertEquals(2, savedSlot.captured.size)
-            val byUserId = savedSlot.captured.associateBy { it.user.id }
-            assertEquals("Cold filter match only — AI evaluation disabled", byUserId.getValue(brokenUser.id).aiReasoning)
-            assertEquals("Good match", byUserId.getValue(healthyUser.id).aiReasoning)
+            assertEquals(1, savedSlot.captured.size)
+            assertEquals(healthyUser.id, savedSlot.captured[0].user.id)
+            assertEquals("Good match", savedSlot.captured[0].aiReasoning)
+        }
+
+        @Test
+        fun `should fail the user instead of falling back to cold-only when the whole chain fails to build any usable link`() {
+            val user = UserEntity(auth0Sub = "user-1")
+            val group = testGroup()
+            val job = testJob(group = group)
+            val preference = testPreference(user, matchWithAi = true)
+            val provider = TestFixtures.userAiProviderEntity(user = user, modelId = "gpt-4o-mini")
+
+            every { jobFacade.findUnmatched(200, 5) } returns listOf(job)
+            every { jobFacade.findByGroupIds(listOf(group.id), 1000, 5) } returns listOf(job)
+            every { userPreferenceFacade.findAll() } returns listOf(preference)
+            every { userAiProviderService.chainFor(user.id) } returns listOf(provider)
+            every { chatClientFactory.createChain(listOf(provider), AiUseCase.SCORING) } returns
+                AiClientChain(emptyList(), listOf("OPENAI: API key is missing"))
+            every { userJobGroupFacade.findByGroupId(group.id) } returns emptyList()
+
+            val outcome = service.processUnmatchedJobs()
+
+            assertEquals(MatchingOutcome.AI_UNAVAILABLE, outcome)
+            verify(exactly = 0) { jobRelevanceEvaluator.evaluate(any(), any(), any()) }
+            verify(exactly = 0) { userJobGroupFacade.saveAll(any()) }
+            verify(exactly = 0) { jobFacade.updateMatchedAt(any(), any()) }
+        }
+    }
+
+    @Nested
+    inner class ChainExhaustion {
+        @Test
+        fun `should treat an exhausted provider chain exactly like a single failed provider`() {
+            val user = UserEntity(auth0Sub = "user-1")
+            val group = testGroup()
+            val job = testJob(group = group)
+            val preference = testPreference(user, matchWithAi = true)
+            val provider = TestFixtures.userAiProviderEntity(user = user, modelId = "gpt-4o-mini")
+            val chatClient = mockk<ChatClient>()
+
+            every { jobFacade.findUnmatched(200, 5) } returns listOf(job)
+            every { jobFacade.findByGroupIds(listOf(group.id), 1000, 5) } returns listOf(job)
+            every { userPreferenceFacade.findAll() } returns listOf(preference)
+            every { userAiProviderService.chainFor(user.id) } returns listOf(provider)
+            every { chatClientFactory.createChain(listOf(provider), AiUseCase.SCORING) } returns chainOf(chatClient)
+            every { userJobGroupFacade.findByGroupId(group.id) } returns emptyList()
+            every { jobRelevanceEvaluator.evaluate(job, preference, chainOf(chatClient)) } throws
+                AllProvidersFailedException("All AI providers failed: OPENAI: insufficient_quota")
+
+            val outcome = service.processUnmatchedJobs()
+
+            assertEquals(MatchingOutcome.AI_UNAVAILABLE, outcome)
+            verify(exactly = 0) { jobFacade.updateMatchedAt(any(), any()) }
+            verify(exactly = 0) { jobFacade.incrementMatchAttempts(any()) }
+            verify(exactly = 0) { userJobGroupFacade.saveAll(any()) }
         }
     }
 
@@ -297,19 +351,19 @@ class JobMatchingServiceTest {
             val failGroup = testGroup(title = "Failing Group")
             val failJob = testJob(group = failGroup, title = "Failing Group")
             val preference = testPreference(user, matchWithAi = true)
-            val aiSettings = mockk<UserAiSettingsEntity>()
+            val provider = TestFixtures.userAiProviderEntity(user = user, modelId = "gpt-4o-mini")
             val chatClient = mockk<ChatClient>()
 
             every { jobFacade.findUnmatched(200, 5) } returns listOf(okJob, failJob)
             every { jobFacade.findByGroupIds(listOf(okGroup.id, failGroup.id), 1000, 5) } returns listOf(okJob, failJob)
             every { userPreferenceFacade.findAll() } returns listOf(preference)
-            every { userAiSettingsFacade.findByUserId(user.id) } returns aiSettings
-            every { chatClientFactory.createForUser(aiSettings, AiUseCase.SCORING) } returns chatClient
+            every { userAiProviderService.chainFor(user.id) } returns listOf(provider)
+            every { chatClientFactory.createChain(listOf(provider), AiUseCase.SCORING) } returns chainOf(chatClient)
             every { userJobGroupFacade.findByGroupId(okGroup.id) } returns emptyList()
             every { userJobGroupFacade.findByGroupId(failGroup.id) } returns emptyList()
-            every { jobRelevanceEvaluator.evaluate(okJob, preference, chatClient) } returns
+            every { jobRelevanceEvaluator.evaluate(okJob, preference, chainOf(chatClient)) } returns
                 JobRelevanceResult(score = 85, reasoning = "Great match", inferredRemote = true)
-            every { jobRelevanceEvaluator.evaluate(failJob, preference, chatClient) } throws
+            every { jobRelevanceEvaluator.evaluate(failJob, preference, chainOf(chatClient)) } throws
                 RuntimeException("context length exceeded")
             every { userJobGroupFacade.saveAll(any()) } answers { firstArg() }
             every { jobFacade.updateMatchedAt(any(), any()) } just Runs
@@ -327,16 +381,16 @@ class JobMatchingServiceTest {
             val group = testGroup()
             val job = testJob(group = group)
             val preference = testPreference(user, matchWithAi = true)
-            val aiSettings = mockk<UserAiSettingsEntity>()
+            val provider = TestFixtures.userAiProviderEntity(user = user, modelId = "gpt-4o-mini")
             val chatClient = mockk<ChatClient>()
 
             every { jobFacade.findUnmatched(200, 5) } returns listOf(job)
             every { jobFacade.findByGroupIds(listOf(group.id), 1000, 5) } returns listOf(job)
             every { userPreferenceFacade.findAll() } returns listOf(preference)
-            every { userAiSettingsFacade.findByUserId(user.id) } returns aiSettings
-            every { chatClientFactory.createForUser(aiSettings, AiUseCase.SCORING) } returns chatClient
+            every { userAiProviderService.chainFor(user.id) } returns listOf(provider)
+            every { chatClientFactory.createChain(listOf(provider), AiUseCase.SCORING) } returns chainOf(chatClient)
             every { userJobGroupFacade.findByGroupId(group.id) } returns emptyList()
-            every { jobRelevanceEvaluator.evaluate(job, preference, chatClient) } throws
+            every { jobRelevanceEvaluator.evaluate(job, preference, chainOf(chatClient)) } throws
                 RuntimeException("connection refused")
 
             service.processUnmatchedJobs()
@@ -362,17 +416,17 @@ class JobMatchingServiceTest {
                     title = "Senior Kotlin Developer",
                 ).apply { description = "This is a much longer description for the Kotlin developer position" }
             val preference = testPreference(user, matchWithAi = true)
-            val aiSettings = mockk<UserAiSettingsEntity>()
+            val provider = TestFixtures.userAiProviderEntity(user = user, modelId = "gpt-4o-mini")
             val chatClient = mockk<ChatClient>()
             val savedSlot = slot<List<UserJobGroupEntity>>()
 
             every { jobFacade.findUnmatched(200, 5) } returns listOf(shortJob, longJob)
             every { jobFacade.findByGroupIds(listOf(group.id), 1000, 5) } returns listOf(shortJob, longJob)
             every { userPreferenceFacade.findAll() } returns listOf(preference)
-            every { userAiSettingsFacade.findByUserId(user.id) } returns aiSettings
-            every { chatClientFactory.createForUser(aiSettings, AiUseCase.SCORING) } returns chatClient
+            every { userAiProviderService.chainFor(user.id) } returns listOf(provider)
+            every { chatClientFactory.createChain(listOf(provider), AiUseCase.SCORING) } returns chainOf(chatClient)
             every { userJobGroupFacade.findByGroupId(group.id) } returns emptyList()
-            every { jobRelevanceEvaluator.evaluate(longJob, preference, chatClient) } returns
+            every { jobRelevanceEvaluator.evaluate(longJob, preference, chainOf(chatClient)) } returns
                 JobRelevanceResult(score = 90, reasoning = "Great match", inferredRemote = true)
             every { userJobGroupFacade.saveAll(capture(savedSlot)) } answers { savedSlot.captured }
             every { jobFacade.updateMatchedAt(any(), any()) } just Runs
@@ -380,7 +434,7 @@ class JobMatchingServiceTest {
 
             service.processUnmatchedJobs()
 
-            verify { jobRelevanceEvaluator.evaluate(longJob, preference, chatClient) }
+            verify { jobRelevanceEvaluator.evaluate(longJob, preference, chainOf(chatClient)) }
             verify(exactly = 0) { jobRelevanceEvaluator.evaluate(shortJob, any(), any()) }
         }
 
@@ -397,7 +451,6 @@ class JobMatchingServiceTest {
             every { jobFacade.findUnmatched(200, 5) } returns listOf(job)
             every { jobFacade.findByGroupIds(listOf(group.id), 1000, 5) } returns listOf(job)
             every { userPreferenceFacade.findAll() } returns listOf(preference1, preference2)
-            every { userAiSettingsFacade.findByUserId(any()) } returns null
             every { userJobGroupFacade.findByGroupId(group.id) } returns emptyList()
             every { userJobGroupFacade.saveAll(capture(savedSlot)) } answers { savedSlot.captured }
             every { jobFacade.updateMatchedAt(any(), any()) } just Runs
@@ -427,7 +480,6 @@ class JobMatchingServiceTest {
             every { jobFacade.findUnmatched(200, 5) } returns listOf(job)
             every { jobFacade.findByGroupIds(listOf(group.id), 1000, 5) } returns listOf(job)
             every { userPreferenceFacade.findAll() } returns listOf(preference)
-            every { userAiSettingsFacade.findByUserId(user.id) } returns null
             every { userJobGroupFacade.findByGroupId(group.id) } returns listOf(existingUserJobGroup)
             every { userJobGroupFacade.saveAll(capture(savedSlot)) } answers { savedSlot.captured }
             every { jobFacade.updateMatchedAt(any(), any()) } just Runs
@@ -458,7 +510,6 @@ class JobMatchingServiceTest {
             every { jobFacade.findUnmatched(200, 5) } returns listOf(job1, job2)
             every { jobFacade.findByGroupIds(listOf(group.id), 1000, 5) } returns listOf(job1, job2)
             every { userPreferenceFacade.findAll() } returns listOf(preference)
-            every { userAiSettingsFacade.findByUserId(user.id) } returns null
             every { userJobGroupFacade.findByGroupId(group.id) } returns emptyList()
             every { jobFacade.updateMatchedAt(listOf(job1.id, job2.id), any()) } just Runs
 
@@ -479,7 +530,6 @@ class JobMatchingServiceTest {
             every { jobFacade.findUnmatched(200, 5) } returns listOf(windowedJob)
             every { jobFacade.findByGroupIds(listOf(group.id), 1000, 5) } returns listOf(windowedJob, laterJob)
             every { userPreferenceFacade.findAll() } returns listOf(preference)
-            every { userAiSettingsFacade.findByUserId(user.id) } returns null
             every { userJobGroupFacade.findByGroupId(group.id) } returns emptyList()
             every { userJobGroupFacade.saveAll(any()) } answers { firstArg() }
             every { jobFacade.updateMatchedAt(any(), any()) } just Runs
@@ -499,7 +549,6 @@ class JobMatchingServiceTest {
             every { jobFacade.findUnmatched(200, 5) } returns listOf(eligibleJob)
             every { jobFacade.findByGroupIds(listOf(group.id), 1000, 5) } returns listOf(eligibleJob)
             every { userPreferenceFacade.findAll() } returns listOf(preference)
-            every { userAiSettingsFacade.findByUserId(user.id) } returns null
             every { userJobGroupFacade.findByGroupId(group.id) } returns emptyList()
             every { userJobGroupFacade.saveAll(any()) } answers { firstArg() }
             every { jobFacade.updateMatchedAt(any(), any()) } just Runs
@@ -518,7 +567,7 @@ class JobMatchingServiceTest {
                     jobFacade = jobFacade,
                     userPreferenceFacade = userPreferenceFacade,
                     userJobGroupFacade = userJobGroupFacade,
-                    userAiSettingsFacade = userAiSettingsFacade,
+                    userAiProviderService = userAiProviderService,
                     jobRelevanceEvaluator = jobRelevanceEvaluator,
                     chatClientFactory = chatClientFactory,
                     aiProperties = aiProperties,
@@ -534,7 +583,6 @@ class JobMatchingServiceTest {
             every { jobFacade.findUnmatched(1, 5) } returns listOf(pageJob)
             every { jobFacade.findByGroupIds(listOf(group.id), 5, 5) } returns fannedOutJobs
             every { userPreferenceFacade.findAll() } returns listOf(preference)
-            every { userAiSettingsFacade.findByUserId(user.id) } returns null
             every { userJobGroupFacade.findByGroupId(group.id) } returns emptyList()
             every { userJobGroupFacade.saveAll(any()) } answers { firstArg() }
             every { jobFacade.updateMatchedAt(any(), any()) } just Runs
@@ -551,16 +599,16 @@ class JobMatchingServiceTest {
             val group = testGroup()
             val job = testJob(group = group)
             val preference = testPreference(user, matchWithAi = true)
-            val aiSettings = mockk<UserAiSettingsEntity>()
+            val provider = TestFixtures.userAiProviderEntity(user = user, modelId = "gpt-4o-mini")
             val chatClient = mockk<ChatClient>()
 
             every { jobFacade.findUnmatched(200, 5) } returns listOf(job)
             every { jobFacade.findByGroupIds(listOf(group.id), 1000, 5) } returns listOf(job)
             every { userPreferenceFacade.findAll() } returns listOf(preference)
-            every { userAiSettingsFacade.findByUserId(user.id) } returns aiSettings
-            every { chatClientFactory.createForUser(aiSettings, AiUseCase.SCORING) } returns chatClient
+            every { userAiProviderService.chainFor(user.id) } returns listOf(provider)
+            every { chatClientFactory.createChain(listOf(provider), AiUseCase.SCORING) } returns chainOf(chatClient)
             every { userJobGroupFacade.findByGroupId(group.id) } returns emptyList()
-            every { jobRelevanceEvaluator.evaluate(job, preference, chatClient) } throws RuntimeException("API error")
+            every { jobRelevanceEvaluator.evaluate(job, preference, chainOf(chatClient)) } throws RuntimeException("API error")
 
             service.processUnmatchedJobs()
 

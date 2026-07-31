@@ -3,8 +3,8 @@ package com.mshykhov.jobhunter.application.outreach
 import com.mshykhov.jobhunter.application.ai.AiUseCase
 import com.mshykhov.jobhunter.application.ai.ChatClientFactory
 import com.mshykhov.jobhunter.application.ai.OutreachGenerator
-import com.mshykhov.jobhunter.application.ai.UserAiSettingsEntity
-import com.mshykhov.jobhunter.application.ai.UserAiSettingsService
+import com.mshykhov.jobhunter.application.ai.UserAiProviderEntity
+import com.mshykhov.jobhunter.application.ai.UserAiProviderService
 import com.mshykhov.jobhunter.application.common.AiNotConfiguredException
 import com.mshykhov.jobhunter.application.common.NotFoundException
 import com.mshykhov.jobhunter.application.job.JobFacade
@@ -29,7 +29,7 @@ class OutreachServiceTest {
     private val userPreferenceFacade = mockk<UserPreferenceFacade>()
     private val outreachSettingsFacade = mockk<OutreachSettingsFacade>()
     private val outreachGenerator = mockk<OutreachGenerator>()
-    private val userAiSettingsService = mockk<UserAiSettingsService>()
+    private val userAiProviderService = mockk<UserAiProviderService>()
     private val chatClientFactory = mockk<ChatClientFactory>()
 
     private val service =
@@ -40,7 +40,7 @@ class OutreachServiceTest {
             userPreferenceFacade = userPreferenceFacade,
             outreachSettingsFacade = outreachSettingsFacade,
             outreachGenerator = outreachGenerator,
-            userAiSettingsService = userAiSettingsService,
+            userAiProviderService = userAiProviderService,
             chatClientFactory = chatClientFactory,
         )
 
@@ -53,15 +53,15 @@ class OutreachServiceTest {
             val user = TestFixtures.userEntity(auth0Sub)
             val job = TestFixtures.jobEntity()
             val userJob = TestFixtures.userJobEntity(user = user, job = job)
-            val aiSettings = mockk<UserAiSettingsEntity>()
+            val provider = mockk<UserAiProviderEntity>()
             val chatClient = mockk<ChatClient>()
 
             every { userFacade.findByAuth0Sub(auth0Sub) } returns user
             every { userJobFacade.findOrCreateForGroupMember(user, job.id) } returns userJob
             every { outreachSettingsFacade.findByUserId(user.id) } returns null
             every { userPreferenceFacade.findByUserId(user.id) } returns null
-            every { userAiSettingsService.resolveForUser(auth0Sub) } returns aiSettings
-            every { chatClientFactory.createForUser(aiSettings, AiUseCase.OUTREACH) } returns chatClient
+            every { userAiProviderService.resolvePrimary(auth0Sub) } returns provider
+            every { chatClientFactory.createForProvider(provider, AiUseCase.OUTREACH) } returns chatClient
             every {
                 outreachGenerator.generateCoverLetter(job, null, null, null, chatClient)
             } returns "Generated cover letter"
@@ -79,7 +79,7 @@ class OutreachServiceTest {
             val user = TestFixtures.userEntity(auth0Sub)
             val job = TestFixtures.jobEntity(source = JobSource.DJINNI)
             val userJob = TestFixtures.userJobEntity(user = user, job = job)
-            val aiSettings = mockk<UserAiSettingsEntity>()
+            val provider = mockk<UserAiProviderEntity>()
             val chatClient = mockk<ChatClient>()
             val sourceConfig = OutreachSourceConfig(coverLetterPrompt = "Custom prompt")
             val settings =
@@ -93,8 +93,8 @@ class OutreachServiceTest {
             every { userJobFacade.findOrCreateForGroupMember(user, job.id) } returns userJob
             every { outreachSettingsFacade.findByUserId(user.id) } returns settings
             every { userPreferenceFacade.findByUserId(user.id) } returns null
-            every { userAiSettingsService.resolveForUser(auth0Sub) } returns aiSettings
-            every { chatClientFactory.createForUser(aiSettings, AiUseCase.OUTREACH) } returns chatClient
+            every { userAiProviderService.resolvePrimary(auth0Sub) } returns provider
+            every { chatClientFactory.createForProvider(provider, AiUseCase.OUTREACH) } returns chatClient
             every {
                 outreachGenerator.generateCoverLetter(job, null, sourceConfig, "Default custom", chatClient)
             } returns "Custom cover letter"
@@ -138,7 +138,7 @@ class OutreachServiceTest {
             every { userJobFacade.findOrCreateForGroupMember(user, job.id) } returns userJob
             every { outreachSettingsFacade.findByUserId(user.id) } returns null
             every { userPreferenceFacade.findByUserId(user.id) } returns null
-            every { userAiSettingsService.resolveForUser(auth0Sub) } throws AiNotConfiguredException()
+            every { userAiProviderService.resolvePrimary(auth0Sub) } throws AiNotConfiguredException()
 
             assertThrows<AiNotConfiguredException> {
                 service.generateCoverLetter(auth0Sub, job.id)
@@ -153,15 +153,15 @@ class OutreachServiceTest {
             val user = TestFixtures.userEntity(auth0Sub)
             val job = TestFixtures.jobEntity()
             val userJob = TestFixtures.userJobEntity(user = user, job = job)
-            val aiSettings = mockk<UserAiSettingsEntity>()
+            val provider = mockk<UserAiProviderEntity>()
             val chatClient = mockk<ChatClient>()
 
             every { userFacade.findByAuth0Sub(auth0Sub) } returns user
             every { userJobFacade.findOrCreateForGroupMember(user, job.id) } returns userJob
             every { outreachSettingsFacade.findByUserId(user.id) } returns null
             every { userPreferenceFacade.findByUserId(user.id) } returns null
-            every { userAiSettingsService.resolveForUser(auth0Sub) } returns aiSettings
-            every { chatClientFactory.createForUser(aiSettings, AiUseCase.OUTREACH) } returns chatClient
+            every { userAiProviderService.resolvePrimary(auth0Sub) } returns provider
+            every { chatClientFactory.createForProvider(provider, AiUseCase.OUTREACH) } returns chatClient
             every {
                 outreachGenerator.generateRecruiterMessage(job, null, null, null, chatClient)
             } returns "Generated recruiter message"
@@ -207,7 +207,7 @@ class OutreachServiceTest {
             every { userJobFacade.findOrCreateForGroupMember(user, job.id) } returns userJob
             every { outreachSettingsFacade.findByUserId(user.id) } returns null
             every { userPreferenceFacade.findByUserId(user.id) } returns null
-            every { userAiSettingsService.resolveForUser(auth0Sub) } throws AiNotConfiguredException()
+            every { userAiProviderService.resolvePrimary(auth0Sub) } throws AiNotConfiguredException()
 
             assertThrows<AiNotConfiguredException> {
                 service.generateRecruiterMessage(auth0Sub, job.id)
@@ -221,15 +221,15 @@ class OutreachServiceTest {
         fun `should generate test cover letter without saving`() {
             val user = TestFixtures.userEntity(auth0Sub)
             val job = TestFixtures.jobEntity(source = JobSource.DOU)
-            val aiSettings = mockk<UserAiSettingsEntity>()
+            val provider = mockk<UserAiProviderEntity>()
             val chatClient = mockk<ChatClient>()
 
             every { userFacade.findByAuth0Sub(auth0Sub) } returns user
             every { jobFacade.findTopBySourceOrderByCreatedAtDesc(JobSource.DOU) } returns job
             every { outreachSettingsFacade.findByUserId(user.id) } returns null
             every { userPreferenceFacade.findByUserId(user.id) } returns null
-            every { userAiSettingsService.resolveForUser(auth0Sub) } returns aiSettings
-            every { chatClientFactory.createForUser(aiSettings, AiUseCase.OUTREACH) } returns chatClient
+            every { userAiProviderService.resolvePrimary(auth0Sub) } returns provider
+            every { chatClientFactory.createForProvider(provider, AiUseCase.OUTREACH) } returns chatClient
             every {
                 outreachGenerator.generateCoverLetter(job, null, null, null, chatClient)
             } returns "Test cover letter"
@@ -259,15 +259,15 @@ class OutreachServiceTest {
         fun `should generate test recruiter message without saving`() {
             val user = TestFixtures.userEntity(auth0Sub)
             val job = TestFixtures.jobEntity(source = JobSource.DOU)
-            val aiSettings = mockk<UserAiSettingsEntity>()
+            val provider = mockk<UserAiProviderEntity>()
             val chatClient = mockk<ChatClient>()
 
             every { userFacade.findByAuth0Sub(auth0Sub) } returns user
             every { jobFacade.findTopBySourceOrderByCreatedAtDesc(JobSource.DOU) } returns job
             every { outreachSettingsFacade.findByUserId(user.id) } returns null
             every { userPreferenceFacade.findByUserId(user.id) } returns null
-            every { userAiSettingsService.resolveForUser(auth0Sub) } returns aiSettings
-            every { chatClientFactory.createForUser(aiSettings, AiUseCase.OUTREACH) } returns chatClient
+            every { userAiProviderService.resolvePrimary(auth0Sub) } returns provider
+            every { chatClientFactory.createForProvider(provider, AiUseCase.OUTREACH) } returns chatClient
             every {
                 outreachGenerator.generateRecruiterMessage(job, null, null, null, chatClient)
             } returns "Test recruiter message"

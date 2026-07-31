@@ -7,7 +7,7 @@ import com.mshykhov.jobhunter.api.rest.settings.dto.SaveOutreachSettingsRequest
 import com.mshykhov.jobhunter.application.ai.AiUseCase
 import com.mshykhov.jobhunter.application.ai.ChatClientFactory
 import com.mshykhov.jobhunter.application.ai.OutreachGenerator
-import com.mshykhov.jobhunter.application.ai.UserAiSettingsService
+import com.mshykhov.jobhunter.application.ai.UserAiProviderService
 import com.mshykhov.jobhunter.application.common.NotFoundException
 import com.mshykhov.jobhunter.application.job.JobEntity
 import com.mshykhov.jobhunter.application.job.JobFacade
@@ -29,7 +29,7 @@ class OutreachService(
     private val userPreferenceFacade: UserPreferenceFacade,
     private val outreachSettingsFacade: OutreachSettingsFacade,
     private val outreachGenerator: OutreachGenerator,
-    private val userAiSettingsService: UserAiSettingsService,
+    private val userAiProviderService: UserAiProviderService,
     private val chatClientFactory: ChatClientFactory,
 ) {
     @Transactional(readOnly = true)
@@ -134,8 +134,8 @@ class OutreachService(
         val settings = outreachSettingsFacade.findByUserId(user.id)
         val sourceConfig = settings?.sourceConfig?.get(source)
         val about = userPreferenceFacade.findByUserId(user.id)?.about
-        val aiSettings = userAiSettingsService.resolveForUser(auth0Sub)
-        val chatClient = chatClientFactory.createForUser(aiSettings, AiUseCase.OUTREACH)
+        val provider = userAiProviderService.resolvePrimary(auth0Sub)
+        val chatClient = chatClientFactory.createForProvider(provider, AiUseCase.OUTREACH)
         return TestContext(job, settings, sourceConfig, about, chatClient)
     }
 
@@ -151,8 +151,8 @@ class OutreachService(
         val settings = outreachSettingsFacade.findByUserId(user.id)
         val sourceConfig = settings?.sourceConfig?.get(job.source)
         val about = userPreferenceFacade.findByUserId(user.id)?.about
-        val aiSettings = userAiSettingsService.resolveForUser(auth0Sub)
-        val chatClient = chatClientFactory.createForUser(aiSettings, AiUseCase.OUTREACH)
+        val provider = userAiProviderService.resolvePrimary(auth0Sub)
+        val chatClient = chatClientFactory.createForProvider(provider, AiUseCase.OUTREACH)
         return GenerationContext(userJob, job, settings, sourceConfig, about, chatClient)
     }
 }

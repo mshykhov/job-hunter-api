@@ -1,7 +1,7 @@
 package com.mshykhov.jobhunter.api.rest.settings
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.mshykhov.jobhunter.application.ai.UserAiSettingsRepository
+import com.mshykhov.jobhunter.application.ai.UserAiProviderRepository
 import com.mshykhov.jobhunter.application.job.JobSource
 import com.mshykhov.jobhunter.support.AbstractIntegrationTest
 import org.hamcrest.Matchers.equalTo
@@ -25,7 +25,7 @@ class SettingsControllerIntegrationTest : AbstractIntegrationTest() {
     lateinit var objectMapper: ObjectMapper
 
     @Autowired
-    lateinit var userAiSettingsRepository: UserAiSettingsRepository
+    lateinit var userAiProviderRepository: UserAiProviderRepository
 
     @Nested
     inner class AiProviders {
@@ -105,7 +105,7 @@ class SettingsControllerIntegrationTest : AbstractIntegrationTest() {
 
         @Test
         fun `should return 400 when apiKey is blank and no settings exist`() {
-            userAiSettingsRepository.deleteAll()
+            userAiProviderRepository.deleteAll()
 
             mockMvc
                 .put("/settings/ai") {
@@ -125,6 +125,165 @@ class SettingsControllerIntegrationTest : AbstractIntegrationTest() {
                 }.andExpect {
                     status { isBadRequest() }
                 }
+        }
+    }
+
+    @Nested
+    inner class AiProviderChain {
+        @Test
+        fun `should replace chain with validated ordered list and read it back`() {
+            val body =
+                mapOf(
+                    "chain" to
+                        listOf(
+                            mapOf("priority" to 1, "provider" to "CODEX", "modelId" to "gpt-5.6-luna", "enabled" to true),
+                            mapOf(
+                                "priority" to 2,
+                                "provider" to "OPENAI",
+                                "modelId" to "gpt-4o-mini",
+                                "apiKey" to "sk-chain-test-key-123456",
+                                "enabled" to true,
+                            ),
+                        ),
+                )
+
+            mockMvc
+                .put("/settings/ai/providers") {
+                    contentType = APPLICATION_JSON
+                    content = objectMapper.writeValueAsString(body)
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.chain", hasSize<Any>(2))
+                    jsonPath("$.chain[0].provider", equalTo("CODEX"))
+                    jsonPath("$.chain[1].provider", equalTo("OPENAI"))
+                    jsonPath("$.chain[1].apiKeyHint", startsWith("sk-chain"))
+                }
+
+            mockMvc.get("/settings/ai/providers").andExpect {
+                status { isOk() }
+                jsonPath("$.chain", hasSize<Any>(2))
+                jsonPath("$.chain[0].provider", equalTo("CODEX"))
+            }
+        }
+
+        @Test
+        fun `should accept a CODEX entry without an api key`() {
+            val body = mapOf("chain" to listOf(mapOf("priority" to 1, "provider" to "CODEX", "modelId" to "gpt-5.6-luna")))
+
+            mockMvc
+                .put("/settings/ai/providers") {
+                    contentType = APPLICATION_JSON
+                    content = objectMapper.writeValueAsString(body)
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.chain[0].apiKeyHint", equalTo("No API key required"))
+                }
+        }
+
+        @Test
+        fun `should accept a re-ordered chain replacing a previously saved one`() {
+            val initialBody =
+                mapOf(
+                    "chain" to
+                        listOf(
+                            mapOf(
+                                "priority" to 1,
+                                "provider" to "OPENAI",
+                                "modelId" to "gpt-4o-mini",
+                                "apiKey" to "sk-initial-key-123456",
+                            ),
+                        ),
+                )
+
+            mockMvc
+                .put("/settings/ai/providers") {
+                    contentType = APPLICATION_JSON
+                    content = objectMapper.writeValueAsString(initialBody)
+                }.andExpect { status { isOk() } }
+
+            val reorderedBody =
+                mapOf(
+                    "chain" to
+                        listOf(
+                            mapOf("priority" to 1, "provider" to "CODEX", "modelId" to "gpt-5.6-luna"),
+                            mapOf(
+                                "priority" to 2,
+                                "provider" to "OPENAI",
+                                "modelId" to "gpt-4o-mini",
+                                "apiKey" to "sk-initial-key-123456",
+                            ),
+                        ),
+                )
+
+            mockMvc
+                .put("/settings/ai/providers") {
+                    contentType = APPLICATION_JSON
+                    content = objectMapper.writeValueAsString(reorderedBody)
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.chain", hasSize<Any>(2))
+                    jsonPath("$.chain[0].provider", equalTo("CODEX"))
+                    jsonPath("$.chain[1].provider", equalTo("OPENAI"))
+                }
+        }
+
+        @Test
+        fun `should reject non-contiguous priorities`() {
+            val body =
+                mapOf(
+                    "chain" to
+                        listOf(
+                            mapOf("priority" to 1, "provider" to "CODEX", "modelId" to "gpt-5.6-luna"),
+                            mapOf("priority" to 3, "provider" to "OPENAI", "modelId" to "gpt-4o-mini", "apiKey" to "sk-key-123456"),
+                        ),
+                )
+
+            mockMvc
+                .put("/settings/ai/providers") {
+                    contentType = APPLICATION_JSON
+                    content = objectMapper.writeValueAsString(body)
+                }.andExpect { status { isBadRequest() } }
+        }
+
+        @Test
+        fun `should reject a provider listed twice`() {
+            val body =
+                mapOf(
+                    "chain" to
+                        listOf(
+                            mapOf("priority" to 1, "provider" to "OPENAI", "modelId" to "gpt-4o-mini", "apiKey" to "sk-key-one-123456"),
+                            mapOf("priority" to 2, "provider" to "OPENAI", "modelId" to "gpt-4o", "apiKey" to "sk-key-two-123456"),
+                        ),
+                )
+
+            mockMvc
+                .put("/settings/ai/providers") {
+                    contentType = APPLICATION_JSON
+                    content = objectMapper.writeValueAsString(body)
+                }.andExpect { status { isBadRequest() } }
+        }
+
+        @Test
+        fun `should reject an OPENAI entry with a blank api key`() {
+            val body =
+                mapOf("chain" to listOf(mapOf("priority" to 1, "provider" to "OPENAI", "modelId" to "gpt-4o-mini", "apiKey" to "")))
+
+            mockMvc
+                .put("/settings/ai/providers") {
+                    contentType = APPLICATION_JSON
+                    content = objectMapper.writeValueAsString(body)
+                }.andExpect { status { isBadRequest() } }
+        }
+
+        @Test
+        fun `should reject an empty chain`() {
+            val body = mapOf("chain" to emptyList<Any>())
+
+            mockMvc
+                .put("/settings/ai/providers") {
+                    contentType = APPLICATION_JSON
+                    content = objectMapper.writeValueAsString(body)
+                }.andExpect { status { isBadRequest() } }
         }
     }
 

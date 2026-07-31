@@ -13,7 +13,7 @@ import com.mshykhov.jobhunter.application.ai.AboutOptimizer
 import com.mshykhov.jobhunter.application.ai.AiUseCase
 import com.mshykhov.jobhunter.application.ai.ChatClientFactory
 import com.mshykhov.jobhunter.application.ai.PreferenceNormalizer
-import com.mshykhov.jobhunter.application.ai.UserAiSettingsService
+import com.mshykhov.jobhunter.application.ai.UserAiProviderService
 import com.mshykhov.jobhunter.application.common.NotFoundException
 import com.mshykhov.jobhunter.application.user.UserFacade
 import com.mshykhov.jobhunter.infrastructure.document.DocumentParser
@@ -31,7 +31,7 @@ class PreferenceService(
     private val userPreferenceFacade: UserPreferenceFacade,
     private val preferenceNormalizer: PreferenceNormalizer,
     private val aboutOptimizer: AboutOptimizer,
-    private val userAiSettingsService: UserAiSettingsService,
+    private val userAiProviderService: UserAiProviderService,
     private val chatClientFactory: ChatClientFactory,
     private val documentParser: DocumentParser,
     private val eventPublisher: ApplicationEventPublisher,
@@ -81,8 +81,8 @@ class PreferenceService(
         val about =
             preference.about
                 ?: throw NotFoundException("About is empty — fill it first")
-        val settings = userAiSettingsService.resolveForUser(auth0Sub)
-        val chatClient = chatClientFactory.createForUser(settings, AiUseCase.OPTIMIZATION)
+        val provider = userAiProviderService.resolvePrimary(auth0Sub)
+        val chatClient = chatClientFactory.createForProvider(provider, AiUseCase.OPTIMIZATION)
         val optimized = aboutOptimizer.optimize(about, chatClient)
         preference.about = optimized
         userPreferenceFacade.save(preference)
@@ -99,8 +99,8 @@ class PreferenceService(
         val about =
             preference.about
                 ?: throw NotFoundException("About is empty — fill it first")
-        val settings = userAiSettingsService.resolveForUser(auth0Sub)
-        val chatClient = chatClientFactory.createForUser(settings, AiUseCase.EXTRACTION)
+        val provider = userAiProviderService.resolvePrimary(auth0Sub)
+        val chatClient = chatClientFactory.createForProvider(provider, AiUseCase.EXTRACTION)
         val result = preferenceNormalizer.normalize(about, chatClient)
         return NormalizePreferenceResponse.from(result)
     }
