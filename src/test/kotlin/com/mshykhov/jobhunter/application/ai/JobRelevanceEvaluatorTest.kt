@@ -28,6 +28,7 @@ import org.springframework.ai.retry.TransientAiException
 import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.time.Duration
+import java.time.Instant
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
@@ -285,6 +286,7 @@ class JobRelevanceEvaluatorTest {
             description = "Kotlin, Spring Boot, PostgreSQL microservices",
             source = JobSource.DOU,
             remote = true,
+            lastSeenAt = Instant.parse("2026-01-01T00:00:00Z"),
         )
 
     private fun preference(about: String? = null): UserPreferenceEntity =

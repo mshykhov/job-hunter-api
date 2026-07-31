@@ -67,4 +67,20 @@ class JobFacade(private val jobRepository: JobRepository) {
 
     @Transactional
     fun incrementMatchAttempts(ids: List<UUID>) = jobRepository.incrementMatchAttempts(ids)
+
+    @Transactional
+    fun touchLastSeen(
+        ids: List<UUID>,
+        seenAt: Instant,
+    ) = jobRepository.updateLastSeenAt(ids, seenAt)
+
+    fun findPurgeableIds(
+        threshold: Instant,
+        batchSize: Int,
+    ): List<UUID> = jobRepository.findPurgeableIds(threshold, PageRequest.of(0, batchSize))
+
+    fun findGroupIdsByIds(ids: List<UUID>): List<UUID> = jobRepository.findGroupIdsByIds(ids)
+
+    @Transactional
+    fun deleteByIds(ids: List<UUID>) = jobRepository.deleteByIds(ids)
 }

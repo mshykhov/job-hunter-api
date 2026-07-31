@@ -25,6 +25,7 @@ data class JobIngestRequest(
     fun toEntity(
         parsedPublishedAt: Instant?,
         group: JobGroupEntity,
+        seenAt: Instant,
     ): JobEntity =
         JobEntity(
             title = title,
@@ -38,5 +39,6 @@ data class JobIngestRequest(
             location = location,
             remote = remote,
             publishedAt = parsedPublishedAt,
+            lastSeenAt = seenAt,
         )
 }

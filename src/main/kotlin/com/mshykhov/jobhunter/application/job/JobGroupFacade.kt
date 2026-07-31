@@ -30,4 +30,9 @@ class JobGroupFacade(private val jobGroupRepository: JobGroupRepository) {
             "Job group with key $groupKey should exist after upsert"
         }
     }
+
+    fun findIdsWithNoJobs(groupIds: List<UUID>): List<UUID> = jobGroupRepository.findIdsWithNoJobs(groupIds)
+
+    @Transactional
+    fun deleteByIds(ids: List<UUID>) = jobGroupRepository.deleteByIds(ids)
 }

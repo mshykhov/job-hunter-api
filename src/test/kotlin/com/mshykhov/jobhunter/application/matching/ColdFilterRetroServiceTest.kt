@@ -21,6 +21,7 @@ import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
 import org.junit.jupiter.api.Test
+import java.time.Instant
 import kotlin.test.assertEquals
 
 class ColdFilterRetroServiceTest {
@@ -135,6 +136,7 @@ class ColdFilterRetroServiceTest {
             description = description,
             source = JobSource.DOU,
             remote = true,
+            lastSeenAt = Instant.parse("2026-01-01T00:00:00Z"),
         )
 
     private fun userJobGroup(

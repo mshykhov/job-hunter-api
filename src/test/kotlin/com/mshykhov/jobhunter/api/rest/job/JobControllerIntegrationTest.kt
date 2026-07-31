@@ -1,6 +1,7 @@
 package com.mshykhov.jobhunter.api.rest.job
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.mshykhov.jobhunter.application.job.JobFacade
 import com.mshykhov.jobhunter.application.job.JobGroupRepository
 import com.mshykhov.jobhunter.application.job.JobRepository
 import com.mshykhov.jobhunter.application.job.JobSource
@@ -27,7 +28,9 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.patch
 import org.springframework.test.web.servlet.post
+import java.time.Instant
 import java.util.UUID
+import kotlin.test.assertTrue
 
 class JobControllerIntegrationTest : AbstractIntegrationTest() {
     @Autowired
@@ -41,6 +44,9 @@ class JobControllerIntegrationTest : AbstractIntegrationTest() {
 
     @Autowired
     lateinit var jobRepository: JobRepository
+
+    @Autowired
+    lateinit var jobFacade: JobFacade
 
     @Autowired
     lateinit var jobGroupRepository: JobGroupRepository
@@ -205,6 +211,34 @@ class JobControllerIntegrationTest : AbstractIntegrationTest() {
                     jsonPath("$.updatedUrls", hasSize<Any>(0))
                     jsonPath("$.unchangedUrls", hasSize<Any>(0))
                 }
+        }
+
+        @Test
+        fun `should stamp last seen at for a job classified as unchanged`() {
+            val url = "https://example.com/check-touch-${System.nanoTime()}"
+            val ingestRequest = TestFixtures.jobIngestRequest(title = "Touch Job", url = url, salary = "3000 USD")
+            mockMvc
+                .post("/jobs/ingest") {
+                    contentType = APPLICATION_JSON
+                    content = objectMapper.writeValueAsString(listOf(ingestRequest))
+                }.andExpect { status { isOk() } }
+
+            val staleTimestamp = Instant.parse("1970-01-01T00:00:00Z")
+            val job = jobRepository.findByUrlIn(listOf(url)).single()
+            jobFacade.touchLastSeen(listOf(job.id), staleTimestamp)
+
+            val checkRequests = listOf(mapOf("url" to url, "title" to "Touch Job", "salary" to "3000 USD"))
+            mockMvc
+                .post("/jobs/check") {
+                    contentType = APPLICATION_JSON
+                    content = objectMapper.writeValueAsString(checkRequests)
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.unchangedUrls", hasSize<Any>(1))
+                }
+
+            val refreshed = jobRepository.findByUrlIn(listOf(url)).single()
+            assertTrue(refreshed.lastSeenAt.isAfter(staleTimestamp))
         }
     }
 

@@ -50,11 +50,22 @@ class MatchingMetrics(private val meterRegistry: MeterRegistry, private val back
         }
     }
 
+    fun recordPurge(count: Int) {
+        try {
+            meterRegistry
+                .counter(JOBS_PURGED_METRIC)
+                .increment(count.toDouble())
+        } catch (e: Exception) {
+            logger.warn(e) { "Failed to record purge metric" }
+        }
+    }
+
     companion object {
         const val AI_EVALUATIONS_METRIC = "jobhunter.ai.evaluations"
         const val AI_EVALUATION_DURATION_METRIC = "jobhunter.ai.evaluation.duration"
         const val MATCHING_BACKLOG_METRIC = "jobhunter.matching.backlog"
         const val JOBS_INGESTED_METRIC = "jobhunter.jobs.ingested"
+        const val JOBS_PURGED_METRIC = "jobhunter.jobs.purged"
 
         private const val PROVIDER_TAG = "provider"
         private const val MODEL_TAG = "model"

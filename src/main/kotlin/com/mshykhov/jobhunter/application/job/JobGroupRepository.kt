@@ -25,4 +25,11 @@ interface JobGroupRepository : JpaRepository<JobGroupEntity, UUID> {
         title: String,
         company: String?,
     )
+
+    @Query("SELECT g.id FROM JobGroupEntity g WHERE g.id IN :groupIds AND g.jobs IS EMPTY")
+    fun findIdsWithNoJobs(groupIds: List<UUID>): List<UUID>
+
+    @Modifying
+    @Query("DELETE FROM JobGroupEntity g WHERE g.id IN :ids")
+    fun deleteByIds(ids: List<UUID>)
 }

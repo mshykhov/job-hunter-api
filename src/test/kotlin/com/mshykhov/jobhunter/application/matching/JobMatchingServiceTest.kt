@@ -504,6 +504,7 @@ class JobMatchingServiceTest {
                     description = "Another listing",
                     source = JobSource.DJINNI,
                     remote = true,
+                    lastSeenAt = Instant.parse("2026-01-01T00:00:00Z"),
                 )
             val preference = testPreference(user, disabledSources = listOf(JobSource.DJINNI))
 
@@ -680,6 +681,7 @@ class JobMatchingServiceTest {
             description = "Looking for a Kotlin developer with Spring experience",
             source = source,
             remote = remote,
+            lastSeenAt = Instant.parse("2026-01-01T00:00:00Z"),
         )
 
     private fun testPreference(

@@ -54,4 +54,33 @@ interface JobRepository :
     @Modifying
     @Query("UPDATE JobEntity j SET j.matchAttempts = j.matchAttempts + 1 WHERE j.id IN :ids")
     fun incrementMatchAttempts(ids: List<UUID>)
+
+    @Modifying
+    @Query("UPDATE JobEntity j SET j.lastSeenAt = :seenAt WHERE j.id IN :ids")
+    fun updateLastSeenAt(
+        ids: List<UUID>,
+        seenAt: Instant,
+    )
+
+    @Query(
+        """
+        SELECT j.id FROM JobEntity j
+        WHERE j.lastSeenAt < :threshold
+          AND j.matchedAt IS NOT NULL
+          AND NOT EXISTS (SELECT 1 FROM UserJobGroupEntity u WHERE u.group.id = j.group.id)
+          AND NOT EXISTS (SELECT 1 FROM UserJobEntity uj WHERE uj.job.id = j.id)
+        ORDER BY j.lastSeenAt ASC
+        """,
+    )
+    fun findPurgeableIds(
+        threshold: Instant,
+        pageable: Pageable,
+    ): List<UUID>
+
+    @Query("SELECT DISTINCT j.group.id FROM JobEntity j WHERE j.id IN :ids")
+    fun findGroupIdsByIds(ids: List<UUID>): List<UUID>
+
+    @Modifying
+    @Query("DELETE FROM JobEntity j WHERE j.id IN :ids")
+    fun deleteByIds(ids: List<UUID>)
 }
