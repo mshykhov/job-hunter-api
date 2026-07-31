@@ -132,8 +132,8 @@ class ChatClientFactoryTest {
 
             assertTrue(chain.links.isEmpty())
             assertEquals(2, chain.buildFailures.size)
-            assertTrue(chain.buildFailures.any { it.contains("OPENAI") })
-            assertTrue(chain.buildFailures.any { it.contains("GEMINI") })
+            assertTrue(chain.buildFailures.any { it.contains("openai") })
+            assertTrue(chain.buildFailures.any { it.contains("gemini") })
         }
     }
 

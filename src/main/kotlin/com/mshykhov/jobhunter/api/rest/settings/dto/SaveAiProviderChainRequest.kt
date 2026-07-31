@@ -2,6 +2,7 @@ package com.mshykhov.jobhunter.api.rest.settings.dto
 
 import com.mshykhov.jobhunter.application.ai.UserAiProviderEntity
 import com.mshykhov.jobhunter.application.common.ValidationException
+import com.mshykhov.jobhunter.application.settings.AiProvider
 import com.mshykhov.jobhunter.application.user.UserEntity
 import jakarta.validation.Valid
 import jakarta.validation.constraints.NotEmpty
@@ -11,10 +12,13 @@ data class SaveAiProviderChainRequest(
     @field:NotEmpty
     val chain: List<SaveAiProviderChainEntryRequest>,
 ) {
-    fun toEntities(user: UserEntity): List<UserAiProviderEntity> {
+    fun toEntities(
+        user: UserEntity,
+        storedApiKeys: Map<AiProvider, String>,
+    ): List<UserAiProviderEntity> {
         validatePriorities()
         validateNoDuplicateProviders()
-        return chain.map { it.toEntity(user) }
+        return chain.map { it.toEntity(user, storedApiKeys[it.provider]) }
     }
 
     private fun validatePriorities() {

@@ -17,21 +17,25 @@ data class SaveAiProviderChainEntryRequest(
     val apiKey: String? = null,
     val enabled: Boolean = true,
 ) {
-    fun toEntity(user: UserEntity): UserAiProviderEntity =
+    fun toEntity(
+        user: UserEntity,
+        storedApiKey: String?,
+    ): UserAiProviderEntity =
         UserAiProviderEntity(
             user = user,
             priority = priority,
             provider = provider,
-            apiKey = resolveApiKey(),
+            apiKey = resolveApiKey(storedApiKey),
             modelId = modelId,
             enabled = enabled,
         )
 
-    private fun resolveApiKey(): String =
-        if (provider.requiresApiKey) {
-            apiKey?.takeIf { it.isNotBlank() }
-                ?: throw ValidationException("chain: apiKey must not be blank for ${provider.displayName}")
-        } else {
-            apiKey.orEmpty()
-        }
+    private fun resolveApiKey(storedApiKey: String?): String =
+        apiKey?.takeIf { it.isNotBlank() }
+            ?: storedApiKey
+            ?: if (provider.requiresApiKey) {
+                throw ValidationException("chain: apiKey must not be blank for ${provider.displayName}")
+            } else {
+                ""
+            }
 }

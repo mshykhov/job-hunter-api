@@ -43,7 +43,8 @@ class UserAiProviderService(private val userFacade: UserFacade, private val user
         request: SaveAiProviderChainRequest,
     ): AiProviderChainResponse {
         val user = userFacade.findOrCreate(auth0Sub)
-        val entities = request.toEntities(user)
+        val storedApiKeys = chainFor(user.id).associate { it.provider to it.apiKey }
+        val entities = request.toEntities(user, storedApiKeys)
         userAiProviderFacade.deleteAll(user.id)
         return AiProviderChainResponse.from(userAiProviderFacade.saveAll(entities))
     }
