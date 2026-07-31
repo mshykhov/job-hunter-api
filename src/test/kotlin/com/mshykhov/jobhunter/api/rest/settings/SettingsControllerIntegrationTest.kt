@@ -176,7 +176,54 @@ class SettingsControllerIntegrationTest : AbstractIntegrationTest() {
                     content = objectMapper.writeValueAsString(body)
                 }.andExpect {
                     status { isOk() }
-                    jsonPath("$.chain[0].apiKeyHint", equalTo(""))
+                    jsonPath("$.chain[0].apiKeyHint", equalTo("No API key required"))
+                }
+        }
+
+        @Test
+        fun `should accept a re-ordered chain replacing a previously saved one`() {
+            val initialBody =
+                mapOf(
+                    "chain" to
+                        listOf(
+                            mapOf(
+                                "priority" to 1,
+                                "provider" to "OPENAI",
+                                "modelId" to "gpt-4o-mini",
+                                "apiKey" to "sk-initial-key-123456",
+                            ),
+                        ),
+                )
+
+            mockMvc
+                .put("/settings/ai/providers") {
+                    contentType = APPLICATION_JSON
+                    content = objectMapper.writeValueAsString(initialBody)
+                }.andExpect { status { isOk() } }
+
+            val reorderedBody =
+                mapOf(
+                    "chain" to
+                        listOf(
+                            mapOf("priority" to 1, "provider" to "CODEX", "modelId" to "gpt-5.6-luna"),
+                            mapOf(
+                                "priority" to 2,
+                                "provider" to "OPENAI",
+                                "modelId" to "gpt-4o-mini",
+                                "apiKey" to "sk-initial-key-123456",
+                            ),
+                        ),
+                )
+
+            mockMvc
+                .put("/settings/ai/providers") {
+                    contentType = APPLICATION_JSON
+                    content = objectMapper.writeValueAsString(reorderedBody)
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.chain", hasSize<Any>(2))
+                    jsonPath("$.chain[0].provider", equalTo("CODEX"))
+                    jsonPath("$.chain[1].provider", equalTo("OPENAI"))
                 }
         }
 
@@ -220,6 +267,17 @@ class SettingsControllerIntegrationTest : AbstractIntegrationTest() {
         fun `should reject an OPENAI entry with a blank api key`() {
             val body =
                 mapOf("chain" to listOf(mapOf("priority" to 1, "provider" to "OPENAI", "modelId" to "gpt-4o-mini", "apiKey" to "")))
+
+            mockMvc
+                .put("/settings/ai/providers") {
+                    contentType = APPLICATION_JSON
+                    content = objectMapper.writeValueAsString(body)
+                }.andExpect { status { isBadRequest() } }
+        }
+
+        @Test
+        fun `should reject an empty chain`() {
+            val body = mapOf("chain" to emptyList<Any>())
 
             mockMvc
                 .put("/settings/ai/providers") {
