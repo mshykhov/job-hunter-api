@@ -56,6 +56,19 @@ class UserAiProviderServiceTest {
 
             assertThrows<AiNotConfiguredException> { service.get(auth0Sub) }
         }
+
+        @Test
+        fun `should skip a disabled priority-1 row and return the first enabled one`() {
+            val disabledPrimary = TestFixtures.userAiProviderEntity(user = user, priority = 1, enabled = false)
+            val enabledSecondary =
+                TestFixtures.userAiProviderEntity(user = user, priority = 2, provider = AiProvider.GEMINI, modelId = "gemini-2.5-flash-lite")
+            every { userFacade.findByAuth0Sub(auth0Sub) } returns user
+            every { userAiProviderFacade.findByUserId(user.id) } returns listOf(disabledPrimary, enabledSecondary)
+
+            val result = service.get(auth0Sub)
+
+            assertEquals("gemini-2.5-flash-lite", result.modelId)
+        }
     }
 
     @Nested
@@ -97,6 +110,34 @@ class UserAiProviderServiceTest {
             every { userAiProviderFacade.findByUserId(user.id) } returns emptyList()
 
             assertThrows<ValidationException> { service.save(auth0Sub, request) }
+        }
+
+        @Test
+        fun `should reject a model whose provider differs from the target row's provider`() {
+            val existing =
+                TestFixtures.userAiProviderEntity(user = user, priority = 1, provider = AiProvider.CODEX, modelId = "gpt-5.6-luna")
+            val request = SaveAiSettingsRequest(apiKey = null, modelId = "gpt-5-mini")
+            every { userFacade.findOrCreate(auth0Sub) } returns user
+            every { userAiProviderFacade.findByUserId(user.id) } returns listOf(existing)
+
+            assertThrows<ValidationException> { service.save(auth0Sub, request) }
+        }
+
+        @Test
+        fun `should update the first enabled row rather than whatever sits at priority 1`() {
+            val disabledPrimary =
+                TestFixtures.userAiProviderEntity(user = user, priority = 1, provider = AiProvider.CODEX, enabled = false)
+            val enabledSecondary =
+                TestFixtures.userAiProviderEntity(user = user, priority = 2, provider = AiProvider.OPENAI, modelId = "gpt-4o-mini")
+            val request = SaveAiSettingsRequest(apiKey = "sk-updated-key", modelId = "gpt-5-mini")
+            every { userFacade.findOrCreate(auth0Sub) } returns user
+            every { userAiProviderFacade.findByUserId(user.id) } returns listOf(disabledPrimary, enabledSecondary)
+            every { userAiProviderFacade.saveAll(listOf(enabledSecondary)) } returns listOf(enabledSecondary)
+
+            val result = service.save(auth0Sub, request)
+
+            assertEquals("gpt-5-mini", result.modelId)
+            assertEquals("gpt-4o-mini", disabledPrimary.modelId)
         }
     }
 
