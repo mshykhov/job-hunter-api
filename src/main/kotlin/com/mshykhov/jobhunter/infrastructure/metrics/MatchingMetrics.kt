@@ -1,6 +1,7 @@
 package com.mshykhov.jobhunter.infrastructure.metrics
 
 import com.mshykhov.jobhunter.application.job.JobSource
+import com.mshykhov.jobhunter.application.settings.AiModel
 import com.mshykhov.jobhunter.application.settings.AiProvider
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.micrometer.core.instrument.Gauge
@@ -24,11 +25,12 @@ class MatchingMetrics(private val meterRegistry: MeterRegistry, private val back
         duration: Duration,
     ) {
         try {
+            val modelTag = if (model in KNOWN_MODEL_IDS) model else OTHER_MODEL_TAG
             meterRegistry
-                .counter(AI_EVALUATIONS_METRIC, PROVIDER_TAG, provider.name, MODEL_TAG, model, OUTCOME_TAG, outcome)
+                .counter(AI_EVALUATIONS_METRIC, PROVIDER_TAG, provider.name, MODEL_TAG, modelTag, OUTCOME_TAG, outcome)
                 .increment()
             meterRegistry
-                .timer(AI_EVALUATION_DURATION_METRIC, PROVIDER_TAG, provider.name, MODEL_TAG, model)
+                .timer(AI_EVALUATION_DURATION_METRIC, PROVIDER_TAG, provider.name, MODEL_TAG, modelTag)
                 .record(duration)
         } catch (e: Exception) {
             logger.warn(e) { "Failed to record evaluation metric for provider $provider" }
@@ -58,5 +60,8 @@ class MatchingMetrics(private val meterRegistry: MeterRegistry, private val back
         private const val MODEL_TAG = "model"
         private const val OUTCOME_TAG = "outcome"
         private const val SOURCE_TAG = "source"
+        private const val OTHER_MODEL_TAG = "other"
+
+        private val KNOWN_MODEL_IDS = AiModel.entries.map { it.id }.toSet()
     }
 }

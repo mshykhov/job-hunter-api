@@ -22,7 +22,7 @@ class MatchingMetricsTest {
     @Test
     fun `should record evaluation counter with distinct tags per provider model and outcome`() {
         metrics.recordEvaluation(AiProvider.CODEX, "gpt-5.6-luna", "quota", Duration.ofMillis(120))
-        metrics.recordEvaluation(AiProvider.OPENAI, "gpt-4o-mini", "success", Duration.ofMillis(80))
+        metrics.recordEvaluation(AiProvider.OPENAI, "gpt-5-mini", "success", Duration.ofMillis(80))
 
         val quotaCount =
             registry
@@ -33,12 +33,41 @@ class MatchingMetricsTest {
         val successCount =
             registry
                 .get(MatchingMetrics.AI_EVALUATIONS_METRIC)
-                .tags("provider", "OPENAI", "model", "gpt-4o-mini", "outcome", "success")
+                .tags("provider", "OPENAI", "model", "gpt-5-mini", "outcome", "success")
                 .counter()
                 .count()
 
         assertEquals(1.0, quotaCount)
         assertEquals(1.0, successCount)
+    }
+
+    @Test
+    fun `should tag with the model id when it matches a known catalog entry`() {
+        metrics.recordEvaluation(AiProvider.CODEX, "gpt-5.6-luna", "success", Duration.ofMillis(50))
+
+        val counter =
+            registry
+                .get(MatchingMetrics.AI_EVALUATIONS_METRIC)
+                .tags("provider", "CODEX", "model", "gpt-5.6-luna", "outcome", "success")
+                .counter()
+
+        assertEquals(1.0, counter.count())
+    }
+
+    @Test
+    fun `should tag with other and keep the raw model id out of the tag when the model is unknown`() {
+        metrics.recordEvaluation(AiProvider.OPENAI, "some-user-typed-model", "success", Duration.ofMillis(50))
+
+        val counter =
+            registry
+                .get(MatchingMetrics.AI_EVALUATIONS_METRIC)
+                .tags("provider", "OPENAI", "model", "other", "outcome", "success")
+                .counter()
+        val timer = registry.get(MatchingMetrics.AI_EVALUATION_DURATION_METRIC).tags("provider", "OPENAI", "model", "other").timer()
+
+        assertEquals(1.0, counter.count())
+        assertEquals(1, timer.count())
+        assertTrue(registry.meters.none { it.id.getTag("model") == "some-user-typed-model" })
     }
 
     @Test
