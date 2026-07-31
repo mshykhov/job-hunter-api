@@ -60,6 +60,9 @@ dependencies {
     // Cache
     implementation("com.github.ben-manes.caffeine:caffeine")
 
+    // Observability
+    implementation("io.micrometer:micrometer-registry-prometheus")
+
     // Kotlin
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("org.jetbrains.kotlin:kotlin-reflect")

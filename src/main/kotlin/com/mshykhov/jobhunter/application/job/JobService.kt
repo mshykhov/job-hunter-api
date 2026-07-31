@@ -8,6 +8,7 @@ import com.mshykhov.jobhunter.api.rest.job.dto.PublicJobResponse
 import com.mshykhov.jobhunter.application.common.DateTimeParser
 import com.mshykhov.jobhunter.application.common.PaginationConstants
 import com.mshykhov.jobhunter.infrastructure.config.CacheConfig
+import com.mshykhov.jobhunter.infrastructure.metrics.MatchingMetrics
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.cache.annotation.Cacheable
 import org.springframework.data.domain.PageRequest
@@ -19,7 +20,7 @@ import java.time.Instant
 private val logger = KotlinLogging.logger {}
 
 @Service
-class JobService(private val jobFacade: JobFacade, private val jobGroupFacade: JobGroupFacade) {
+class JobService(private val jobFacade: JobFacade, private val jobGroupFacade: JobGroupFacade, private val matchingMetrics: MatchingMetrics) {
     @Cacheable(CacheConfig.PUBLIC_JOBS_CACHE)
     @Transactional(readOnly = true)
     fun searchPublic(
@@ -91,6 +92,7 @@ class JobService(private val jobFacade: JobFacade, private val jobGroupFacade: J
         val newCount = toSave.count { it.isNew }
         val updatedCount = toSave.size - newCount
         val sources = (toSave + unchangedEntities).groupingBy { it.source }.eachCount()
+        sources.forEach { (source, count) -> matchingMetrics.recordIngest(source, count) }
         logger.info {
             "Ingest: ${toSave.size + unchangedEntities.size} jobs ($newCount new, $updatedCount updated, ${unchangedEntities.size} unchanged), sources: $sources"
         }

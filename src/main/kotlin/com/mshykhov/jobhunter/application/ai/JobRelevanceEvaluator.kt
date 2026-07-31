@@ -1,16 +1,22 @@
 package com.mshykhov.jobhunter.application.ai
 
+import com.fasterxml.jackson.core.JsonProcessingException
 import com.mshykhov.jobhunter.application.ai.dto.JobRelevanceResult
 import com.mshykhov.jobhunter.application.common.AllProvidersFailedException
 import com.mshykhov.jobhunter.application.job.JobEntity
 import com.mshykhov.jobhunter.application.preference.UserPreferenceEntity
+import com.mshykhov.jobhunter.infrastructure.metrics.MatchingMetrics
 import org.springframework.ai.chat.client.ChatClient
 import org.springframework.ai.openai.OpenAiChatOptions
 import org.springframework.ai.openai.api.ResponseFormat
 import org.springframework.stereotype.Service
+import java.net.ConnectException
+import java.net.SocketTimeoutException
+import java.time.Duration
+import java.util.concurrent.TimeoutException
 
 @Service
-class JobRelevanceEvaluator {
+class JobRelevanceEvaluator(private val matchingMetrics: MatchingMetrics) {
     fun evaluate(
         job: JobEntity,
         preference: UserPreferenceEntity,
@@ -18,14 +24,20 @@ class JobRelevanceEvaluator {
     ): JobRelevanceResult {
         val failures = chain.buildFailures.toMutableList()
         for (link in chain.links) {
+            val startedAt = System.nanoTime()
             try {
-                return evaluateWithClient(job, preference, link.client)
+                val result = evaluateWithClient(job, preference, link.client)
+                matchingMetrics.recordEvaluation(link.provider, link.modelId, OUTCOME_SUCCESS, elapsedSince(startedAt))
+                return result
             } catch (e: Exception) {
+                matchingMetrics.recordEvaluation(link.provider, link.modelId, classifyOutcome(e), elapsedSince(startedAt))
                 failures += "${link.provider}: ${e.message}"
             }
         }
         throw AllProvidersFailedException("All AI providers failed: ${failures.joinToString(", ")}")
     }
+
+    private fun elapsedSince(startedAtNanos: Long): Duration = Duration.ofNanos(System.nanoTime() - startedAtNanos)
 
     private fun evaluateWithClient(
         job: JobEntity,
@@ -75,6 +87,51 @@ class JobRelevanceEvaluator {
 
     companion object {
         private const val DESCRIPTION_LIMIT = 3000
+
+        private const val OUTCOME_SUCCESS = "success"
+        private const val OUTCOME_QUOTA = "quota"
+        private const val OUTCOME_AUTH = "auth"
+        private const val OUTCOME_TRANSIENT = "transient"
+        private const val OUTCOME_PARSE_ERROR = "parse_error"
+        private const val OUTCOME_UNAVAILABLE = "unavailable"
+
+        private const val HTTP_TOO_MANY_REQUESTS = 429
+        private const val HTTP_UNAUTHORIZED = 401
+        private const val HTTP_FORBIDDEN = 403
+        private const val HTTP_SERVER_ERROR_FLOOR = 500
+
+        private val HTTP_STATUS_PREFIX = Regex("""^(\d{3}) - """)
+
+        private fun classifyOutcome(exception: Exception): String {
+            val message = exception.message.orEmpty()
+            val statusCode = HTTP_STATUS_PREFIX.find(message)?.groupValues?.get(1)?.toIntOrNull()
+            return when {
+                statusCode == HTTP_TOO_MANY_REQUESTS || message.contains("insufficient_quota") -> OUTCOME_QUOTA
+                statusCode == HTTP_UNAUTHORIZED || statusCode == HTTP_FORBIDDEN -> OUTCOME_AUTH
+                (statusCode != null && statusCode >= HTTP_SERVER_ERROR_FLOOR) || isTransientFailure(exception) -> OUTCOME_TRANSIENT
+                isParseFailure(exception) -> OUTCOME_PARSE_ERROR
+                else -> OUTCOME_UNAVAILABLE
+            }
+        }
+
+        private fun isTransientFailure(exception: Throwable): Boolean {
+            var cause: Throwable? = exception
+            while (cause != null) {
+                if (cause is SocketTimeoutException || cause is ConnectException || cause is TimeoutException) return true
+                cause = cause.cause
+            }
+            return false
+        }
+
+        private fun isParseFailure(exception: Throwable): Boolean {
+            if (exception is IllegalStateException) return true
+            var cause: Throwable? = exception
+            while (cause != null) {
+                if (cause is JsonProcessingException) return true
+                cause = cause.cause
+            }
+            return false
+        }
 
         // Strict mode forbids number bounds (minimum/maximum); the prompt owns the 0-100 range.
         private val RESPONSE_SCHEMA =

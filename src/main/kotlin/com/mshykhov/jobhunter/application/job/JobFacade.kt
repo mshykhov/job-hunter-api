@@ -44,6 +44,8 @@ class JobFacade(private val jobRepository: JobRepository) {
 
     fun findAllMatched(): List<JobEntity> = jobRepository.findByMatchedAtIsNotNull()
 
+    fun countUnmatched(): Long = jobRepository.countByMatchedAtIsNull()
+
     fun findMatchedSince(since: Instant): List<JobEntity> = jobRepository.findByMatchedAtGreaterThanEqual(since)
 
     fun findTopBySourceOrderByCreatedAtDesc(source: JobSource): JobEntity? = jobRepository.findTopBySourceOrderByCreatedAtDesc(source)
