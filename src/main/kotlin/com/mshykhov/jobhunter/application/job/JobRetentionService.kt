@@ -1,6 +1,5 @@
 package com.mshykhov.jobhunter.application.job
 
-import com.mshykhov.jobhunter.infrastructure.metrics.MatchingMetrics
 import com.mshykhov.jobhunter.infrastructure.retention.RetentionProperties
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Service
@@ -15,31 +14,45 @@ class JobRetentionService(
     private val jobFacade: JobFacade,
     private val jobGroupFacade: JobGroupFacade,
     private val retentionProperties: RetentionProperties,
-    private val matchingMetrics: MatchingMetrics,
     private val clock: Clock,
 ) {
     private val startedAt: Instant = Instant.now(clock)
 
     @Transactional
-    fun purgeExpiredJobs(): Int {
-        if (!retentionProperties.enabled) return 0
+    fun purgeExpiredJobs(): PurgeSummary {
+        if (!retentionProperties.enabled) {
+            logger.info { "Retention purge skipped: disabled" }
+            return PurgeSummary(0, 0)
+        }
 
         val now = Instant.now(clock)
-        if (now.isBefore(startedAt.plus(retentionProperties.gracePeriod))) return 0
+        val graceUntil = startedAt.plus(retentionProperties.gracePeriod)
+        if (now.isBefore(graceUntil)) {
+            logger.info { "Retention purge skipped: grace period active until $graceUntil" }
+            return PurgeSummary(0, 0)
+        }
 
         val threshold = now.minus(retentionProperties.retentionPeriod)
-        val purgeableIds = jobFacade.findPurgeableIds(threshold, retentionProperties.batchSize)
-        if (purgeableIds.isEmpty()) return 0
+        var jobsDeleted = 0
+        var groupsDeleted = 0
 
-        val groupIds = jobFacade.findGroupIdsByIds(purgeableIds)
-        jobFacade.deleteByIds(purgeableIds)
+        while (jobsDeleted < retentionProperties.maxPerRun) {
+            val batchLimit = minOf(retentionProperties.batchSize, retentionProperties.maxPerRun - jobsDeleted)
+            val purgeableIds = jobFacade.findPurgeableIds(threshold, batchLimit)
+            if (purgeableIds.isEmpty()) break
 
-        val emptyGroupIds = jobGroupFacade.findIdsWithNoJobs(groupIds)
-        if (emptyGroupIds.isNotEmpty()) jobGroupFacade.deleteByIds(emptyGroupIds)
+            val groupIds = jobFacade.findGroupIdsByIds(purgeableIds)
+            jobFacade.deleteByIds(purgeableIds)
 
-        matchingMetrics.recordPurge(purgeableIds.size)
-        logger.info { "Purged ${purgeableIds.size} jobs and ${emptyGroupIds.size} empty groups" }
+            val emptyGroupIds = jobGroupFacade.findIdsWithNoJobs(groupIds)
+            if (emptyGroupIds.isNotEmpty()) jobGroupFacade.deleteByIds(emptyGroupIds)
 
-        return purgeableIds.size
+            jobsDeleted += purgeableIds.size
+            groupsDeleted += emptyGroupIds.size
+
+            if (purgeableIds.size < batchLimit) break
+        }
+
+        return PurgeSummary(jobsDeleted, groupsDeleted)
     }
 }
