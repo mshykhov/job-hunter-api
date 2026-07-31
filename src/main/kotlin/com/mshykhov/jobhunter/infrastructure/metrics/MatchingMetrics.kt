@@ -2,11 +2,14 @@ package com.mshykhov.jobhunter.infrastructure.metrics
 
 import com.mshykhov.jobhunter.application.job.JobSource
 import com.mshykhov.jobhunter.application.settings.AiProvider
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.micrometer.core.instrument.Gauge
 import io.micrometer.core.instrument.MeterRegistry
 import org.springframework.stereotype.Component
 import java.time.Duration
 import java.util.function.Supplier
+
+private val logger = KotlinLogging.logger {}
 
 @Component
 class MatchingMetrics(private val meterRegistry: MeterRegistry, private val backlogSupplier: Supplier<Long>) {
@@ -20,21 +23,29 @@ class MatchingMetrics(private val meterRegistry: MeterRegistry, private val back
         outcome: String,
         duration: Duration,
     ) {
-        meterRegistry
-            .counter(AI_EVALUATIONS_METRIC, PROVIDER_TAG, provider.name, MODEL_TAG, model, OUTCOME_TAG, outcome)
-            .increment()
-        meterRegistry
-            .timer(AI_EVALUATION_DURATION_METRIC, PROVIDER_TAG, provider.name, MODEL_TAG, model)
-            .record(duration)
+        try {
+            meterRegistry
+                .counter(AI_EVALUATIONS_METRIC, PROVIDER_TAG, provider.name, MODEL_TAG, model, OUTCOME_TAG, outcome)
+                .increment()
+            meterRegistry
+                .timer(AI_EVALUATION_DURATION_METRIC, PROVIDER_TAG, provider.name, MODEL_TAG, model)
+                .record(duration)
+        } catch (e: Exception) {
+            logger.warn(e) { "Failed to record evaluation metric for provider $provider" }
+        }
     }
 
     fun recordIngest(
         source: JobSource,
         count: Int,
     ) {
-        meterRegistry
-            .counter(JOBS_INGESTED_METRIC, SOURCE_TAG, source.value)
-            .increment(count.toDouble())
+        try {
+            meterRegistry
+                .counter(JOBS_INGESTED_METRIC, SOURCE_TAG, source.value)
+                .increment(count.toDouble())
+        } catch (e: Exception) {
+            logger.warn(e) { "Failed to record ingest metric for source $source" }
+        }
     }
 
     companion object {

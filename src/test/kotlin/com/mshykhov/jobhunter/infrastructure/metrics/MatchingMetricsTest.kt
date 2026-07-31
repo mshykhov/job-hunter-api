@@ -2,10 +2,12 @@ package com.mshykhov.jobhunter.infrastructure.metrics
 
 import com.mshykhov.jobhunter.application.job.JobSource
 import com.mshykhov.jobhunter.application.settings.AiProvider
+import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import io.micrometer.prometheusmetrics.PrometheusConfig
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertDoesNotThrow
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 import java.util.function.Supplier
@@ -74,6 +76,24 @@ class MatchingMetricsTest {
     }
 
     @Test
+    fun `should not propagate when the meter registry throws while recording an evaluation`() {
+        val throwingMetrics = MatchingMetrics(ThrowingMeterRegistry(), Supplier { 0L })
+
+        assertDoesNotThrow {
+            throwingMetrics.recordEvaluation(AiProvider.OPENAI, "gpt-4o-mini", "success", Duration.ofMillis(10))
+        }
+    }
+
+    @Test
+    fun `should not propagate when the meter registry throws while recording an ingest`() {
+        val throwingMetrics = MatchingMetrics(ThrowingMeterRegistry(), Supplier { 0L })
+
+        assertDoesNotThrow {
+            throwingMetrics.recordIngest(JobSource.DOU, 1)
+        }
+    }
+
+    @Test
     fun `should render the documented metric names when scraped as prometheus text`() {
         val prometheusRegistry = PrometheusMeterRegistry(PrometheusConfig.DEFAULT)
         var prometheusBacklog = 0L
@@ -89,5 +109,12 @@ class MatchingMetricsTest {
         assertTrue(scrape.contains("jobhunter_ai_evaluation_duration_seconds"), scrape)
         assertTrue(scrape.contains("jobhunter_matching_backlog 12.0"), scrape)
         assertTrue(scrape.contains("jobhunter_jobs_ingested_total"), scrape)
+    }
+
+    private class ThrowingMeterRegistry : SimpleMeterRegistry() {
+        override fun counter(
+            name: String,
+            vararg tags: String,
+        ): Counter = throw IllegalStateException("meter registry unavailable")
     }
 }
