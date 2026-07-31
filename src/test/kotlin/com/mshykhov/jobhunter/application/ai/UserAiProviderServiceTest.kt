@@ -61,13 +61,13 @@ class UserAiProviderServiceTest {
         fun `should skip a disabled priority-1 row and return the first enabled one`() {
             val disabledPrimary = TestFixtures.userAiProviderEntity(user = user, priority = 1, enabled = false)
             val enabledSecondary =
-                TestFixtures.userAiProviderEntity(user = user, priority = 2, provider = AiProvider.GEMINI, modelId = "gemini-2.5-flash-lite")
+                TestFixtures.userAiProviderEntity(user = user, priority = 2, provider = AiProvider.GEMINI, modelId = "gemini-2.5-flash")
             every { userFacade.findByAuth0Sub(auth0Sub) } returns user
             every { userAiProviderFacade.findByUserId(user.id) } returns listOf(disabledPrimary, enabledSecondary)
 
             val result = service.get(auth0Sub)
 
-            assertEquals("gemini-2.5-flash-lite", result.modelId)
+            assertEquals("gemini-2.5-flash", result.modelId)
         }
     }
 
