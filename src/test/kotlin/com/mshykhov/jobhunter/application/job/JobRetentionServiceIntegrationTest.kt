@@ -4,9 +4,12 @@ import com.mshykhov.jobhunter.application.user.UserRepository
 import com.mshykhov.jobhunter.application.userjob.UserJobGroupRepository
 import com.mshykhov.jobhunter.application.userjob.UserJobRepository
 import com.mshykhov.jobhunter.application.userjob.UserJobStatus
+import com.mshykhov.jobhunter.infrastructure.retention.RetentionAnchor
 import com.mshykhov.jobhunter.infrastructure.retention.RetentionProperties
 import com.mshykhov.jobhunter.support.AbstractIntegrationTest
 import com.mshykhov.jobhunter.support.TestFixtures
+import io.mockk.every
+import io.mockk.mockk
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import java.time.Clock
@@ -50,8 +53,12 @@ class JobRetentionServiceIntegrationTest : AbstractIntegrationTest() {
             maxPerRun = 5000,
         )
 
+    // The real anchor resolves to the V25 migration timestamp, which is later than this
+    // test's fixed clock; RetentionAnchorIntegrationTest covers that resolution instead.
+    private val retentionAnchor = mockk<RetentionAnchor>().also { every { it.instant() } returns now }
+
     private fun service() =
-        JobRetentionService(jobFacade, jobGroupFacade, retentionProperties, Clock.fixed(now, ZoneOffset.UTC))
+        JobRetentionService(jobFacade, jobGroupFacade, retentionProperties, retentionAnchor, Clock.fixed(now, ZoneOffset.UTC))
 
     @Test
     fun `should purge stale unengaged jobs and their emptied groups while sparing guarded jobs`() {

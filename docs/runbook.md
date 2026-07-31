@@ -88,7 +88,7 @@ The queue drains at `jobhunter.matching.batch-size` jobs per run, 200 by default
 
 **Reorder the provider chain.** Settings, AI Configuration. Leave a key field empty to keep the stored key; only a new provider needs one typed in.
 
-**Check retention.** The purge deletes jobs whose posting has been gone for thirty days, that were evaluated, and that nobody matched or wrote an outreach message for. It refuses to run during a grace period measured from application start, so anything that restarts the pod postpones it - not only deploys. A storage or node incident that crashloops the API resets the window just as effectively, and the log line names the deadline it is waiting for:
+**Check retention.** The purge deletes jobs whose posting has been gone for thirty days, that were evaluated, and that nobody matched or wrote an outreach message for. It refuses to run during a grace period measured from `flyway_schema_history.installed_on` for V25, the migration that added `jobs.last_seen_at` - the column only becomes trustworthy once the scrapers have re-seen every job after it. A restart no longer moves that deadline, so a crashlooping pod can no longer postpone the purge forever. The log line names the deadline it is waiting for:
 
 ```bash
 kubectl logs -n job-hunter-api-prd deployment/job-hunter-api-prd --since=24h | grep "Retention purge"

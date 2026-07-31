@@ -1,5 +1,6 @@
 package com.mshykhov.jobhunter.application.job
 
+import com.mshykhov.jobhunter.infrastructure.retention.RetentionAnchor
 import com.mshykhov.jobhunter.infrastructure.retention.RetentionProperties
 import io.mockk.every
 import io.mockk.mockk
@@ -16,7 +17,8 @@ import java.util.UUID
 class JobRetentionServiceTest {
     private val jobFacade = mockk<JobFacade>()
     private val jobGroupFacade = mockk<JobGroupFacade>()
-    private val startInstant = Instant.parse("2026-07-01T00:00:00Z")
+    private val anchorInstant = Instant.parse("2026-07-01T00:00:00Z")
+    private val retentionAnchor = mockk<RetentionAnchor>().also { every { it.instant() } returns anchorInstant }
     private val retentionProperties =
         RetentionProperties(
             enabled = true,
@@ -28,20 +30,17 @@ class JobRetentionServiceTest {
 
     private fun serviceAt(
         properties: RetentionProperties,
-        vararg instants: Instant,
-    ): JobRetentionService {
-        val clock = mockk<Clock>()
-        every { clock.instant() } returnsMany instants.toList()
-        return JobRetentionService(jobFacade, jobGroupFacade, properties, clock)
-    }
+        now: Instant,
+    ): JobRetentionService =
+        JobRetentionService(jobFacade, jobGroupFacade, properties, retentionAnchor, Clock.fixed(now, ZoneOffset.UTC))
 
-    private fun serviceAt(vararg instants: Instant) = serviceAt(retentionProperties, *instants)
+    private fun serviceAt(now: Instant) = serviceAt(retentionProperties, now)
 
     @Nested
     inner class GracePeriod {
         @Test
-        fun `should delete nothing while the grace period since application start is unexpired`() {
-            val service = serviceAt(startInstant, startInstant.plus(Duration.ofHours(47)))
+        fun `should delete nothing while the grace period since the last-seen-at migration is unexpired`() {
+            val service = serviceAt(anchorInstant.plus(Duration.ofHours(47)))
 
             val result = service.purgeExpiredJobs()
 
@@ -50,9 +49,9 @@ class JobRetentionServiceTest {
         }
 
         @Test
-        fun `should purge once the grace period since application start has elapsed`() {
+        fun `should purge once the grace period since the last-seen-at migration has elapsed`() {
             val purgeableId = UUID.randomUUID()
-            val service = serviceAt(startInstant, startInstant.plus(Duration.ofHours(48)))
+            val service = serviceAt(anchorInstant.plus(Duration.ofHours(48)))
             every { jobFacade.findPurgeableIds(any(), any()) } returns listOf(purgeableId)
             every { jobFacade.findGroupIdsByIds(listOf(purgeableId)) } returns emptyList()
             every { jobFacade.deleteByIds(listOf(purgeableId)) } returns Unit
@@ -69,8 +68,8 @@ class JobRetentionServiceTest {
         @Test
         fun `should delete nothing when retention is disabled`() {
             val disabledProperties = retentionProperties.copy(enabled = false)
-            val clock = Clock.fixed(startInstant.plus(Duration.ofDays(60)), ZoneOffset.UTC)
-            val service = JobRetentionService(jobFacade, jobGroupFacade, disabledProperties, clock)
+            val clock = Clock.fixed(anchorInstant.plus(Duration.ofDays(60)), ZoneOffset.UTC)
+            val service = JobRetentionService(jobFacade, jobGroupFacade, disabledProperties, retentionAnchor, clock)
 
             val result = service.purgeExpiredJobs()
 
@@ -83,8 +82,8 @@ class JobRetentionServiceTest {
     inner class Purge {
         @Test
         fun `should query with the threshold derived from the retention period and the configured batch size`() {
-            val now = startInstant.plus(Duration.ofDays(60))
-            val service = serviceAt(startInstant, now)
+            val now = anchorInstant.plus(Duration.ofDays(60))
+            val service = serviceAt(now)
             every { jobFacade.findPurgeableIds(any(), any()) } returns emptyList()
 
             service.purgeExpiredJobs()
@@ -94,7 +93,7 @@ class JobRetentionServiceTest {
 
         @Test
         fun `should return zero and touch nothing else when no jobs are purgeable`() {
-            val service = serviceAt(startInstant, startInstant.plus(Duration.ofDays(60)))
+            val service = serviceAt(anchorInstant.plus(Duration.ofDays(60)))
             every { jobFacade.findPurgeableIds(any(), any()) } returns emptyList()
 
             val result = service.purgeExpiredJobs()
@@ -107,7 +106,7 @@ class JobRetentionServiceTest {
         @Test
         fun `should delete purgeable jobs and report the total in the returned summary`() {
             val ids = listOf(UUID.randomUUID(), UUID.randomUUID())
-            val service = serviceAt(startInstant, startInstant.plus(Duration.ofDays(60)))
+            val service = serviceAt(anchorInstant.plus(Duration.ofDays(60)))
             every { jobFacade.findPurgeableIds(any(), any()) } returns ids
             every { jobFacade.findGroupIdsByIds(ids) } returns emptyList()
             every { jobFacade.deleteByIds(ids) } returns Unit
@@ -124,7 +123,7 @@ class JobRetentionServiceTest {
             val jobIds = listOf(UUID.randomUUID())
             val groupIds = listOf(UUID.randomUUID(), UUID.randomUUID())
             val emptyGroupId = groupIds[0]
-            val service = serviceAt(startInstant, startInstant.plus(Duration.ofDays(60)))
+            val service = serviceAt(anchorInstant.plus(Duration.ofDays(60)))
             every { jobFacade.findPurgeableIds(any(), any()) } returns jobIds
             every { jobFacade.findGroupIdsByIds(jobIds) } returns groupIds
             every { jobFacade.deleteByIds(jobIds) } returns Unit
@@ -142,7 +141,7 @@ class JobRetentionServiceTest {
         fun `should not call group deletion when no groups became empty`() {
             val jobIds = listOf(UUID.randomUUID())
             val groupIds = listOf(UUID.randomUUID())
-            val service = serviceAt(startInstant, startInstant.plus(Duration.ofDays(60)))
+            val service = serviceAt(anchorInstant.plus(Duration.ofDays(60)))
             every { jobFacade.findPurgeableIds(any(), any()) } returns jobIds
             every { jobFacade.findGroupIdsByIds(jobIds) } returns groupIds
             every { jobFacade.deleteByIds(jobIds) } returns Unit
@@ -163,7 +162,7 @@ class JobRetentionServiceTest {
             val firstBatch = listOf(UUID.randomUUID(), UUID.randomUUID())
             val secondBatch = listOf(UUID.randomUUID(), UUID.randomUUID())
             val thirdBatch = listOf(UUID.randomUUID())
-            val service = serviceAt(batchedProperties, startInstant, startInstant.plus(Duration.ofDays(60)))
+            val service = serviceAt(batchedProperties, anchorInstant.plus(Duration.ofDays(60)))
             every { jobFacade.findPurgeableIds(any(), 2) } returnsMany listOf(firstBatch, secondBatch, thirdBatch)
             every { jobFacade.findGroupIdsByIds(any()) } returns emptyList()
             every { jobFacade.deleteByIds(any()) } returns Unit
@@ -177,7 +176,7 @@ class JobRetentionServiceTest {
 
         @Test
         fun `should stop at the per-run cap even when batches keep coming back full`() {
-            val service = serviceAt(batchedProperties, startInstant, startInstant.plus(Duration.ofDays(60)))
+            val service = serviceAt(batchedProperties, anchorInstant.plus(Duration.ofDays(60)))
             every { jobFacade.findPurgeableIds(any(), 2) } answers { listOf(UUID.randomUUID(), UUID.randomUUID()) }
             every { jobFacade.findGroupIdsByIds(any()) } returns emptyList()
             every { jobFacade.deleteByIds(any()) } returns Unit
@@ -192,7 +191,7 @@ class JobRetentionServiceTest {
         @Test
         fun `should request a shorter final batch so the cap is never exceeded`() {
             val cappedProperties = retentionProperties.copy(batchSize = 2, maxPerRun = 5)
-            val service = serviceAt(cappedProperties, startInstant, startInstant.plus(Duration.ofDays(60)))
+            val service = serviceAt(cappedProperties, anchorInstant.plus(Duration.ofDays(60)))
             every { jobFacade.findPurgeableIds(any(), 2) } answers { listOf(UUID.randomUUID(), UUID.randomUUID()) }
             every { jobFacade.findPurgeableIds(any(), 1) } answers { listOf(UUID.randomUUID()) }
             every { jobFacade.findGroupIdsByIds(any()) } returns emptyList()

@@ -1,5 +1,6 @@
 package com.mshykhov.jobhunter.application.job
 
+import com.mshykhov.jobhunter.infrastructure.retention.RetentionAnchor
 import com.mshykhov.jobhunter.infrastructure.retention.RetentionProperties
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Service
@@ -14,10 +15,9 @@ class JobRetentionService(
     private val jobFacade: JobFacade,
     private val jobGroupFacade: JobGroupFacade,
     private val retentionProperties: RetentionProperties,
+    private val retentionAnchor: RetentionAnchor,
     private val clock: Clock,
 ) {
-    private val startedAt: Instant = Instant.now(clock)
-
     @Transactional
     fun purgeExpiredJobs(): PurgeSummary {
         if (!retentionProperties.enabled) {
@@ -26,7 +26,7 @@ class JobRetentionService(
         }
 
         val now = Instant.now(clock)
-        val graceUntil = startedAt.plus(retentionProperties.gracePeriod)
+        val graceUntil = retentionAnchor.instant().plus(retentionProperties.gracePeriod)
         if (now.isBefore(graceUntil)) {
             logger.info { "Retention purge skipped: grace period active until $graceUntil" }
             return PurgeSummary(0, 0)
