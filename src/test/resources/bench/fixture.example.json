@@ -1,0 +1,30 @@
+{
+  "preference": {
+    "categories": ["java", "kotlin"],
+    "remoteOnly": true,
+    "locations": ["poland", "cyprus"],
+    "excludedKeywords": [],
+    "about": "Synthetic profile. Backend engineer, 8 years, Kotlin and Spring Boot, distributed systems, looking for fully remote work.",
+    "customPrompt": ""
+  },
+  "jobs": [
+    {
+      "id": "j1",
+      "title": "Senior Kotlin Backend Engineer",
+      "company": "Acme",
+      "location": "Remote, EU",
+      "salary": "8000-11000 PLN",
+      "remote": true,
+      "description": "We are building a distributed order-management platform in Kotlin and Spring Boot on top of PostgreSQL and Kafka. You will own service design, on-call, and mentoring. Fully remote, EU time zones. 6+ years backend experience expected."
+    },
+    {
+      "id": "j2",
+      "title": "QA Automation Engineer",
+      "company": "Global Retail Corp",
+      "location": "Warsaw, Poland (on-site)",
+      "salary": "6000-8000 PLN",
+      "remote": false,
+      "description": "Join our QA team to build and maintain Selenium and Cypress test suites for our e-commerce platform. Experience with Java or JavaScript is a plus. On-site presence in our Warsaw office required 3 days a week."
+    }
+  ]
+}

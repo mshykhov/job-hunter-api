@@ -109,8 +109,25 @@ allOpen {
     annotation("jakarta.persistence.Embeddable")
 }
 
-tasks.withType<Test> {
-    useJUnitPlatform()
+tasks.test {
+    useJUnitPlatform {
+        excludeTags("bench")
+    }
+}
+
+tasks.register<Test>("bench") {
+    group = "verification"
+    description = "Scores the bench fixture with every configured AI provider and writes build/bench/report.md. " +
+        "Calls real providers, costs money and needs BENCH_* env vars - see docs/provider-benchmark.md."
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform {
+        includeTags("bench")
+    }
+    outputs.upToDateWhen { false }
+    testLogging {
+        showStandardStreams = true
+    }
 }
 
 springBoot {
