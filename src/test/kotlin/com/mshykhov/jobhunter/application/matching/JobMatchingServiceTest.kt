@@ -101,12 +101,11 @@ class JobMatchingServiceTest {
         }
 
         @Test
-        fun `should create user job group with cold-only reasoning when user has no AI providers configured`() {
+        fun `should fail matching instead of falling back to cold-only when user has matchWithAi enabled but no AI providers configured`() {
             val user = UserEntity(auth0Sub = "user-1")
             val group = testGroup()
             val job = testJob(group = group)
             val preference = testPreference(user, matchWithAi = true)
-            val savedSlot = slot<List<UserJobGroupEntity>>()
 
             every { jobFacade.findUnmatched(200, 5) } returns listOf(job)
             every { jobFacade.findByGroupIds(listOf(group.id), 1000, 5) } returns listOf(job)
@@ -114,14 +113,12 @@ class JobMatchingServiceTest {
             every { userAiProviderService.chainFor(user.id) } returns emptyList()
             every { chatClientFactory.createChain(emptyList(), AiUseCase.SCORING) } returns AiClientChain(emptyList())
             every { userJobGroupFacade.findByGroupId(group.id) } returns emptyList()
-            every { userJobGroupFacade.saveAll(capture(savedSlot)) } answers { savedSlot.captured }
-            every { jobFacade.updateMatchedAt(any(), any()) } just Runs
 
-            service.processUnmatchedJobs()
+            val outcome = service.processUnmatchedJobs()
 
-            assertEquals(1, savedSlot.captured.size)
-            assertEquals(0, savedSlot.captured[0].aiRelevanceScore)
-            assertEquals("Cold filter match only — AI evaluation disabled", savedSlot.captured[0].aiReasoning)
+            assertEquals(MatchingOutcome.AI_UNAVAILABLE, outcome)
+            verify(exactly = 0) { userJobGroupFacade.saveAll(any()) }
+            verify(exactly = 0) { jobFacade.updateMatchedAt(any(), any()) }
         }
 
         @Test
@@ -259,7 +256,7 @@ class JobMatchingServiceTest {
     @Nested
     inner class AiClientResilience {
         @Test
-        fun `should fall back to cold-only for a user whose provider chain cannot be built without affecting other users`() {
+        fun `should fail only the broken user without affecting a healthy user in the same group`() {
             val brokenUser = UserEntity(auth0Sub = "user-broken")
             val healthyUser = UserEntity(auth0Sub = "user-healthy")
             val group = testGroup()
@@ -280,25 +277,23 @@ class JobMatchingServiceTest {
             every { jobRelevanceEvaluator.evaluate(job, healthyPreference, chainOf(chatClient)) } returns
                 JobRelevanceResult(score = 80, reasoning = "Good match", inferredRemote = true)
             every { userJobGroupFacade.saveAll(capture(savedSlot)) } answers { savedSlot.captured }
-            every { jobFacade.updateMatchedAt(any(), any()) } just Runs
             every { jobFacade.updateRemote(job.id, true) } just Runs
+            every { jobFacade.incrementMatchAttempts(listOf(job.id)) } just Runs
 
             service.processUnmatchedJobs()
 
-            assertEquals(2, savedSlot.captured.size)
-            val byUserId = savedSlot.captured.associateBy { it.user.id }
-            assertEquals("Cold filter match only — AI evaluation disabled", byUserId.getValue(brokenUser.id).aiReasoning)
-            assertEquals("Good match", byUserId.getValue(healthyUser.id).aiReasoning)
+            assertEquals(1, savedSlot.captured.size)
+            assertEquals(healthyUser.id, savedSlot.captured[0].user.id)
+            assertEquals("Good match", savedSlot.captured[0].aiReasoning)
         }
 
         @Test
-        fun `should fall back to cold-only for a user whose whole chain fails to build any usable link`() {
+        fun `should fail the user instead of falling back to cold-only when the whole chain fails to build any usable link`() {
             val user = UserEntity(auth0Sub = "user-1")
             val group = testGroup()
             val job = testJob(group = group)
             val preference = testPreference(user, matchWithAi = true)
             val provider = TestFixtures.userAiProviderEntity(user = user, modelId = "gpt-4o-mini")
-            val savedSlot = slot<List<UserJobGroupEntity>>()
 
             every { jobFacade.findUnmatched(200, 5) } returns listOf(job)
             every { jobFacade.findByGroupIds(listOf(group.id), 1000, 5) } returns listOf(job)
@@ -307,14 +302,13 @@ class JobMatchingServiceTest {
             every { chatClientFactory.createChain(listOf(provider), AiUseCase.SCORING) } returns
                 AiClientChain(emptyList(), listOf("OPENAI: API key is missing"))
             every { userJobGroupFacade.findByGroupId(group.id) } returns emptyList()
-            every { userJobGroupFacade.saveAll(capture(savedSlot)) } answers { savedSlot.captured }
-            every { jobFacade.updateMatchedAt(any(), any()) } just Runs
 
-            service.processUnmatchedJobs()
+            val outcome = service.processUnmatchedJobs()
 
-            assertEquals(1, savedSlot.captured.size)
-            assertEquals("Cold filter match only — AI evaluation disabled", savedSlot.captured[0].aiReasoning)
+            assertEquals(MatchingOutcome.AI_UNAVAILABLE, outcome)
             verify(exactly = 0) { jobRelevanceEvaluator.evaluate(any(), any(), any()) }
+            verify(exactly = 0) { userJobGroupFacade.saveAll(any()) }
+            verify(exactly = 0) { jobFacade.updateMatchedAt(any(), any()) }
         }
     }
 

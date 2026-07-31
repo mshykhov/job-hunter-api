@@ -161,20 +161,30 @@ class JobMatchingService(
             val existing = existingByUserId[preference.user.id]
             val chain = userChains[preference.user.id]
 
-            if (chain != null) {
-                val result = evaluateWithAi(group, representative, preference, chain, stats, existing)
-                if (result != null) userJobGroups += result
-            } else {
-                stats.coldOnly++
-                userJobGroups += existing?.apply {
-                    aiRelevanceScore = 0
-                    aiReasoning = COLD_ONLY_REASONING
-                } ?: UserJobGroupEntity(
-                    user = preference.user,
-                    group = group,
-                    aiRelevanceScore = 0,
-                    aiReasoning = COLD_ONLY_REASONING,
-                )
+            when {
+                chain != null -> {
+                    val result = evaluateWithAi(group, representative, preference, chain, stats, existing)
+                    if (result != null) userJobGroups += result
+                }
+                preference.matching.matchWithAi -> {
+                    logger.warn {
+                        "Group '${group.title}' has no result for user ${preference.user.id}: " +
+                            "matchWithAi is enabled but the provider chain has no usable links"
+                    }
+                    stats.aiFailed++
+                }
+                else -> {
+                    stats.coldOnly++
+                    userJobGroups += existing?.apply {
+                        aiRelevanceScore = 0
+                        aiReasoning = COLD_ONLY_REASONING
+                    } ?: UserJobGroupEntity(
+                        user = preference.user,
+                        group = group,
+                        aiRelevanceScore = 0,
+                        aiReasoning = COLD_ONLY_REASONING,
+                    )
+                }
             }
         }
 
@@ -245,11 +255,13 @@ class JobMatchingService(
             val providers = userAiProviderService.chainFor(userId)
             val chain = chatClientFactory.createChain(providers, AiUseCase.SCORING)
             if (chain.links.isEmpty()) {
-                logger.warn { "User $userId has matchWithAi=true but no usable AI providers - falling back to cold-only" }
+                logger.warn {
+                    "User $userId has matchWithAi=true but no usable AI providers: ${chain.buildFailures.joinToString("; ")}"
+                }
             }
             chain
         } catch (e: Exception) {
-            logger.warn(e) { "Failed to build AI provider chain for user $userId - falling back to cold-only" }
+            logger.warn(e) { "Failed to build AI provider chain for user $userId" }
             AiClientChain(emptyList())
         }
 
