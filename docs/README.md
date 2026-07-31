@@ -4,6 +4,7 @@ Documentation index for job-hunter-api.
 
 | Doc | Read when |
 |-----|-----------|
+| [runbook.md](runbook.md) | An alert fired, matching looks wrong, or you need to re-match a period |
 | [job-matching-architecture.md](job-matching-architecture.md) | Changing the matching pipeline, cold filters, or AI relevance scoring |
 | [provider-benchmark.md](provider-benchmark.md) | Comparing AI providers/models, or running `./gradlew bench` |
 

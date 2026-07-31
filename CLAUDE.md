@@ -36,6 +36,7 @@ matching   → ai, job, preference, userjob
 outreach   → ai, job, preference, user, userjob
 ai         → job, preference, user (+ outreach config — known cycle, do not deepen it)
 preference → ai, job, user
+ai         → settings (provider/model catalogue)
 criteria   → job, preference
 userjob    → job, user
 proxy      → job
@@ -51,8 +52,8 @@ settings, user → (standalone)
 ## Project-Specific Patterns
 
 - No `/api` prefix — endpoints at root path
-- **Auth0 OAuth2** — scope-based `@PreAuthorize`, toggleable via `jobhunter.auth0.enabled`
-- **BYOK AI** — each user stores an encrypted OpenAI-compatible API key + model id; per-user clients via `ChatClientFactory`
+- **Authentik OIDC** — multi-issuer JWT (`jobhunter.oidc.issuers`), scope-based `@PreAuthorize`, toggleable via `jobhunter.oidc.enabled`
+- **AI provider chain** - ordered per-user providers (`user_ai_providers`), tried in priority order and falling through on failure; keys encrypted, `CODEX` needs none
 - **Persistable\<UUID\>** — non-nullable IDs, `@PostPersist`/`@PostLoad` for isNew tracking
 - **JPA Auditing** — `@CreatedDate`/`@LastModifiedDate` with custom `Clock` bean
 - **Test fixtures** — `TestFixtures` object with factory methods for entities and DTOs
@@ -62,4 +63,5 @@ settings, user → (standalone)
 ## Docs
 
 - `docs/README.md` — doc index
+- `docs/runbook.md` - diagnosing matching, alerts, re-matching a period
 - `docs/job-matching-architecture.md` — matching pipeline (cold filter → AI scoring)

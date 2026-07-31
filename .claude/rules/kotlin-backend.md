@@ -35,7 +35,7 @@ Spring Boot 3.5, JPA/Hibernate, PostgreSQL + Flyway, Testcontainers.
 
 ## API
 - No `/api` prefix - endpoints at root. Secure with scope-based `@PreAuthorize`
-  (Auth0 OAuth2, toggleable via `jobhunter.auth0.enabled`).
+  (Authentik OIDC, toggleable via `jobhunter.oidc.enabled`).
 - Every endpoint has typed request/response DTOs; never leak entities over the wire.
 
 ## Testing
