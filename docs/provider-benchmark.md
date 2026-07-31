@@ -10,11 +10,23 @@ backed by a number instead of a feeling.
 scripts/export-bench-fixture.sh
 ```
 
-Requires `kubectl` access to the production cluster and `jq`. It reads the ten
-most recently AI-matched job groups and the current user preferences, and writes:
+Requires `kubectl` access to the production cluster and `jq`. It reads ten
+AI-scored job groups and the current user preferences, and writes:
 
 - `src/test/resources/bench/fixture.local.json` - the jobs and the preference profile
 - `src/test/resources/bench/labels.local.json` - one entry per job id, pre-filled with `null`
+
+Only groups that carry a `user_job_groups` row are eligible. `matched_at` alone is
+not enough: it is also set on groups the cold filter rejected before any AI call,
+and roughly four in five matched groups are exactly that. Benchmarking those would
+score the models on input production never sends them.
+
+The ten are stratified across the incumbent scores - four at 70 or above, three
+between 40 and 69, three below - so the fixture spans the relevance boundary
+instead of collapsing into a single class. That does mean the sample is chosen by
+the model currently in production; without it a fixture of recent groups is almost
+entirely negatives and false negatives become unmeasurable. The representative job
+per group is the one with the longest description, matching `JobRelevanceEvaluator`.
 
 Both files are gitignored (`*.local.json`) - the preference profile holds the
 owner's CV text, which must never end up in this public repository. Re-running

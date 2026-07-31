@@ -88,7 +88,7 @@ The queue drains at `jobhunter.matching.batch-size` jobs per run, 200 by default
 
 **Reorder the provider chain.** Settings, AI Configuration. Leave a key field empty to keep the stored key; only a new provider needs one typed in.
 
-**Check retention.** The purge deletes jobs whose posting has been gone for thirty days, that were evaluated, and that nobody matched or wrote an outreach message for. It refuses to run during a grace period measured from application start, so frequent deploys postpone it:
+**Check retention.** The purge deletes jobs whose posting has been gone for thirty days, that were evaluated, and that nobody matched or wrote an outreach message for. It refuses to run during a grace period measured from application start, so anything that restarts the pod postpones it - not only deploys. A storage or node incident that crashloops the API resets the window just as effectively, and the log line names the deadline it is waiting for:
 
 ```bash
 kubectl logs -n job-hunter-api-prd deployment/job-hunter-api-prd --since=24h | grep "Retention purge"
@@ -97,6 +97,8 @@ kubectl logs -n job-hunter-api-prd deployment/job-hunter-api-prd --since=24h | g
 ## Things that look like bugs and are not
 
 - **A group left unmatched after a failure.** Deliberate. Marking it processed is what lost 18 863 jobs in July.
+- **A matched group with no `user_job_groups` row.** Normal, and the usual case: the cold filter rejected it before any AI call, which still sets `matched_at`. About four in five matched groups look like this, driven mostly by `remoteOnly` against an explicit `remote=false`. Counting matched groups and expecting an equal number of user rows will look like catastrophic data loss and is not.
+- **A re-match that leaves the visible list the same size.** Expected. Clearing `matched_at` re-runs the whole pipeline, cold filter included, and a group that already has a `user_job_groups` row is updated in place rather than inserted. A re-match can move a score across the client's `minScore`, never add a group the cold filter still rejects. When the list looks too short, widen the date filter before suspecting the matcher.
 - **`match_attempts` climbing on one group.** That group fails deterministically, most likely because its representative description is too long for the model. After the cap it leaves the queue so it cannot block everything behind it.
 - **A counter missing from `/actuator/prometheus`.** Counters register on first use. A metric that has never fired has no series, which is also why alert expressions comparing to zero need `or vector(0)`.
 - **`Failed to decrypt API key` warnings for the Codex row.** Codex needs no key, the stored value is empty, and decryption of an empty string fails harmlessly.
