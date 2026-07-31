@@ -57,6 +57,10 @@ jobhunter:
     providers:
       codex-base-url: ${AI_CODEX_BASE_URL:}
       gemini-base-url: ${AI_GEMINI_BASE_URL:https://generativelanguage.googleapis.com/v1beta/openai/}
+      retry-max-attempts: ${AI_PROVIDER_RETRY_MAX_ATTEMPTS:2}
+      retry-backoff: ${AI_PROVIDER_RETRY_BACKOFF:1s}
+      connect-timeout: ${AI_PROVIDER_CONNECT_TIMEOUT:5s}
+      read-timeout: ${AI_PROVIDER_READ_TIMEOUT:60s}
   matching:
     interval-ms: ${MATCHING_INTERVAL_MS:60000}
     batch-size: ${MATCHING_BATCH_SIZE:200}

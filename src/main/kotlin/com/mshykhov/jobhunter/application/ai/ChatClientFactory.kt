@@ -8,24 +8,45 @@ import org.springframework.ai.chat.client.ChatClient
 import org.springframework.ai.openai.OpenAiChatModel
 import org.springframework.ai.openai.OpenAiChatOptions
 import org.springframework.ai.openai.api.OpenAiApi
+import org.springframework.ai.retry.TransientAiException
+import org.springframework.http.client.SimpleClientHttpRequestFactory
+import org.springframework.retry.support.RetryTemplate
 import org.springframework.stereotype.Component
+import org.springframework.web.client.RestClient
 
 private val logger = KotlinLogging.logger {}
 
 @Component
 class ChatClientFactory(private val aiProviderProperties: AiProviderProperties) {
+    private val retryTemplate: RetryTemplate =
+        RetryTemplate
+            .builder()
+            .maxAttempts(aiProviderProperties.retryMaxAttempts)
+            .fixedBackoff(aiProviderProperties.retryBackoff)
+            .retryOn(TransientAiException::class.java)
+            .build()
+
+    private val restClientBuilder: RestClient.Builder =
+        RestClient.builder().requestFactory(
+            SimpleClientHttpRequestFactory().apply {
+                setConnectTimeout(aiProviderProperties.connectTimeout)
+                setReadTimeout(aiProviderProperties.readTimeout)
+            },
+        )
+
     fun createForProvider(
         provider: UserAiProviderEntity,
         useCase: AiUseCase = AiUseCase.SCORING,
     ): ChatClient {
         val apiKey = resolveApiKey(provider)
-        val builder = OpenAiApi.builder().apiKey(apiKey)
+        val builder = OpenAiApi.builder().apiKey(apiKey).restClientBuilder(restClientBuilder)
         aiProviderProperties.baseUrlFor(provider.provider)?.let { builder.baseUrl(it) }
         val model =
             OpenAiChatModel
                 .builder()
                 .openAiApi(builder.build())
                 .defaultOptions(buildOptions(provider.modelId, useCase))
+                .retryTemplate(retryTemplate)
                 .build()
         return ChatClient.builder(model).build()
     }
