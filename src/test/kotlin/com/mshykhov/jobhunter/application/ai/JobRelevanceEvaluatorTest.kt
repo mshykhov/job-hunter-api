@@ -136,10 +136,10 @@ class JobRelevanceEvaluatorTest {
                 evaluator.evaluate(job(), preference(), AiClientChain(listOf(first, second)))
             }
 
-        assertTrue(exception.message!!.contains("CODEX"))
-        assertTrue(exception.message!!.contains("OPENAI"))
-        assertTrue(exception.message!!.contains("insufficient_quota"))
-        assertTrue(exception.message!!.contains("invalid_api_key"))
+        assertTrue(exception.message.orEmpty().contains("CODEX"))
+        assertTrue(exception.message.orEmpty().contains("OPENAI"))
+        assertTrue(exception.message.orEmpty().contains("insufficient_quota"))
+        assertTrue(exception.message.orEmpty().contains("invalid_api_key"))
     }
 
     @Test
@@ -155,8 +155,8 @@ class JobRelevanceEvaluatorTest {
                 evaluator.evaluate(job(), preference(), chain)
             }
 
-        assertTrue(exception.message!!.contains("OPENAI: API key is missing"))
-        assertTrue(exception.message!!.contains("CODEX: no base URL configured"))
+        assertTrue(exception.message.orEmpty().contains("OPENAI: API key is missing"))
+        assertTrue(exception.message.orEmpty().contains("CODEX: no base URL configured"))
     }
 
     private fun job(title: String = "Senior Kotlin Developer"): JobEntity =

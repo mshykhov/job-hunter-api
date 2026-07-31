@@ -39,7 +39,7 @@ class ChatClientFactoryTest {
 
             val exception = assertThrows<AiNotConfiguredException> { factory.createForProvider(provider) }
 
-            assertTrue(exception.message!!.contains("AI_CODEX_BASE_URL"))
+            assertTrue(exception.message.orEmpty().contains("AI_CODEX_BASE_URL"))
         }
 
         @Test
