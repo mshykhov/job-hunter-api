@@ -21,14 +21,12 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
-import org.springframework.stereotype.Component
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 import java.util.UUID
-import java.util.function.Supplier
 
 private val logger = KotlinLogging.logger {}
 
@@ -302,9 +300,4 @@ class JobMatchingService(
         private const val COLD_ONLY_REASONING = "Cold filter match only — AI evaluation disabled"
         private const val GROUP_FANOUT_LIMIT = 5
     }
-}
-
-@Component
-class MatchingBacklogSupplier(private val jobFacade: JobFacade) : Supplier<Long> {
-    override fun get(): Long = jobFacade.countUnmatched()
 }
