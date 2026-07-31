@@ -1,7 +1,14 @@
 #!/bin/bash
 # Export a provider-benchmark fixture from production. Reads through kubectl exec
-# into the CNPG primary, takes the ten most recently AI-matched job groups, and
-# writes src/test/resources/bench/fixture.local.json + labels.local.json.
+# into the CNPG primary and writes src/test/resources/bench/fixture.local.json +
+# labels.local.json.
+#
+# Only groups that carry a user_job_groups row are eligible: matched_at alone also
+# covers groups the cold filter rejected before any AI call, and scoring those would
+# benchmark the models on input production never sends them. The sample is stratified
+# across the incumbent scores (4 high / 3 mid / 3 low) so the fixture spans the
+# relevance boundary instead of collapsing into one class, and the representative job
+# per group is the longest description - the same one JobRelevanceEvaluator picks.
 # Both *.local.json files are gitignored - they hold the owner's real profile
 # text and must never be committed.
 set -euo pipefail
@@ -36,15 +43,21 @@ WITH pref AS (
     ORDER BY updated_at DESC NULLS LAST
     LIMIT 1
 ),
-recent_groups AS (
-    SELECT DISTINCT ON (group_id)
-        id, title, company, url, description, location, salary, remote, matched_at
-    FROM jobs
-    WHERE matched_at IS NOT NULL
-    ORDER BY group_id, matched_at DESC
+scored_groups AS (
+    SELECT DISTINCT ON (j.group_id)
+        j.id, j.title, j.company, j.url, j.description, j.location, j.salary, j.remote, j.matched_at,
+        u.ai_relevance_score
+    FROM jobs j
+    JOIN user_job_groups u ON u.group_id = j.group_id
+    WHERE j.matched_at IS NOT NULL
+    ORDER BY j.group_id, length(j.description) DESC
 ),
 top_jobs AS (
-    SELECT * FROM recent_groups ORDER BY matched_at DESC LIMIT 10
+    (SELECT * FROM scored_groups WHERE ai_relevance_score >= 70 ORDER BY matched_at DESC LIMIT 4)
+    UNION ALL
+    (SELECT * FROM scored_groups WHERE ai_relevance_score BETWEEN 40 AND 69 ORDER BY matched_at DESC LIMIT 3)
+    UNION ALL
+    (SELECT * FROM scored_groups WHERE ai_relevance_score < 40 ORDER BY matched_at DESC LIMIT 3)
 )
 SELECT json_build_object(
     'preference', (SELECT json_build_object(
