@@ -478,6 +478,14 @@ class JobServiceTest {
 
     @Nested
     inner class CheckJobs {
+        private val fixedInstant = Instant.parse("2026-02-01T00:00:00Z")
+
+        @BeforeEach
+        fun setUp() {
+            every { clock.instant() } returns fixedInstant
+            every { jobFacade.touchLastSeen(any(), any()) } returns Unit
+        }
+
         @Test
         fun `should classify brand new URL as new`() {
             val request = JobCheckRequest(url = "https://example.com/brand-new")
@@ -591,6 +599,44 @@ class JobServiceTest {
             val result = service.checkJobs(listOf(request1, request2))
 
             assertEquals(1, result.newUrls.size)
+        }
+
+        @Test
+        fun `should touch last seen at for a job classified as unchanged`() {
+            val url = "https://example.com/check-touch-unchanged"
+            val existing = TestFixtures.jobEntity(url = url, title = "Same Title", salary = "5000")
+            val request = JobCheckRequest(url = url, title = "Same Title", salary = "5000")
+
+            every { jobFacade.findByUrls(listOf(url)) } returns listOf(existing)
+
+            val result = service.checkJobs(listOf(request))
+
+            assertEquals(listOf(url), result.unchangedUrls)
+            verify { jobFacade.touchLastSeen(listOf(existing.id), fixedInstant) }
+        }
+
+        @Test
+        fun `should touch last seen at for a job classified as updated`() {
+            val url = "https://example.com/check-touch-updated"
+            val existing = TestFixtures.jobEntity(url = url, title = "Old Title")
+            val request = JobCheckRequest(url = url, title = "New Title")
+
+            every { jobFacade.findByUrls(listOf(url)) } returns listOf(existing)
+
+            service.checkJobs(listOf(request))
+
+            verify { jobFacade.touchLastSeen(listOf(existing.id), fixedInstant) }
+        }
+
+        @Test
+        fun `should not touch last seen at when every url is brand new`() {
+            val request = JobCheckRequest(url = "https://example.com/check-touch-new")
+
+            every { jobFacade.findByUrls(listOf(request.url)) } returns emptyList()
+
+            service.checkJobs(listOf(request))
+
+            verify(exactly = 0) { jobFacade.touchLastSeen(any(), any()) }
         }
     }
 

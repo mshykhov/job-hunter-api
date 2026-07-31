@@ -131,7 +131,7 @@ class JobService(
         request: JobIngestRequest,
         group: JobGroupEntity,
         seenAt: Instant,
-    ): JobEntity = request.toEntity(parsePublishedAt(request.publishedAt), group).apply { lastSeenAt = seenAt }
+    ): JobEntity = request.toEntity(parsePublishedAt(request.publishedAt), group, seenAt)
 
     /** Returns true if any field changed, false if the job is identical to what we already have. */
     private fun updateExisting(
@@ -169,6 +169,7 @@ class JobService(
         return true
     }
 
+    @Transactional
     fun checkJobs(requests: List<JobCheckRequest>): JobCheckResponse {
         if (requests.isEmpty()) return JobCheckResponse(emptyList(), emptyList(), emptyList())
 
@@ -187,6 +188,10 @@ class JobService(
                 hasDiscoveryChanges(existing, request) -> updatedUrls.add(request.url)
                 else -> unchangedUrls.add(request.url)
             }
+        }
+
+        if (existingByUrl.isNotEmpty()) {
+            jobFacade.touchLastSeen(existingByUrl.values.map { it.id }, clock.instant())
         }
 
         logger.info {
