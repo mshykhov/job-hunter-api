@@ -43,7 +43,7 @@ n8n scrapers ──POST /jobs/ingest──▶ JobEntity (dedup by URL)
 | `application/matching/ColdFilterRetroService` | Listens to `PreferenceChangedEvent`, re-runs the cold filter over the user's NEW groups and deletes the ones that stopped passing |
 | `application/ai/JobRelevanceEvaluator` | Scoring system prompt + Spring AI `.entity()` structured output |
 | `application/ai/ChatClientFactory` | Per-user OpenAI-compatible client; reasoning models get `reasoning_effort`, others `temperature` (per `AiUseCase`) |
-| `application/ai/UserAiSettingsEntity` | BYOK: encrypted API key + model id per user |
+| `application/ai/UserAiProviderEntity` | BYOK: ordered per-user AI provider chain row - provider, priority, model id, encrypted API key (optional for keyless providers) |
 
 ## Behaviour Notes
 
