@@ -10,7 +10,7 @@ data class AiProviderChainEntryResponse(val priority: Int, val provider: AiProvi
                 priority = entity.priority,
                 provider = entity.provider,
                 modelId = entity.modelId,
-                apiKeyHint = maskApiKey(entity.apiKey),
+                apiKeyHint = maskApiKey(entity.apiKey, entity.provider.requiresApiKey),
                 enabled = entity.enabled,
             )
     }

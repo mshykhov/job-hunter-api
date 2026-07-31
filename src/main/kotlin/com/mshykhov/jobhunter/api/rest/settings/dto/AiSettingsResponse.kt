@@ -7,7 +7,7 @@ data class AiSettingsResponse(val modelId: String, val apiKeyHint: String) {
         fun from(entity: UserAiProviderEntity): AiSettingsResponse =
             AiSettingsResponse(
                 modelId = entity.modelId,
-                apiKeyHint = maskApiKey(entity.apiKey),
+                apiKeyHint = maskApiKey(entity.apiKey, entity.provider.requiresApiKey),
             )
     }
 }
