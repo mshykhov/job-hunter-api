@@ -54,4 +54,11 @@ interface JobRepository :
     @Modifying
     @Query("UPDATE JobEntity j SET j.matchAttempts = j.matchAttempts + 1 WHERE j.id IN :ids")
     fun incrementMatchAttempts(ids: List<UUID>)
+
+    @Modifying
+    @Query("UPDATE JobEntity j SET j.lastSeenAt = :seenAt WHERE j.id IN :ids")
+    fun updateLastSeenAt(
+        ids: List<UUID>,
+        seenAt: Instant,
+    )
 }

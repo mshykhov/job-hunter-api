@@ -15,12 +15,18 @@ import org.springframework.data.domain.PageRequest
 import org.springframework.data.jpa.domain.Specification
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.Clock
 import java.time.Instant
 
 private val logger = KotlinLogging.logger {}
 
 @Service
-class JobService(private val jobFacade: JobFacade, private val jobGroupFacade: JobGroupFacade, private val matchingMetrics: MatchingMetrics) {
+class JobService(
+    private val jobFacade: JobFacade,
+    private val jobGroupFacade: JobGroupFacade,
+    private val matchingMetrics: MatchingMetrics,
+    private val clock: Clock,
+) {
     @Cacheable(CacheConfig.PUBLIC_JOBS_CACHE)
     @Transactional(readOnly = true)
     fun searchPublic(
@@ -74,20 +80,31 @@ class JobService(private val jobFacade: JobFacade, private val jobGroupFacade: J
 
         val groupsToSave = mutableSetOf<JobGroupEntity>()
 
+        val seenAt = clock.instant()
+
         uniqueRequests.forEach { request ->
             val existing = existingByUrl[request.url]
             if (existing != null) {
-                if (updateExisting(existing, request)) toSave.add(existing) else unchangedEntities.add(existing)
+                if (updateExisting(existing, request)) {
+                    existing.lastSeenAt = seenAt
+                    toSave.add(existing)
+                } else {
+                    unchangedEntities.add(existing)
+                }
                 if (mergeCategory(existing.group, request.category)) groupsToSave.add(existing.group)
             } else {
                 val group = findOrCreateGroup(request, groupsByKey)
                 mergeCategory(group, request.category)
                 groupsToSave.add(group)
-                toSave.add(createNew(request, group))
+                toSave.add(createNew(request, group, seenAt))
             }
         }
 
         jobGroupFacade.saveAll(groupsToSave)
+
+        if (unchangedEntities.isNotEmpty()) {
+            jobFacade.touchLastSeen(unchangedEntities.map { it.id }, seenAt)
+        }
 
         val newCount = toSave.count { it.isNew }
         val updatedCount = toSave.size - newCount
@@ -113,7 +130,8 @@ class JobService(private val jobFacade: JobFacade, private val jobGroupFacade: J
     private fun createNew(
         request: JobIngestRequest,
         group: JobGroupEntity,
-    ): JobEntity = request.toEntity(parsePublishedAt(request.publishedAt), group)
+        seenAt: Instant,
+    ): JobEntity = request.toEntity(parsePublishedAt(request.publishedAt), group).apply { lastSeenAt = seenAt }
 
     /** Returns true if any field changed, false if the job is identical to what we already have. */
     private fun updateExisting(

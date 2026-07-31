@@ -67,4 +67,10 @@ class JobFacade(private val jobRepository: JobRepository) {
 
     @Transactional
     fun incrementMatchAttempts(ids: List<UUID>) = jobRepository.incrementMatchAttempts(ids)
+
+    @Transactional
+    fun touchLastSeen(
+        ids: List<UUID>,
+        seenAt: Instant,
+    ) = jobRepository.updateLastSeenAt(ids, seenAt)
 }
