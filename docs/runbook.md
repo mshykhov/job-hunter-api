@@ -91,8 +91,23 @@ The queue drains at `jobhunter.matching.batch-size` jobs per run, 200 by default
 **Check retention.** The purge deletes jobs whose posting has been gone for thirty days, that were evaluated, and that nobody matched or wrote an outreach message for. It refuses to run during a grace period measured from `flyway_schema_history.installed_on` for V25, the migration that added `jobs.last_seen_at` - the column only becomes trustworthy once the scrapers have re-seen every job after it. A restart no longer moves that deadline, so a crashlooping pod can no longer postpone the purge forever. The log line names the deadline it is waiting for:
 
 ```bash
-kubectl logs -n job-hunter-api-prd deployment/job-hunter-api-prd --since=24h | grep "Retention purge"
+kubectl logs -n job-hunter-api-prd deployment/job-hunter-api-prd --since=24h | grep -E "Retention (purge|anchor)"
 ```
+
+**Verify a purge run.** `maxPerRun` caps a single run at 5000 jobs, so a backlog is cleared over several days rather than in one pass - a first run that deletes exactly 5000 is the cap doing its job, not a coincidence. Count what is eligible before and after and compare against the log line and the counter:
+
+```bash
+kubectl exec -n job-hunter-api-prd job-hunter-api-main-db-prd-cluster-1 -c postgres -- psql -U postgres -d jobhunter -tAc "
+SELECT count(*) FROM jobs j
+WHERE j.last_seen_at < now() - interval '30 days' AND j.matched_at IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM user_job_groups u WHERE u.group_id = j.group_id)
+  AND NOT EXISTS (SELECT 1 FROM user_jobs uj WHERE uj.job_id = j.id);"
+
+kubectl exec -n job-hunter-api-prd deployment/job-hunter-api-prd -- \
+  wget -qO- localhost:8080/actuator/prometheus | grep jobhunter_jobs_purged_total
+```
+
+A deletion count far from `min(eligible, 5000)` means the predicate is not what it appears to be. Set `RETENTION_ENABLED=false` and re-derive it before letting another run go through.
 
 ## Things that look like bugs and are not
 
