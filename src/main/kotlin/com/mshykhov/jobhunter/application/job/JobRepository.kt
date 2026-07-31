@@ -61,4 +61,25 @@ interface JobRepository :
         ids: List<UUID>,
         seenAt: Instant,
     )
+
+    @Query(
+        """
+        SELECT j.id FROM JobEntity j
+        WHERE j.lastSeenAt < :threshold
+          AND j.matchedAt IS NOT NULL
+          AND NOT EXISTS (SELECT 1 FROM UserJobGroupEntity u WHERE u.group.id = j.group.id)
+        ORDER BY j.lastSeenAt ASC
+        """,
+    )
+    fun findPurgeableIds(
+        threshold: Instant,
+        pageable: Pageable,
+    ): List<UUID>
+
+    @Query("SELECT DISTINCT j.group.id FROM JobEntity j WHERE j.id IN :ids")
+    fun findGroupIdsByIds(ids: List<UUID>): List<UUID>
+
+    @Modifying
+    @Query("DELETE FROM JobEntity j WHERE j.id IN :ids")
+    fun deleteByIds(ids: List<UUID>)
 }

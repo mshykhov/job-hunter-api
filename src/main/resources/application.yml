@@ -74,6 +74,12 @@ jobhunter:
     max-attempts: ${MATCHING_MAX_ATTEMPTS:5}
     backoff-initial: ${MATCHING_BACKOFF_INITIAL:1m}
     backoff-max: ${MATCHING_BACKOFF_MAX:30m}
+  retention:
+    enabled: ${RETENTION_ENABLED:true}
+    interval-ms: ${RETENTION_INTERVAL_MS:86400000}
+    retention-period: ${RETENTION_PERIOD:30d}
+    grace-period: ${RETENTION_GRACE_PERIOD:48h}
+    batch-size: ${RETENTION_BATCH_SIZE:500}
   oidc:
     enabled: ${OIDC_ENABLED:true}
     issuers: ${OIDC_ISSUERS:}
