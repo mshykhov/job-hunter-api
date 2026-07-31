@@ -16,6 +16,7 @@ import com.mshykhov.jobhunter.application.user.UserEntity
 import com.mshykhov.jobhunter.application.userjob.UserJobEntity
 import com.mshykhov.jobhunter.application.userjob.UserJobGroupEntity
 import com.mshykhov.jobhunter.application.userjob.UserJobStatus
+import java.time.Instant
 import java.util.UUID
 
 object TestFixtures {
@@ -66,6 +67,7 @@ object TestFixtures {
         remote: Boolean? = true,
         salary: String? = "5000 USD",
         location: String? = "Remote",
+        lastSeenAt: Instant = Instant.parse("2026-01-01T00:00:00Z"),
     ): JobEntity =
         JobEntity(
             title = title,
@@ -77,6 +79,7 @@ object TestFixtures {
             remote = remote,
             salary = salary,
             location = location,
+            lastSeenAt = lastSeenAt,
         )
 
     fun userEntity(auth0Sub: String = "auth0|test-user-${UUID.randomUUID()}"): UserEntity = UserEntity(auth0Sub = auth0Sub)

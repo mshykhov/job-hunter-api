@@ -54,7 +54,7 @@ class JobEntity(
     @Column(name = "match_attempts", nullable = false)
     var matchAttempts: Int = 0,
     @Column(name = "last_seen_at", nullable = false)
-    var lastSeenAt: Instant = Instant.EPOCH,
+    var lastSeenAt: Instant,
     @CreatedDate
     @Column(name = "created_at", updatable = false)
     var createdAt: Instant? = null,
