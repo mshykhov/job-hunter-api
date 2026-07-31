@@ -19,5 +19,8 @@ class UserAiProviderFacade(private val userAiProviderRepository: UserAiProviderR
     fun saveAll(entities: List<UserAiProviderEntity>): List<UserAiProviderEntity> = userAiProviderRepository.saveAll(entities)
 
     @Transactional
-    fun deleteAll(userId: UUID) = userAiProviderRepository.deleteByUserId(userId)
+    fun deleteAll(userId: UUID) {
+        userAiProviderRepository.deleteByUserId(userId)
+        userAiProviderRepository.flush()
+    }
 }
