@@ -3,6 +3,7 @@ package com.mshykhov.jobhunter.application.userjob
 import org.springframework.data.jpa.repository.EntityGraph
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor
+import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import java.util.UUID
 
@@ -39,4 +40,32 @@ interface UserJobGroupRepository :
         userId: UUID,
         status: UserJobStatus,
     ): List<UserJobGroupEntity>
+
+    @Query("SELECT ujg.id FROM UserJobGroupEntity ujg WHERE ujg.user.id = :userId AND ujg.status = :status ORDER BY ujg.id")
+    fun findIdsByUserIdAndStatus(
+        userId: UUID,
+        status: UserJobStatus,
+    ): List<UUID>
+
+    @EntityGraph(attributePaths = ["group", "group.jobs"])
+    @Query(
+        "SELECT DISTINCT ujg FROM UserJobGroupEntity ujg " +
+            "WHERE ujg.user.id = :userId AND ujg.status = :status AND ujg.id IN :ids",
+    )
+    fun findByIdInWithGroupAndJobs(
+        userId: UUID,
+        status: UserJobStatus,
+        ids: List<UUID>,
+    ): List<UserJobGroupEntity>
+
+    @Modifying
+    @Query(
+        "DELETE FROM UserJobGroupEntity ujg " +
+            "WHERE ujg.user.id = :userId AND ujg.status = :status AND ujg.id IN :ids",
+    )
+    fun deleteByIdsAndUserIdAndStatus(
+        ids: List<UUID>,
+        userId: UUID,
+        status: UserJobStatus,
+    ): Int
 }

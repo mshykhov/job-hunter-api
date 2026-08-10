@@ -18,93 +18,153 @@ import io.mockk.Runs
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
-import io.mockk.slot
 import io.mockk.verify
+import jakarta.persistence.EntityManager
+import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.springframework.scheduling.annotation.Async
+import org.springframework.transaction.event.TransactionPhase
+import org.springframework.transaction.event.TransactionalEventListener
 import java.time.Instant
+import java.util.UUID
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 
 class ColdFilterRetroServiceTest {
     private val userPreferenceFacade = mockk<UserPreferenceFacade>()
     private val userJobGroupFacade = mockk<UserJobGroupFacade>()
+    private val entityManager = mockk<EntityManager>()
 
-    private val service = ColdFilterRetroService(userPreferenceFacade, userJobGroupFacade)
+    private val service = ColdFilterRetroService(userPreferenceFacade, userJobGroupFacade, entityManager)
 
-    @Test
-    fun `should delete NEW groups that fail cold filter after preference change`() {
-        val user = UserEntity(auth0Sub = "user-1")
-        val leadUserGroup = userJobGroup(user, groupWithJob("Java Team Lead"))
-        val devUserGroup = userJobGroup(user, groupWithJob("Senior Java Developer"))
-        val preference = preference(user, excludedTitleKeywords = listOf("lead"))
-        val deletedSlot = slot<List<UserJobGroupEntity>>()
+    @Nested
+    inner class Filtering {
+        @Test
+        fun `should delete NEW groups that fail cold filter after preference change`() {
+            val user = UserEntity(auth0Sub = "user-1")
+            val leadUserGroup = userJobGroup(user, groupWithJob("Java Team Lead"))
+            val devUserGroup = userJobGroup(user, groupWithJob("Senior Java Developer"))
+            val preference = preference(user, excludedTitleKeywords = listOf("lead"))
+            val deletedIds = mutableListOf<List<UUID>>()
 
-        every { userPreferenceFacade.findByUserId(user.id) } returns preference
-        every { userJobGroupFacade.findByUserIdAndStatus(user.id, UserJobStatus.NEW) } returns
-            listOf(leadUserGroup, devUserGroup)
-        every { userJobGroupFacade.deleteAll(capture(deletedSlot)) } just Runs
+            stubGroups(user, preference, listOf(leadUserGroup, devUserGroup))
+            every {
+                userJobGroupFacade.deleteByIdsAndUserIdAndStatus(capture(deletedIds), user.id, UserJobStatus.NEW)
+            } returns 1
 
-        service.onPreferenceChanged(PreferenceChangedEvent(user.id))
+            service.onPreferenceChanged(PreferenceChangedEvent(user.id))
 
-        assertEquals(listOf(leadUserGroup), deletedSlot.captured)
+            assertEquals(listOf(listOf(leadUserGroup.id)), deletedIds)
+        }
+
+        @Test
+        fun `should not delete anything when all groups still pass the filter`() {
+            val user = UserEntity(auth0Sub = "user-1")
+            val devUserGroup = userJobGroup(user, groupWithJob("Senior Java Developer"))
+            val preference = preference(user, excludedTitleKeywords = listOf("lead"))
+
+            stubGroups(user, preference, listOf(devUserGroup))
+
+            service.onPreferenceChanged(PreferenceChangedEvent(user.id))
+
+            verify(exactly = 0) { userJobGroupFacade.deleteByIdsAndUserIdAndStatus(any(), any(), any()) }
+        }
+
+        @Test
+        fun `should do nothing when user has no preference`() {
+            val user = UserEntity(auth0Sub = "user-1")
+
+            every { userPreferenceFacade.findByUserId(user.id) } returns null
+
+            service.onPreferenceChanged(PreferenceChangedEvent(user.id))
+
+            verify(exactly = 0) { userJobGroupFacade.findIdsByUserIdAndStatus(any(), any()) }
+        }
+
+        @Test
+        fun `should evaluate filter against representative job with longest description`() {
+            val user = UserEntity(auth0Sub = "user-1")
+            val group =
+                groupWithJobs(
+                    "Senior Java Developer",
+                    job("Senior Java Developer", description = "short crypto mention"),
+                    job("Senior Java Developer", description = "much longer clean description about java and spring boot"),
+                )
+            val userGroup = userJobGroup(user, group)
+            val preference = preference(user, excludedKeywords = listOf("crypto"))
+
+            stubGroups(user, preference, listOf(userGroup))
+
+            service.onPreferenceChanged(PreferenceChangedEvent(user.id))
+
+            verify(exactly = 0) { userJobGroupFacade.deleteByIdsAndUserIdAndStatus(any(), any(), any()) }
+        }
+
+        @Test
+        fun `should keep group without jobs`() {
+            val user = UserEntity(auth0Sub = "user-1")
+            val emptyGroup = group("Senior Java Developer")
+            val userGroup = userJobGroup(user, emptyGroup)
+            val preference = preference(user, excludedTitleKeywords = listOf("lead"))
+
+            stubGroups(user, preference, listOf(userGroup))
+
+            service.onPreferenceChanged(PreferenceChangedEvent(user.id))
+
+            verify(exactly = 0) { userJobGroupFacade.deleteByIdsAndUserIdAndStatus(any(), any(), any()) }
+        }
     }
 
     @Test
-    fun `should not delete anything when all groups still pass the filter`() {
+    fun `should load and release persistence state in bounded chunks`() {
         val user = UserEntity(auth0Sub = "user-1")
-        val devUserGroup = userJobGroup(user, groupWithJob("Senior Java Developer"))
-        val preference = preference(user, excludedTitleKeywords = listOf("lead"))
+        val preference = preference(user)
+        val groups =
+            List(COLD_FILTER_RETRO_BATCH_SIZE + 1) { index ->
+                userJobGroup(user, group("Java Developer $index"))
+            }
+        val groupsById = groups.associateBy(UserJobGroupEntity::getId)
+        val fetchedChunks = mutableListOf<List<UUID>>()
 
         every { userPreferenceFacade.findByUserId(user.id) } returns preference
-        every { userJobGroupFacade.findByUserIdAndStatus(user.id, UserJobStatus.NEW) } returns listOf(devUserGroup)
+        every { userJobGroupFacade.findIdsByUserIdAndStatus(user.id, UserJobStatus.NEW) } returns groupsById.keys.toList()
+        every {
+            userJobGroupFacade.findByIdsWithGroupAndJobs(user.id, UserJobStatus.NEW, capture(fetchedChunks))
+        } answers {
+            thirdArg<List<UUID>>().map(groupsById::getValue)
+        }
+        every { userJobGroupFacade.flush() } just Runs
+        every { entityManager.clear() } just Runs
 
         service.onPreferenceChanged(PreferenceChangedEvent(user.id))
 
-        verify(exactly = 0) { userJobGroupFacade.deleteAll(any()) }
+        assertEquals(listOf(COLD_FILTER_RETRO_BATCH_SIZE, 1), fetchedChunks.map { it.size })
+        verify(exactly = 2) { userJobGroupFacade.flush() }
+        verify(exactly = 2) { entityManager.clear() }
     }
 
     @Test
-    fun `should do nothing when user has no preference`() {
-        val user = UserEntity(auth0Sub = "user-1")
+    fun `should schedule listener on dedicated executor after commit`() {
+        val method = ColdFilterRetroService::class.java.getDeclaredMethod("onPreferenceChanged", PreferenceChangedEvent::class.java)
 
-        every { userPreferenceFacade.findByUserId(user.id) } returns null
+        val async = assertNotNull(method.getAnnotation(Async::class.java))
+        val transactionalEventListener = assertNotNull(method.getAnnotation(TransactionalEventListener::class.java))
 
-        service.onPreferenceChanged(PreferenceChangedEvent(user.id))
-
-        verify(exactly = 0) { userJobGroupFacade.findByUserIdAndStatus(any(), any()) }
+        assertEquals(COLD_FILTER_RETRO_EXECUTOR, async.value)
+        assertEquals(TransactionPhase.AFTER_COMMIT, transactionalEventListener.phase)
     }
 
-    @Test
-    fun `should evaluate filter against representative job with longest description`() {
-        val user = UserEntity(auth0Sub = "user-1")
-        val group = groupWithJobs(
-            "Senior Java Developer",
-            job("Senior Java Developer", description = "short crypto mention"),
-            job("Senior Java Developer", description = "much longer clean description about java and spring boot"),
-        )
-        val userGroup = userJobGroup(user, group)
-        val preference = preference(user, excludedKeywords = listOf("crypto"))
-
+    private fun stubGroups(
+        user: UserEntity,
+        preference: UserPreferenceEntity,
+        groups: List<UserJobGroupEntity>,
+    ) {
+        val ids = groups.map(UserJobGroupEntity::getId)
         every { userPreferenceFacade.findByUserId(user.id) } returns preference
-        every { userJobGroupFacade.findByUserIdAndStatus(user.id, UserJobStatus.NEW) } returns listOf(userGroup)
-
-        service.onPreferenceChanged(PreferenceChangedEvent(user.id))
-
-        verify(exactly = 0) { userJobGroupFacade.deleteAll(any()) }
-    }
-
-    @Test
-    fun `should keep group without jobs`() {
-        val user = UserEntity(auth0Sub = "user-1")
-        val emptyGroup = group("Senior Java Developer")
-        val userGroup = userJobGroup(user, emptyGroup)
-        val preference = preference(user, excludedTitleKeywords = listOf("lead"))
-
-        every { userPreferenceFacade.findByUserId(user.id) } returns preference
-        every { userJobGroupFacade.findByUserIdAndStatus(user.id, UserJobStatus.NEW) } returns listOf(userGroup)
-
-        service.onPreferenceChanged(PreferenceChangedEvent(user.id))
-
-        verify(exactly = 0) { userJobGroupFacade.deleteAll(any()) }
+        every { userJobGroupFacade.findIdsByUserIdAndStatus(user.id, UserJobStatus.NEW) } returns ids
+        every { userJobGroupFacade.findByIdsWithGroupAndJobs(user.id, UserJobStatus.NEW, ids) } returns groups
+        every { userJobGroupFacade.flush() } just Runs
+        every { entityManager.clear() } just Runs
     }
 
     private fun group(title: String): JobGroupEntity =

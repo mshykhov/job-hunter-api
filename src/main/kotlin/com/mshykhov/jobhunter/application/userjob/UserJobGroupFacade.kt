@@ -32,6 +32,17 @@ class UserJobGroupFacade(private val userJobGroupRepository: UserJobGroupReposit
         status: UserJobStatus,
     ): List<UserJobGroupEntity> = userJobGroupRepository.findByUserIdAndStatus(userId, status)
 
+    fun findIdsByUserIdAndStatus(
+        userId: UUID,
+        status: UserJobStatus,
+    ): List<UUID> = userJobGroupRepository.findIdsByUserIdAndStatus(userId, status)
+
+    fun findByIdsWithGroupAndJobs(
+        userId: UUID,
+        status: UserJobStatus,
+        ids: List<UUID>,
+    ): List<UserJobGroupEntity> = userJobGroupRepository.findByIdInWithGroupAndJobs(userId, status, ids)
+
     fun findAll(
         spec: Specification<UserJobGroupEntity>,
         pageable: Pageable,
@@ -47,4 +58,14 @@ class UserJobGroupFacade(private val userJobGroupRepository: UserJobGroupReposit
 
     @Transactional
     fun deleteAll(entities: List<UserJobGroupEntity>) = userJobGroupRepository.deleteAll(entities)
+
+    @Transactional
+    fun deleteByIdsAndUserIdAndStatus(
+        ids: List<UUID>,
+        userId: UUID,
+        status: UserJobStatus,
+    ): Int = userJobGroupRepository.deleteByIdsAndUserIdAndStatus(ids, userId, status)
+
+    @Transactional
+    fun flush() = userJobGroupRepository.flush()
 }
