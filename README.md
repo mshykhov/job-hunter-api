@@ -89,6 +89,19 @@ src/main/kotlin/com/mshykhov/jobhunter/
 | `AI_ENABLED` | `false` | Enable Claude AI filtering |
 | `ANTHROPIC_AUTH_TOKEN` | - | OAuth token from `claude setup-token` |
 
+## Agent Configuration
+
+`.rulesync/` is the canonical source for repository instructions and scoped rules.
+`CLAUDE.md`, `AGENTS.md`, and `.claude/rules/` are generated projections and must not
+be edited directly.
+
+```bash
+npm ci
+npm run rulesync:dry-run
+npm run rulesync:generate
+npm run rulesync:verify
+```
+
 ## License
 
 MIT

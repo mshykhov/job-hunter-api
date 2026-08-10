@@ -1,3 +1,6 @@
+---
+root: true
+---
 # Job Hunter API
 
 Kotlin Spring Boot backend for Job Hunter. It owns vacancy ingestion, matching,

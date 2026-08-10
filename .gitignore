@@ -34,3 +34,6 @@ src/test/resources/bench/*.local.json
 .claude/*
 !.claude/rules/
 !.claude/rules/**
+
+# Agent configuration tooling
+node_modules/

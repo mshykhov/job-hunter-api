@@ -1,6 +1,7 @@
 ---
-paths:
-  - src/**/*.kt
+root: false
+globs:
+  - 'src/**/*.kt'
 ---
 # Kotlin backend conventions
 
