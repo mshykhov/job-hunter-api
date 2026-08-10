@@ -626,12 +626,12 @@ class JobMatchingServiceTest {
             val since = Instant.parse("2026-03-08T00:00:00Z")
 
             every { jobFacade.findMatchedSince(since) } returns listOf(job)
-            every { jobFacade.updateMatchedAt(listOf(job.id), null) } just Runs
+            every { jobFacade.resetMatchingState(listOf(job.id)) } just Runs
 
             val count = service.rematch(since)
 
             assertEquals(1, count)
-            verify { jobFacade.updateMatchedAt(listOf(job.id), null) }
+            verify { jobFacade.resetMatchingState(listOf(job.id)) }
         }
 
         @Test
@@ -654,7 +654,7 @@ class JobMatchingServiceTest {
             val count = service.rematch(null)
 
             assertEquals(0, count)
-            verify(exactly = 0) { jobFacade.updateMatchedAt(any(), any()) }
+            verify(exactly = 0) { jobFacade.resetMatchingState(any()) }
         }
     }
 

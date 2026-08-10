@@ -31,7 +31,7 @@ n8n scrapers ──POST /jobs/ingest──▶ JobEntity (dedup by URL)
                                         │
                                         ▼
                   UI/API: filter by minScore + status; POST rematch resets
-                  matched_at (capped at 3 days back)
+                  matched_at + match_attempts (capped at 3 days back)
 ```
 
 ## Key Classes

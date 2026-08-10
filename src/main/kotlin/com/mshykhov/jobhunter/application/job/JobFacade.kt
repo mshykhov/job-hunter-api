@@ -60,6 +60,9 @@ class JobFacade(private val jobRepository: JobRepository) {
     ) = jobRepository.updateMatchedAt(ids, matchedAt)
 
     @Transactional
+    fun resetMatchingState(ids: List<UUID>) = jobRepository.resetMatchingState(ids)
+
+    @Transactional
     fun updateRemote(
         id: UUID,
         remote: Boolean,

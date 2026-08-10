@@ -277,7 +277,7 @@ class JobMatchingService(
         val jobs = jobFacade.findMatchedSince(effectiveSince)
         if (jobs.isEmpty()) return 0
 
-        jobFacade.updateMatchedAt(jobs.map { it.id }, null)
+        jobFacade.resetMatchingState(jobs.map { it.id })
 
         logger.info { "Rematch queued: ${jobs.size} jobs reset (since=$effectiveSince)" }
         return jobs.size

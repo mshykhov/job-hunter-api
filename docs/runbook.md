@@ -77,7 +77,7 @@ Nothing is lost while this is happening. Failed evaluations leave `matched_at` N
 
 ## Routine operations
 
-**Re-match a period.** Clearing `matched_at` puts jobs back in the queue; clear `match_attempts` too or jobs that hit the retry cap stay excluded.
+**Re-match a period.** Prefer authenticated `POST /jobs/rematch?since=<timestamp>`. The endpoint clamps the period to three days and resets both `matched_at` and `match_attempts`, so jobs that reached the retry cap become eligible again. Use the SQL form only when the API is unavailable.
 
 ```sql
 UPDATE jobs SET matched_at = NULL, match_attempts = 0

@@ -67,6 +67,32 @@ class JobFacadeIntegrationTest : AbstractIntegrationTest() {
     }
 
     @Nested
+    inner class ResetMatchingState {
+        @Test
+        fun `should clear matched timestamp and retry attempts`() {
+            val suffix = System.nanoTime()
+            val group = jobGroupRepository.save(TestFixtures.jobGroupEntity(title = "Rematch $suffix"))
+            val job =
+                jobRepository.save(
+                    TestFixtures.jobEntity(
+                        title = "Rematch $suffix",
+                        group = group,
+                        url = "https://example.com/rematch-$suffix",
+                    ).apply {
+                        matchedAt = Instant.parse("2026-08-10T09:00:00Z")
+                        matchAttempts = 5
+                    },
+                )
+
+            jobFacade.resetMatchingState(listOf(job.id))
+
+            val reset = jobRepository.findById(job.id).orElseThrow()
+            assertEquals(null, reset.matchedAt)
+            assertEquals(0, reset.matchAttempts)
+        }
+    }
+
+    @Nested
     inner class FindPurgeableIds {
         private val reference = Instant.parse("2026-07-01T00:00:00Z")
         private val threshold = reference.minus(Duration.ofDays(30))

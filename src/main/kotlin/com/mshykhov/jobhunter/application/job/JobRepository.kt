@@ -44,6 +44,10 @@ interface JobRepository :
         matchedAt: Instant?,
     )
 
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE JobEntity j SET j.matchedAt = NULL, j.matchAttempts = 0 WHERE j.id IN :ids")
+    fun resetMatchingState(ids: List<UUID>)
+
     @Modifying
     @Query("UPDATE JobEntity j SET j.remote = :remote WHERE j.id = :id")
     fun updateRemote(
