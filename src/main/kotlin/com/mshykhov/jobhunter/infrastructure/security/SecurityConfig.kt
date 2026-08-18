@@ -51,6 +51,8 @@ class SecurityConfig(private val oidcProperties: OidcProperties, private val obj
                     .permitAll()
                     .requestMatchers("/swagger-ui/**", "/api-docs/**")
                     .permitAll()
+                    .requestMatchers("/mcp", "/mcp/**")
+                    .hasAuthority("SCOPE_report:automation-health")
                     .requestMatchers("/jobs/**", "/criteria/**", "/preferences/**", "/proxies/**", "/settings/**")
                     .authenticated()
                     .anyRequest()

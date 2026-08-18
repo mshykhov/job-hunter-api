@@ -43,7 +43,7 @@ repositories {
 
 dependencyManagement {
     imports {
-        mavenBom("org.springframework.ai:spring-ai-bom:1.0.0")
+        mavenBom("org.springframework.ai:spring-ai-bom:1.1.8")
     }
 }
 
@@ -78,6 +78,7 @@ dependencies {
 
     // AI (Spring AI + OpenAI)
     implementation("org.springframework.ai:spring-ai-starter-model-openai")
+    implementation("org.springframework.ai:spring-ai-starter-mcp-server-webmvc")
 
     // Document parsing
     implementation("org.apache.pdfbox:pdfbox:3.0.4")

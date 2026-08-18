@@ -3,7 +3,7 @@
 Kotlin Spring Boot backend for Job Hunter. It owns vacancy ingestion, matching,
 user preferences, outreach, persistence, and user-facing REST endpoints.
 
-Stack: Kotlin 2.1, Spring Boot 3.5, Spring AI 1.0, PostgreSQL 16, Flyway, and
+Stack: Kotlin 2.1, Spring Boot 3.5, Spring AI 1.1, PostgreSQL 16, Flyway, and
 Testcontainers.
 
 ## Commands

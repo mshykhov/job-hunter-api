@@ -36,6 +36,15 @@ spring:
         speech: none
         transcription: none
       moderation: none
+    mcp:
+      server:
+        enabled: true
+        protocol: STATELESS
+        type: SYNC
+        name: job-hunter
+        version: ${BUILD_VERSION:dev}
+        streamable-http:
+          mcp-endpoint: /mcp
 
 server:
   port: ${SERVER_PORT:8080}

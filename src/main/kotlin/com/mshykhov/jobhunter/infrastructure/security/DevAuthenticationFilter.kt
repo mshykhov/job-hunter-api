@@ -51,6 +51,7 @@ class DevAuthenticationFilter : OncePerRequestFilter() {
                 "read:proxies",
                 "read:settings",
                 "write:settings",
+                "report:automation-health",
             )
     }
 }

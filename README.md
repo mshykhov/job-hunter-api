@@ -12,6 +12,7 @@ REST API that receives scraped job listings from n8n workflows, matches them to 
 |------------|---------|---------|
 | Kotlin | 2.1 | Language |
 | Spring Boot | 3.5 | Framework |
+| Spring AI | 1.1 | AI integrations and MCP transport |
 | Spring Data JPA | - | Database access |
 | PostgreSQL | 16 | Database |
 | Flyway | - | Schema migrations |
@@ -36,6 +37,9 @@ docker compose up -d
 Swagger UI: [http://localhost:8095/swagger-ui](http://localhost:8095/swagger-ui)
 
 OpenAPI spec: [http://localhost:8095/api-docs](http://localhost:8095/api-docs)
+
+The stateless MCP endpoint is `/mcp` and requires the dedicated automation
+health-reporting scope when OIDC is enabled.
 
 ## Project Structure
 
