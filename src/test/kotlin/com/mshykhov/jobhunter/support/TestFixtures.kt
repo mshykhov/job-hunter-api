@@ -2,6 +2,10 @@ package com.mshykhov.jobhunter.support
 
 import com.mshykhov.jobhunter.api.rest.job.dto.JobIngestRequest
 import com.mshykhov.jobhunter.application.ai.UserAiProviderEntity
+import com.mshykhov.jobhunter.application.automation.AutomationComponent
+import com.mshykhov.jobhunter.application.automation.AutomationComponentSnapshot
+import com.mshykhov.jobhunter.application.automation.AutomationDelegationEntity
+import com.mshykhov.jobhunter.application.automation.AutomationRunnerEntity
 import com.mshykhov.jobhunter.application.job.Category
 import com.mshykhov.jobhunter.application.job.JobEntity
 import com.mshykhov.jobhunter.application.job.JobGroupEntity
@@ -20,6 +24,30 @@ import java.time.Instant
 import java.util.UUID
 
 object TestFixtures {
+    fun automationDelegationEntity(
+        user: UserEntity = userEntity(),
+        ownerIssuer: String = "https://auth.example.test/application/o/job-hunter-ui/",
+        ownerSubject: String = "owner-${UUID.randomUUID()}",
+        runnerIssuer: String = "https://auth.example.test/application/o/job-hunter-automation-m2m/",
+    ): AutomationDelegationEntity =
+        AutomationDelegationEntity(
+            user = user,
+            ownerIssuer = ownerIssuer,
+            ownerSubject = ownerSubject,
+            runnerIssuer = runnerIssuer,
+        )
+
+    fun automationRunnerEntity(
+        delegation: AutomationDelegationEntity,
+        runnerKey: String = "runner-${UUID.randomUUID()}",
+        components: Map<AutomationComponent, AutomationComponentSnapshot> = emptyMap(),
+    ): AutomationRunnerEntity =
+        AutomationRunnerEntity(
+            delegation = delegation,
+            runnerKey = runnerKey,
+            components = components,
+        )
+
     fun jobIngestRequest(
         title: String = "Senior Kotlin Developer",
         company: String? = "TechCorp",
