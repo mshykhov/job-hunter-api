@@ -27,6 +27,7 @@ class DevAuthenticationFilter : OncePerRequestFilter() {
             Jwt
                 .withTokenValue("dev-token")
                 .header("alg", "none")
+                .issuer("http://localhost/dev")
                 .subject(DEV_USER_SUB)
                 .claim("scope", DEV_SCOPES.joinToString(" "))
                 .issuedAt(Instant.now())
@@ -52,6 +53,8 @@ class DevAuthenticationFilter : OncePerRequestFilter() {
                 "read:settings",
                 "write:settings",
                 "report:automation-health",
+                "read:automation",
+                "write:automation",
             )
     }
 }

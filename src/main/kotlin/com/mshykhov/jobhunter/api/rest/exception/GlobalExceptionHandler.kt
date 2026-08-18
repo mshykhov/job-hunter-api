@@ -1,6 +1,7 @@
 package com.mshykhov.jobhunter.api.rest.exception
 
 import com.mshykhov.jobhunter.application.common.AiNotConfiguredException
+import com.mshykhov.jobhunter.application.common.ConflictException
 import com.mshykhov.jobhunter.application.common.NotFoundException
 import com.mshykhov.jobhunter.application.common.ServiceUnavailableException
 import com.mshykhov.jobhunter.application.common.ValidationException
@@ -88,6 +89,12 @@ class GlobalExceptionHandler : ResponseEntityExceptionHandler() {
         return ResponseEntity
             .status(HttpStatus.CONFLICT)
             .body(ErrorResponse("Data conflict: duplicate or constraint violation", "CONFLICT"))
+    }
+
+    @ExceptionHandler(ConflictException::class)
+    fun handleConflict(ex: ConflictException): ResponseEntity<ErrorResponse> {
+        log.warn { "Conflict: ${ex.message}" }
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ErrorResponse(ex.message ?: "Conflict", "CONFLICT"))
     }
 
     @ExceptionHandler(AuthorizationDeniedException::class)

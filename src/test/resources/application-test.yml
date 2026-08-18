@@ -17,6 +17,11 @@ spring:
       moderation: none
 
 jobhunter:
+  automation:
+    enabled: true
+    owner-issuer: http://localhost/dev
+    owner-subject: local-dev-user
+    runner-issuer: http://localhost/runner
   oidc:
     enabled: false
   ai:

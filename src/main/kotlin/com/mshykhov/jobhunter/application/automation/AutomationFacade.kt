@@ -17,11 +17,19 @@ class AutomationFacade(
     ): AutomationDelegationEntity? =
         delegationRepository.findByOwnerIssuerAndOwnerSubjectAndRevokedAtIsNull(ownerIssuer, ownerSubject)
 
+    fun findDelegation(
+        ownerIssuer: String,
+        ownerSubject: String,
+    ): AutomationDelegationEntity? = delegationRepository.findByOwnerIssuerAndOwnerSubject(ownerIssuer, ownerSubject)
+
     @Transactional
     fun saveDelegation(delegation: AutomationDelegationEntity): AutomationDelegationEntity =
         delegationRepository.save(delegation)
 
     fun findRunner(delegationId: UUID): AutomationRunnerEntity? = runnerRepository.findByDelegationId(delegationId)
+
+    fun findRunnerForUpdate(delegationId: UUID): AutomationRunnerEntity? =
+        runnerRepository.findForUpdateByDelegationId(delegationId)
 
     @Transactional
     fun saveRunner(runner: AutomationRunnerEntity): AutomationRunnerEntity = runnerRepository.save(runner)

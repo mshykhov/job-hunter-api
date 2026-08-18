@@ -2,12 +2,14 @@ package com.mshykhov.jobhunter.infrastructure.security
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.mshykhov.jobhunter.api.rest.exception.ErrorResponse
+import com.mshykhov.jobhunter.infrastructure.automation.AutomationProperties
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.web.servlet.FilterRegistrationBean
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.core.Ordered
+import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.client.SimpleClientHttpRequestFactory
@@ -31,7 +33,7 @@ import org.springframework.web.client.RestTemplate
 
 @Configuration
 @EnableWebSecurity
-@EnableConfigurationProperties(OidcProperties::class)
+@EnableConfigurationProperties(OidcProperties::class, AutomationProperties::class)
 class SecurityConfig(private val oidcProperties: OidcProperties, private val objectMapper: ObjectMapper) {
     @Bean
     @ConditionalOnProperty(
@@ -52,6 +54,14 @@ class SecurityConfig(private val oidcProperties: OidcProperties, private val obj
                     .requestMatchers("/swagger-ui/**", "/api-docs/**")
                     .permitAll()
                     .requestMatchers("/mcp", "/mcp/**")
+                    .hasAuthority("SCOPE_report:automation-health")
+                    .requestMatchers(HttpMethod.GET, "/automation/status")
+                    .hasAuthority("SCOPE_read:automation")
+                    .requestMatchers(HttpMethod.PUT, "/automation/delegation")
+                    .hasAuthority("SCOPE_write:automation")
+                    .requestMatchers(HttpMethod.DELETE, "/automation/delegation")
+                    .hasAuthority("SCOPE_write:automation")
+                    .requestMatchers("/automation/runner/**")
                     .hasAuthority("SCOPE_report:automation-health")
                     .requestMatchers("/jobs/**", "/criteria/**", "/preferences/**", "/proxies/**", "/settings/**")
                     .authenticated()
