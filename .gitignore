@@ -37,3 +37,6 @@ src/test/resources/bench/*.local.json
 
 # Agent configuration tooling
 node_modules/
+
+# Isolated feature worktrees
+.worktrees/
