@@ -1,0 +1,18 @@
+package com.mshykhov.jobhunter.application.automation
+
+enum class AutomationReason {
+    NONE,
+    API_UNAVAILABLE,
+    DATABASE_UNAVAILABLE,
+    CHROME_UNAVAILABLE,
+    PROFILE_UNREADABLE,
+    PLAYWRIGHT_UNAVAILABLE,
+    MCP_UNAVAILABLE,
+    CODEX_AUTH_REQUIRED,
+    SITE_AUTH_REQUIRED,
+    CANARY_FAILED,
+    CLOCK_SKEW,
+    STALE_GENERATION,
+    INVALID_REPORT,
+    OTHER,
+}

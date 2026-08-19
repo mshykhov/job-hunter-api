@@ -12,6 +12,7 @@ REST API that receives scraped job listings from n8n workflows, matches them to 
 |------------|---------|---------|
 | Kotlin | 2.1 | Language |
 | Spring Boot | 3.5 | Framework |
+| Spring AI | 1.1 | AI integrations and MCP transport |
 | Spring Data JPA | - | Database access |
 | PostgreSQL | 16 | Database |
 | Flyway | - | Schema migrations |
@@ -36,6 +37,9 @@ docker compose up -d
 Swagger UI: [http://localhost:8095/swagger-ui](http://localhost:8095/swagger-ui)
 
 OpenAPI spec: [http://localhost:8095/api-docs](http://localhost:8095/api-docs)
+
+The stateless MCP endpoint is `/mcp` and requires the dedicated automation
+health-reporting scope when OIDC is enabled.
 
 ## Project Structure
 
@@ -71,6 +75,10 @@ src/main/kotlin/com/mshykhov/jobhunter/
 | `GET` | `/preferences` | Get user preferences |
 | `PUT` | `/preferences` | Save user preferences |
 | `POST` | `/preferences/normalize` | AI-normalize raw text to structured preferences |
+| `PUT` / `DELETE` | `/automation/delegation` | Enable or revoke owner automation health delegation |
+| `GET` | `/automation/status` | Read the owner-only automation health projection |
+| `POST` | `/automation/runner/session` | Start a fenced runner generation |
+| `PUT` | `/automation/runner/heartbeat` | Report a fenced, idempotent runner heartbeat |
 | `GET` | `/actuator/health` | Health check |
 
 ## Environment Variables
@@ -83,6 +91,10 @@ src/main/kotlin/com/mshykhov/jobhunter/
 | `DB_USERNAME` | `jobhunter` | Database user |
 | `DB_PASSWORD` | `jobhunter` | Database password |
 | `SERVER_PORT` | `8080` (`8095` in local profile) | Application port |
+| `AUTOMATION_ENABLED` | `false` | Enable the private automation boundary |
+| `AUTOMATION_OWNER_ISSUER` | - | Exact interactive owner OIDC issuer |
+| `AUTOMATION_OWNER_SUBJECT` | - | Exact immutable owner OIDC subject |
+| `AUTOMATION_RUNNER_ISSUER` | - | Exact dedicated runner OIDC issuer |
 | `AUTH0_ENABLED` | `true` | Enable/disable Auth0 |
 | `AUTH0_ISSUER` | - | Auth0 issuer URL |
 | `AUTH0_AUDIENCE` | - | Auth0 audience |

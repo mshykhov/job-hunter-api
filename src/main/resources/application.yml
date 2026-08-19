@@ -1,6 +1,9 @@
 spring:
   application:
     name: job-hunter-api
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true
 
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5440}/${DB_NAME:jobhunter}
@@ -36,6 +39,15 @@ spring:
         speech: none
         transcription: none
       moderation: none
+    mcp:
+      server:
+        enabled: true
+        protocol: STATELESS
+        type: SYNC
+        name: job-hunter
+        version: ${BUILD_VERSION:dev}
+        streamable-http:
+          mcp-endpoint: /mcp
 
 server:
   port: ${SERVER_PORT:8080}
@@ -57,6 +69,15 @@ management:
       endpoint: ${OTLP_TRACES_ENDPOINT:}
 
 jobhunter:
+  automation:
+    enabled: ${AUTOMATION_ENABLED:false}
+    owner-issuer: ${AUTOMATION_OWNER_ISSUER:}
+    owner-subject: ${AUTOMATION_OWNER_SUBJECT:}
+    runner-issuer: ${AUTOMATION_RUNNER_ISSUER:}
+    heartbeat-freshness: ${AUTOMATION_HEARTBEAT_FRESHNESS:2m}
+    preflight-freshness: ${AUTOMATION_PREFLIGHT_FRESHNESS:10m}
+    codex-freshness: ${AUTOMATION_CODEX_FRESHNESS:12h}
+    max-clock-skew: ${AUTOMATION_MAX_CLOCK_SKEW:1m}
   ai:
     encryption-key: ${AI_ENCRYPTION_KEY:}
     matching:
