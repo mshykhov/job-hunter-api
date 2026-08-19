@@ -85,11 +85,12 @@ class AutomationMetrics(private val meterRegistry: MeterRegistry) {
         lastHeartbeatAt: Instant,
         components: Map<AutomationComponent, AutomationComponentSnapshot>,
         probes: Map<ProbeType, AutomationProbeSnapshot>,
+        executedProbes: Map<ProbeType, AutomationProbeSnapshot> = probes,
         codexInputTokens: Long,
         codexOutputTokens: Long,
     ) {
         restore(true, lastHeartbeatAt, components, probes)
-        probes.forEach { (probe, snapshot) ->
+        executedProbes.forEach { (probe, snapshot) ->
             recordProbe(probe, snapshot.outcome, snapshot.reason.name)
         }
         recordCodexTokens(codexInputTokens, codexOutputTokens)

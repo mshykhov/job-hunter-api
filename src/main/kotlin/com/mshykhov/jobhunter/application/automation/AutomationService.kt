@@ -102,6 +102,7 @@ class AutomationService(
             throw ValidationException("Heartbeat clock skew exceeds the allowed limit")
         }
         val previous = runner.components
+        val previousProbes = runner.probes
         val state = healthPolicy.overallState(request.components, now)
         runner.sequence = request.sequence
         runner.lastIdempotencyKey = request.idempotencyKey
@@ -122,6 +123,7 @@ class AutomationService(
                 lastHeartbeatAt = now,
                 components = request.components,
                 probes = request.probes,
+                executedProbes = request.probes.filter { (probe, snapshot) -> previousProbes[probe] != snapshot },
                 codexInputTokens = request.codexInputTokens,
                 codexOutputTokens = request.codexOutputTokens,
             )

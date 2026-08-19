@@ -98,6 +98,35 @@ class AutomationRunnerControllerIntegrationTest : AbstractIntegrationTest() {
         assertEquals(17.0, inputTokenCount() - tokensBefore)
     }
 
+    @Test
+    fun `unchanged probe snapshot is not counted as another execution`() {
+        val generation = startSession()
+        val probeAt = Instant.now().toString()
+        val probeBefore = probeCount()
+        val tokensBefore = inputTokenCount()
+
+        mockMvc.put("/automation/runner/heartbeat") {
+            with(authentication(runner()))
+            contentType = MediaType.APPLICATION_JSON
+            content = heartbeat(generation, 1, "d9248f0b-864e-46e2-80aa-8adbb186be17", probeAt = probeAt)
+        }.andExpect { status { isOk() } }
+        mockMvc.put("/automation/runner/heartbeat") {
+            with(authentication(runner()))
+            contentType = MediaType.APPLICATION_JSON
+            content =
+                heartbeat(
+                    generation,
+                    2,
+                    "4109b6b7-2f9f-4426-a406-e66be7be9106",
+                    probeAt = probeAt,
+                    codexInputTokens = 0,
+                )
+        }.andExpect { status { isOk() } }
+
+        assertEquals(1.0, probeCount() - probeBefore)
+        assertEquals(17.0, inputTokenCount() - tokensBefore)
+    }
+
     private fun startSession(): Long {
         val response =
             mockMvc
@@ -114,6 +143,8 @@ class AutomationRunnerControllerIntegrationTest : AbstractIntegrationTest() {
         sequence: Long,
         idempotencyKey: String,
         sentAt: String = Instant.now().toString(),
+        probeAt: String = sentAt,
+        codexInputTokens: Long = 17,
     ): String =
         """
         {
@@ -129,10 +160,10 @@ class AutomationRunnerControllerIntegrationTest : AbstractIntegrationTest() {
               "reason": "NONE",
               "durationMillis": 1250,
               "consecutiveFailures": 0,
-              "lastSuccessAt": "$sentAt"
+              "lastSuccessAt": "$probeAt"
             }
           },
-          "codexInputTokens": 17,
+          "codexInputTokens": $codexInputTokens,
           "codexOutputTokens": 5
         }
         """.trimIndent()
