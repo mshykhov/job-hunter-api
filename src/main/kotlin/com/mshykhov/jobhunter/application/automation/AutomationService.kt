@@ -10,8 +10,11 @@ import com.mshykhov.jobhunter.application.common.NotFoundException
 import com.mshykhov.jobhunter.application.common.ValidationException
 import com.mshykhov.jobhunter.application.user.UserFacade
 import com.mshykhov.jobhunter.infrastructure.automation.AutomationProperties
+import com.mshykhov.jobhunter.infrastructure.metrics.AutomationMetrics
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionSynchronization
+import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
@@ -23,6 +26,7 @@ class AutomationService(
     private val healthPolicy: AutomationHealthPolicy,
     private val properties: AutomationProperties,
     private val clock: Clock,
+    private val metrics: AutomationMetrics,
 ) {
     @Transactional
     fun enableDelegation(): AutomationDelegationResponse {
@@ -31,6 +35,7 @@ class AutomationService(
             existing.healthReportingEnabled = true
             existing.revokedAt = null
             facade.saveDelegation(existing)
+            afterCommit { metrics.setEnabled(true) }
             return AutomationDelegationResponse(enabled = true)
         }
         val user = userFacade.findOrCreate(properties.ownerSubject)
@@ -42,6 +47,7 @@ class AutomationService(
                 runnerIssuer = properties.runnerIssuer,
             ),
         )
+        afterCommit { metrics.setEnabled(true) }
         return AutomationDelegationResponse(enabled = true)
     }
 
@@ -51,6 +57,7 @@ class AutomationService(
             it.healthReportingEnabled = false
             it.revokedAt = Instant.now(clock)
             facade.saveDelegation(it)
+            afterCommit { metrics.setEnabled(false) }
         }
     }
 
@@ -100,6 +107,7 @@ class AutomationService(
         runner.lastIdempotencyKey = request.idempotencyKey
         runner.launcherVersion = request.launcherVersion
         runner.components = request.components
+        runner.probes = request.probes
         runner.overallState = state
         runner.overallReason = healthPolicy.overallReason(request.components, state)
         runner.lastHeartbeatAt = now
@@ -109,6 +117,15 @@ class AutomationService(
         runner.codexOutputTokens = request.codexOutputTokens
         facade.saveRunner(runner)
         facade.appendTransitions(transitions(runner, previous, request.components, now))
+        afterCommit {
+            metrics.recordHeartbeat(
+                lastHeartbeatAt = now,
+                components = request.components,
+                probes = request.probes,
+                codexInputTokens = request.codexInputTokens,
+                codexOutputTokens = request.codexOutputTokens,
+            )
+        }
         return heartbeatResponse(runner)
     }
 
@@ -139,6 +156,18 @@ class AutomationService(
 
     private fun heartbeatResponse(runner: AutomationRunnerEntity) =
         AutomationHeartbeatResponse(runner.generation, runner.sequence, runner.overallState)
+
+    private fun afterCommit(action: () -> Unit) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            action()
+            return
+        }
+        TransactionSynchronizationManager.registerSynchronization(
+            object : TransactionSynchronization {
+                override fun afterCommit() = action()
+            },
+        )
+    }
 
     private fun unavailableStatus(enabled: Boolean) =
         AutomationStatusResponse(

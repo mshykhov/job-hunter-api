@@ -25,7 +25,7 @@ class AutomationPersistenceIntegrationTest : AbstractIntegrationTest() {
     lateinit var userRepository: UserRepository
 
     @Test
-    fun `should round-trip the runner component snapshot through JSONB`() {
+    fun `should round-trip runner snapshots through JSONB`() {
         val user = userRepository.save(TestFixtures.userEntity())
         val delegation = automationFacade.saveDelegation(TestFixtures.automationDelegationEntity(user = user))
         val checkedAt = Instant.parse("2026-08-18T08:00:00Z")
@@ -39,17 +39,30 @@ class AutomationPersistenceIntegrationTest : AbstractIntegrationTest() {
                         probeVersion = "0.1.0",
                     ),
             )
+        val probes =
+            mapOf(
+                ProbeType.CODEX to
+                    AutomationProbeSnapshot(
+                        outcome = ProbeOutcome.SUCCESS,
+                        reason = AutomationReason.NONE,
+                        durationMillis = 1250,
+                        consecutiveFailures = 0,
+                        lastSuccessAt = checkedAt,
+                    ),
+            )
 
         automationFacade.saveRunner(
             TestFixtures.automationRunnerEntity(
                 delegation = delegation,
                 components = components,
+                probes = probes,
             ),
         )
 
         val reloaded = automationFacade.findRunner(delegation.id)
 
         assertEquals(components, reloaded?.components)
+        assertEquals(probes, reloaded?.probes)
     }
 
     @Test

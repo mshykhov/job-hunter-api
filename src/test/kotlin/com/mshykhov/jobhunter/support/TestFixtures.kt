@@ -5,7 +5,9 @@ import com.mshykhov.jobhunter.application.ai.UserAiProviderEntity
 import com.mshykhov.jobhunter.application.automation.AutomationComponent
 import com.mshykhov.jobhunter.application.automation.AutomationComponentSnapshot
 import com.mshykhov.jobhunter.application.automation.AutomationDelegationEntity
+import com.mshykhov.jobhunter.application.automation.AutomationProbeSnapshot
 import com.mshykhov.jobhunter.application.automation.AutomationRunnerEntity
+import com.mshykhov.jobhunter.application.automation.ProbeType
 import com.mshykhov.jobhunter.application.job.Category
 import com.mshykhov.jobhunter.application.job.JobEntity
 import com.mshykhov.jobhunter.application.job.JobGroupEntity
@@ -41,11 +43,13 @@ object TestFixtures {
         delegation: AutomationDelegationEntity,
         runnerKey: String = "runner-${UUID.randomUUID()}",
         components: Map<AutomationComponent, AutomationComponentSnapshot> = emptyMap(),
+        probes: Map<ProbeType, AutomationProbeSnapshot> = emptyMap(),
     ): AutomationRunnerEntity =
         AutomationRunnerEntity(
             delegation = delegation,
             runnerKey = runnerKey,
             components = components,
+            probes = probes,
         )
 
     fun jobIngestRequest(

@@ -2,6 +2,9 @@ package com.mshykhov.jobhunter.api.rest.automation.dto
 
 import com.mshykhov.jobhunter.application.automation.AutomationComponent
 import com.mshykhov.jobhunter.application.automation.AutomationComponentSnapshot
+import com.mshykhov.jobhunter.application.automation.AutomationProbeSnapshot
+import com.mshykhov.jobhunter.application.automation.ProbeType
+import jakarta.validation.Valid
 import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotBlank
 import java.time.Instant
@@ -17,6 +20,8 @@ data class AutomationHeartbeatRequest(
     @field:NotBlank
     val launcherVersion: String,
     val components: Map<AutomationComponent, AutomationComponentSnapshot>,
+    @field:Valid
+    val probes: Map<ProbeType, AutomationProbeSnapshot> = emptyMap(),
     val lastPreflightSuccessAt: Instant? = null,
     val lastCodexSuccessAt: Instant? = null,
     @field:Min(0)

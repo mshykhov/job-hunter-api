@@ -24,6 +24,7 @@ CREATE TABLE automation_runners
     overall_state             VARCHAR(32) NOT NULL DEFAULT 'UNAVAILABLE',
     overall_reason            VARCHAR(64) NOT NULL DEFAULT 'INVALID_REPORT',
     components                JSONB       NOT NULL DEFAULT '{}'::jsonb,
+    probes                    JSONB       NOT NULL DEFAULT '{}'::jsonb,
     last_heartbeat_at         TIMESTAMPTZ,
     last_preflight_success_at TIMESTAMPTZ,
     last_codex_success_at     TIMESTAMPTZ,

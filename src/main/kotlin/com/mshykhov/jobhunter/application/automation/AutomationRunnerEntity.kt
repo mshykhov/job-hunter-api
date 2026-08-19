@@ -50,6 +50,9 @@ class AutomationRunnerEntity(
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(nullable = false, columnDefinition = "jsonb")
     var components: Map<AutomationComponent, AutomationComponentSnapshot> = emptyMap(),
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(nullable = false, columnDefinition = "jsonb")
+    var probes: Map<ProbeType, AutomationProbeSnapshot> = emptyMap(),
     @Column(name = "last_heartbeat_at")
     var lastHeartbeatAt: Instant? = null,
     @Column(name = "last_preflight_success_at")

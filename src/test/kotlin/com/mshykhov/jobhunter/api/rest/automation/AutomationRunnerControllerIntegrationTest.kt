@@ -1,6 +1,8 @@
 package com.mshykhov.jobhunter.api.rest.automation
 
+import com.mshykhov.jobhunter.infrastructure.metrics.AutomationMetrics
 import com.mshykhov.jobhunter.support.AbstractIntegrationTest
+import io.micrometer.core.instrument.MeterRegistry
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -13,10 +15,14 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.post
 import org.springframework.test.web.servlet.put
 import java.time.Instant
+import kotlin.test.assertEquals
 
 class AutomationRunnerControllerIntegrationTest : AbstractIntegrationTest() {
     @Autowired
     lateinit var mockMvc: MockMvc
+
+    @Autowired
+    lateinit var meterRegistry: MeterRegistry
 
     @BeforeEach
     fun enableDelegation() {
@@ -74,6 +80,8 @@ class AutomationRunnerControllerIntegrationTest : AbstractIntegrationTest() {
     fun `duplicate heartbeat is idempotent`() {
         val generation = startSession()
         val request = heartbeat(generation, 1, "a926efaf-496f-498b-bf69-62316a23aaf2")
+        val probeBefore = probeCount()
+        val tokensBefore = inputTokenCount()
 
         repeat(2) {
             mockMvc.put("/automation/runner/heartbeat") {
@@ -85,6 +93,9 @@ class AutomationRunnerControllerIntegrationTest : AbstractIntegrationTest() {
                 jsonPath("$.acceptedSequence") { value(1) }
             }
         }
+
+        assertEquals(1.0, probeCount() - probeBefore)
+        assertEquals(17.0, inputTokenCount() - tokensBefore)
     }
 
     private fun startSession(): Long {
@@ -111,9 +122,32 @@ class AutomationRunnerControllerIntegrationTest : AbstractIntegrationTest() {
           "idempotencyKey": "$idempotencyKey",
           "sentAt": "$sentAt",
           "launcherVersion": "0.1.0",
-          "components": {}
+          "components": {},
+          "probes": {
+            "CODEX": {
+              "outcome": "SUCCESS",
+              "reason": "NONE",
+              "durationMillis": 1250,
+              "consecutiveFailures": 0,
+              "lastSuccessAt": "$sentAt"
+            }
+          },
+          "codexInputTokens": 17,
+          "codexOutputTokens": 5
         }
         """.trimIndent()
+
+    private fun probeCount(): Double =
+        meterRegistry.find(AutomationMetrics.PROBE_METRIC)
+            .tags("probe", "CODEX", "outcome", "SUCCESS", "reason", "NONE")
+            .counter()
+            ?.count() ?: 0.0
+
+    private fun inputTokenCount(): Double =
+        meterRegistry.find(AutomationMetrics.CODEX_TOKENS_METRIC)
+            .tag("direction", "INPUT")
+            .counter()
+            ?.count() ?: 0.0
 
     private fun owner(): JwtAuthenticationToken = jwt(OWNER_ISSUER, OWNER_SUBJECT, "write:automation")
 
