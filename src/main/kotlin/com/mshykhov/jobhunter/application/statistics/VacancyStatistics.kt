@@ -6,6 +6,7 @@ import com.mshykhov.jobhunter.application.user.UserFacade
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate
 import org.springframework.stereotype.Service
+import java.sql.Timestamp
 import java.time.Clock
 import java.time.Instant
 
@@ -35,6 +36,9 @@ class VacancyStatisticsService(private val jdbcTemplate: NamedParameterJdbcTempl
         val requestedFrom = query.from ?: to.minusSeconds(DEFAULT_RANGE_SECONDS)
         if (requestedFrom.isAfter(to)) throw ValidationException("from must not be after to")
         val from = earliestGroupCreatedAt()?.let { earliest -> maxOf(requestedFrom, earliest) } ?: requestedFrom
+        if (!from.isBefore(to)) {
+            return VacancyStatisticsResult(from, to, query.bucket, migrationInstalledAt(), migrationInstalledAt(), emptyList())
+        }
         val starts =
             generateSequence(query.bucket.startOf(from)) { query.bucket.next(it) }
                 .takeWhile { it.isBefore(to) }
@@ -43,8 +47,8 @@ class VacancyStatisticsService(private val jdbcTemplate: NamedParameterJdbcTempl
         val sourceNames = query.sources?.map { it.name }?.toTypedArray()
         val params =
             MapSqlParameterSource()
-                .addValue("from", from)
-                .addValue("to", to)
+                .addValue("from", Timestamp.from(from))
+                .addValue("to", Timestamp.from(to))
                 .addValue("sources", sourceNames)
                 .addValue("sourcesEmpty", sourceNames.isNullOrEmpty())
         val user =

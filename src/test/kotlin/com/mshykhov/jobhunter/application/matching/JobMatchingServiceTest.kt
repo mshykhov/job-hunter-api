@@ -19,6 +19,7 @@ import com.mshykhov.jobhunter.application.preference.TelegramPreferences
 import com.mshykhov.jobhunter.application.preference.UserPreferenceEntity
 import com.mshykhov.jobhunter.application.preference.UserPreferenceFacade
 import com.mshykhov.jobhunter.application.settings.AiProvider
+import com.mshykhov.jobhunter.application.statistics.DecisionOutcome
 import com.mshykhov.jobhunter.application.statistics.UserJobGroupDecisionFacade
 import com.mshykhov.jobhunter.application.user.UserEntity
 import com.mshykhov.jobhunter.application.userjob.UserJobGroupEntity
@@ -151,6 +152,7 @@ class JobMatchingServiceTest {
             assertEquals(1, savedSlot.captured.size)
             assertEquals(85, savedSlot.captured[0].aiRelevanceScore)
             assertEquals("Strong Kotlin match", savedSlot.captured[0].aiReasoning)
+            verify { decisionFacade.upsert(user, group, listOf(job), DecisionOutcome.AI_SCORED, null, 85, true) }
         }
 
         @Test
@@ -176,6 +178,7 @@ class JobMatchingServiceTest {
             service.processUnmatchedJobs()
 
             verify(exactly = 0) { userJobGroupFacade.saveAll(any()) }
+            verify { decisionFacade.upsert(user, group, listOf(job), DecisionOutcome.AI_REJECTED_REMOTE, null, 70, false) }
         }
 
         @Test
@@ -200,6 +203,7 @@ class JobMatchingServiceTest {
 
             assertEquals(MatchingOutcome.AI_UNAVAILABLE, outcome)
             verify(exactly = 0) { jobFacade.updateMatchedAt(any(), any()) }
+            verify(exactly = 0) { decisionFacade.upsert(any(), any(), any(), any(), any(), any(), any()) }
         }
 
         @Test
@@ -253,6 +257,7 @@ class JobMatchingServiceTest {
 
             verify(exactly = 0) { jobRelevanceEvaluator.evaluate(any(), any(), any()) }
             verify(exactly = 0) { userJobGroupFacade.saveAll(any()) }
+            verify { decisionFacade.upsert(user, group, listOf(job), DecisionOutcome.COLD_REJECTED, "source", null, null) }
         }
     }
 
@@ -492,6 +497,7 @@ class JobMatchingServiceTest {
             assertEquals(1, savedSlot.captured.size)
             assertEquals(0, savedSlot.captured[0].aiRelevanceScore)
             assertEquals("Cold filter match only — AI evaluation disabled", savedSlot.captured[0].aiReasoning)
+            verify { decisionFacade.upsert(user, group, listOf(job), DecisionOutcome.COLD_ONLY, null, null, null) }
         }
 
         @Test
