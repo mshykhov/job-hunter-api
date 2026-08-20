@@ -17,6 +17,9 @@ spring:
       moderation: none
 
 jobhunter:
+  materials:
+    encryption-key: zTpXQW7QrGljd/LBJNmItXMKnzQsd+cV3eeOh3NXLms=
+    max-artifact-bytes: 5242880
   automation:
     enabled: true
     owner-issuer: http://localhost/dev

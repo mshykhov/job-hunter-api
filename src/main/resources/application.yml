@@ -69,6 +69,9 @@ management:
       endpoint: ${OTLP_TRACES_ENDPOINT:}
 
 jobhunter:
+  materials:
+    encryption-key: ${MATERIAL_ENCRYPTION_KEY:}
+    max-artifact-bytes: ${MATERIAL_MAX_ARTIFACT_BYTES:5242880}
   automation:
     enabled: ${AUTOMATION_ENABLED:false}
     owner-issuer: ${AUTOMATION_OWNER_ISSUER:}
