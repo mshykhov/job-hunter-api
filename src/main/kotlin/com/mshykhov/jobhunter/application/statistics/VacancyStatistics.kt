@@ -121,7 +121,7 @@ class VacancyStatisticsService(private val jdbcTemplate: NamedParameterJdbcTempl
     private fun migrationInstalledAt(): Instant? =
         runCatching {
             jdbcTemplate.query(
-                "SELECT installed_on FROM flyway_schema_history WHERE version = '27'",
+                "SELECT installed_on FROM flyway_schema_history WHERE version = '28'",
                 MapSqlParameterSource(),
             ) { rs, _ -> rs.getTimestamp("installed_on").toInstant() }.firstOrNull()
         }.getOrNull()
