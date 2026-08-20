@@ -16,12 +16,7 @@ import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
 
 @Service
-class UserJobGroupService(
-    private val userFacade: UserFacade,
-    private val userJobGroupFacade: UserJobGroupFacade,
-    private val userJobFacade: UserJobFacade,
-    private val jobFacade: JobFacade,
-) {
+class UserJobGroupService(private val userFacade: UserFacade, private val userJobGroupFacade: UserJobGroupFacade, private val jobFacade: JobFacade) {
     @Transactional(readOnly = true)
     fun search(
         auth0Sub: String,
@@ -79,12 +74,7 @@ class UserJobGroupService(
                 ?: throw NotFoundException("Group $groupId not found for user")
 
         val jobs = jobFacade.findByGroupId(groupId)
-        val userJobsByJobId = userJobFacade.findByUserIdAndJobIds(user.id, jobs.map { it.id }).associateBy { it.job.id }
-
-        val jobResponses =
-            jobs.map { job ->
-                GroupJobResponse.from(job, userJobsByJobId[job.id])
-            }
+        val jobResponses = jobs.map(GroupJobResponse::from)
 
         return JobGroupDetailResponse.from(userJobGroup, jobResponses)
     }

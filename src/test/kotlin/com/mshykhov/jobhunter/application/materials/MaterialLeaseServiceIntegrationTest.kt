@@ -38,7 +38,7 @@ class MaterialLeaseServiceIntegrationTest : AbstractIntegrationTest() {
     fun `claims once and completes an immutable ready revision`() {
         val subject = "auth0|lease-${UUID.randomUUID()}"
         val user = userRepository.save(TestFixtures.userEntity(subject))
-        val group = jobGroupRepository.save(TestFixtures.jobGroupEntity())
+        val group = jobGroupRepository.save(TestFixtures.jobGroupEntity(title = "Lease ${UUID.randomUUID()}"))
         val job = jobRepository.save(TestFixtures.jobEntity(group = group))
         userJobGroupRepository.save(TestFixtures.userJobGroupEntity(user = user, group = group))
         SyntheticMaterialBundle.create(objectMapper).also {

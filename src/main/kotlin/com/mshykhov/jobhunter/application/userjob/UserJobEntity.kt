@@ -36,10 +36,6 @@ class UserJobEntity(
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "job_id", nullable = false)
     val job: JobEntity,
-    @Column(name = "cover_letter", columnDefinition = "TEXT")
-    var coverLetter: String? = null,
-    @Column(name = "recruiter_message", columnDefinition = "TEXT")
-    var recruiterMessage: String? = null,
     @CreatedDate
     @Column(name = "created_at", insertable = false, updatable = false)
     val createdAt: Instant? = null,

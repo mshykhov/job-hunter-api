@@ -2,7 +2,6 @@ package com.mshykhov.jobhunter.api.rest.settings
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.mshykhov.jobhunter.application.ai.UserAiProviderRepository
-import com.mshykhov.jobhunter.application.job.JobSource
 import com.mshykhov.jobhunter.support.AbstractIntegrationTest
 import org.hamcrest.Matchers.equalTo
 import org.hamcrest.Matchers.greaterThan
@@ -14,7 +13,6 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.MediaType.APPLICATION_JSON
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
-import org.springframework.test.web.servlet.post
 import org.springframework.test.web.servlet.put
 import kotlin.test.assertEquals
 
@@ -364,104 +362,6 @@ class SettingsControllerIntegrationTest : AbstractIntegrationTest() {
                     contentType = APPLICATION_JSON
                     content = objectMapper.writeValueAsString(body)
                 }.andExpect { status { isBadRequest() } }
-        }
-    }
-
-    @Nested
-    inner class OutreachSettings {
-        @Test
-        fun `should return default outreach settings`() {
-            mockMvc.get("/settings/outreach").andExpect {
-                status { isOk() }
-                jsonPath("$.defaultCoverLetterPrompt") { isNotEmpty() }
-                jsonPath("$.defaultRecruiterMessagePrompt") { isNotEmpty() }
-            }
-        }
-
-        @Test
-        fun `should save outreach settings with custom prompts`() {
-            val body =
-                mapOf(
-                    "coverLetterPrompt" to "Write a professional cover letter",
-                    "recruiterMessagePrompt" to "Write a short recruiter message",
-                    "sourceConfig" to emptyMap<String, Any>(),
-                )
-
-            mockMvc
-                .put("/settings/outreach") {
-                    contentType = APPLICATION_JSON
-                    content = objectMapper.writeValueAsString(body)
-                }.andExpect {
-                    status { isOk() }
-                    jsonPath("$.coverLetterPrompt", equalTo("Write a professional cover letter"))
-                    jsonPath("$.recruiterMessagePrompt", equalTo("Write a short recruiter message"))
-                }
-        }
-
-        @Test
-        fun `should save source-specific config`() {
-            val body =
-                mapOf(
-                    "sourceConfig" to
-                        mapOf(
-                            JobSource.DOU.value to
-                                mapOf(
-                                    "coverLetterPrompt" to "DOU-specific prompt",
-                                    "recruiterMessagePrompt" to "DOU recruiter",
-                                ),
-                        ),
-                )
-
-            mockMvc
-                .put("/settings/outreach") {
-                    contentType = APPLICATION_JSON
-                    content = objectMapper.writeValueAsString(body)
-                }.andExpect {
-                    status { isOk() }
-                }
-        }
-
-        @Test
-        fun `should accept null prompts`() {
-            val body =
-                mapOf(
-                    "coverLetterPrompt" to null,
-                    "recruiterMessagePrompt" to null,
-                    "sourceConfig" to emptyMap<String, Any>(),
-                )
-
-            mockMvc
-                .put("/settings/outreach") {
-                    contentType = APPLICATION_JSON
-                    content = objectMapper.writeValueAsString(body)
-                }.andExpect {
-                    status { isOk() }
-                }
-        }
-    }
-
-    @Nested
-    inner class OutreachTest {
-        @Test
-        fun `should return 404 for cover letter test when no jobs exist`() {
-            mockMvc
-                .post("/settings/outreach/test/cover-letter") {
-                    contentType = APPLICATION_JSON
-                    content = """{"source": "${JobSource.WEB3CAREER.value}"}"""
-                }.andExpect {
-                    status { isNotFound() }
-                }
-        }
-
-        @Test
-        fun `should return 404 for recruiter message test when no jobs exist`() {
-            mockMvc
-                .post("/settings/outreach/test/recruiter-message") {
-                    contentType = APPLICATION_JSON
-                    content = """{"source": "${JobSource.WEB3CAREER.value}"}"""
-                }.andExpect {
-                    status { isNotFound() }
-                }
         }
     }
 }

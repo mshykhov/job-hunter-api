@@ -200,25 +200,8 @@ CREATE TABLE material_validation_results
     CONSTRAINT ck_material_validation_owner CHECK (revision_id IS NOT NULL OR attempt_id IS NOT NULL)
 );
 
-CREATE TABLE legacy_outreach_imports
-(
-    id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id           UUID        NOT NULL REFERENCES users (id),
-    job_id            UUID        NOT NULL REFERENCES jobs (id),
-    user_job_id       UUID        NOT NULL REFERENCES user_jobs (id),
-    kind              VARCHAR(32) NOT NULL,
-    encrypted_content BYTEA       NOT NULL,
-    origin            VARCHAR(32) NOT NULL DEFAULT 'LEGACY_IMPORTED',
-    imported_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT uk_legacy_outreach_import UNIQUE (user_job_id, kind),
-    CONSTRAINT ck_legacy_outreach_origin CHECK (origin = 'LEGACY_IMPORTED')
-);
+DROP TABLE outreach_settings;
 
-CREATE TABLE application_data_migrations
-(
-    name           VARCHAR(128) PRIMARY KEY,
-    source_count   BIGINT      NOT NULL CHECK (source_count >= 0),
-    imported_count BIGINT      NOT NULL CHECK (imported_count >= 0),
-    completed_at   TIMESTAMPTZ NOT NULL,
-    CONSTRAINT ck_application_data_migration_counts CHECK (source_count = imported_count)
-);
+ALTER TABLE user_jobs
+    DROP COLUMN cover_letter,
+    DROP COLUMN recruiter_message;

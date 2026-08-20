@@ -26,8 +26,6 @@ class MaterialMigrationIntegrationTest : AbstractIntegrationTest() {
                 "material_claim_usages",
                 "material_generation_attempts",
                 "material_validation_results",
-                "legacy_outreach_imports",
-                "application_data_migrations",
             )
         val actual =
             jdbcTemplate.queryForList(
@@ -58,8 +56,7 @@ class MaterialMigrationIntegrationTest : AbstractIntegrationTest() {
                     'candidate_profile_versions',
                     'writing_style_versions',
                     'job_description_versions',
-                    'application_material_artifacts',
-                    'legacy_outreach_imports'
+                    'application_material_artifacts'
                   )
                   AND data_type = 'bytea'
                 """.trimIndent(),
@@ -74,9 +71,25 @@ class MaterialMigrationIntegrationTest : AbstractIntegrationTest() {
                 "job_description_versions.encrypted_raw_content",
                 "job_description_versions.encrypted_normalized_content",
                 "application_material_artifacts.encrypted_content",
-                "legacy_outreach_imports.encrypted_content",
             ),
             columns,
         )
+    }
+
+    @Test
+    fun `removes legacy outreach storage`() {
+        val remaining =
+            jdbcTemplate.queryForObject(
+                """
+                SELECT COUNT(*)
+                FROM information_schema.columns
+                WHERE table_schema = 'public'
+                  AND ((table_name = 'user_jobs' AND column_name IN ('cover_letter', 'recruiter_message'))
+                    OR table_name = 'outreach_settings')
+                """.trimIndent(),
+                Long::class.java,
+            )
+
+        assertEquals(0, remaining)
     }
 }

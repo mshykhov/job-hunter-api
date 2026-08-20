@@ -23,10 +23,9 @@ import kotlin.test.assertTrue
 class UserJobGroupServiceTest {
     private val userFacade = mockk<UserFacade>()
     private val userJobGroupFacade = mockk<UserJobGroupFacade>()
-    private val userJobFacade = mockk<UserJobFacade>()
     private val jobFacade = mockk<JobFacade>()
 
-    private val service = UserJobGroupService(userFacade, userJobGroupFacade, userJobFacade, jobFacade)
+    private val service = UserJobGroupService(userFacade, userJobGroupFacade, jobFacade)
 
     private val auth0Sub = "auth0|test-user"
     private val user = TestFixtures.userEntity(auth0Sub = auth0Sub)
@@ -172,47 +171,12 @@ class UserJobGroupServiceTest {
             every { userFacade.findByAuth0Sub(auth0Sub) } returns user
             every { userJobGroupFacade.findByUserIdAndGroupId(user.id, groupId) } returns userJobGroup
             every { jobFacade.findByGroupId(groupId) } returns listOf(job)
-            every { userJobFacade.findByUserIdAndJobIds(user.id, listOf(job.id)) } returns emptyList()
 
             val result = service.getGroupDetail(auth0Sub, groupId)
 
             assertEquals(group.id, result.groupId)
             assertEquals(group.title, result.title)
             assertEquals(1, result.jobs.size)
-        }
-
-        @Test
-        fun `should include user job outreach data for each job variant`() {
-            val group = TestFixtures.jobGroupEntity()
-            val userJobGroup = TestFixtures.userJobGroupEntity(user = user, group = group)
-            val job = TestFixtures.jobEntity(group = group)
-            val userJob = TestFixtures.userJobEntity(user = user, job = job).apply { coverLetter = "My cover letter" }
-
-            every { userFacade.findByAuth0Sub(auth0Sub) } returns user
-            every { userJobGroupFacade.findByUserIdAndGroupId(user.id, groupId) } returns userJobGroup
-            every { jobFacade.findByGroupId(groupId) } returns listOf(job)
-            every { userJobFacade.findByUserIdAndJobIds(user.id, listOf(job.id)) } returns listOf(userJob)
-
-            val result = service.getGroupDetail(auth0Sub, groupId)
-
-            assertEquals("My cover letter", result.jobs[0].coverLetter)
-        }
-
-        @Test
-        fun `should include recruiter message for each job variant`() {
-            val group = TestFixtures.jobGroupEntity()
-            val userJobGroup = TestFixtures.userJobGroupEntity(user = user, group = group)
-            val job = TestFixtures.jobEntity(group = group)
-            val userJob = TestFixtures.userJobEntity(user = user, job = job).apply { recruiterMessage = "Hello recruiter" }
-
-            every { userFacade.findByAuth0Sub(auth0Sub) } returns user
-            every { userJobGroupFacade.findByUserIdAndGroupId(user.id, groupId) } returns userJobGroup
-            every { jobFacade.findByGroupId(groupId) } returns listOf(job)
-            every { userJobFacade.findByUserIdAndJobIds(user.id, listOf(job.id)) } returns listOf(userJob)
-
-            val result = service.getGroupDetail(auth0Sub, groupId)
-
-            assertEquals("Hello recruiter", result.jobs[0].recruiterMessage)
         }
 
         @Test
@@ -223,7 +187,6 @@ class UserJobGroupServiceTest {
             every { userFacade.findByAuth0Sub(auth0Sub) } returns user
             every { userJobGroupFacade.findByUserIdAndGroupId(user.id, groupId) } returns userJobGroup
             every { jobFacade.findByGroupId(groupId) } returns emptyList()
-            every { userJobFacade.findByUserIdAndJobIds(user.id, emptyList()) } returns emptyList()
 
             val result = service.getGroupDetail(auth0Sub, groupId)
 
