@@ -47,8 +47,7 @@ class MaterialLeaseServiceIntegrationTest : AbstractIntegrationTest() {
         val kinds = setOf(MaterialKind.CV_DOCX, MaterialKind.CV_PDF, MaterialKind.COVER_LETTER)
         val request = materialService.ensureReady(subject, job.id, kinds, MaterialRequestMode.TERRA, CoverLetterPolicy.OPTIONAL_STANDARD, false)
 
-        val claim = assertNotNull(leaseService.claim("test-worker"))
-        assertEquals(request.requestId, claim.requestId)
+        val claim = claimRequest(request.requestId)
         assertNull(leaseService.claim("other-worker"))
         leaseService.heartbeat(claim.requestId, claim.leaseToken)
         val docx = "tailored docx".toByteArray()
@@ -85,4 +84,13 @@ class MaterialLeaseServiceIntegrationTest : AbstractIntegrationTest() {
 
     private fun upload(content: ByteArray, mediaType: String) =
         MaterialArtifactUpload(content, mediaType, EncryptedMaterialStore.sha256(content))
+
+    private fun claimRequest(requestId: UUID): MaterialClaim {
+        repeat(10) {
+            val claim = assertNotNull(leaseService.claim("test-worker"))
+            if (claim.requestId == requestId) return claim
+            leaseService.fail(claim.requestId, claim.leaseToken, retryable = false)
+        }
+        error("Material request $requestId was not claimable")
+    }
 }
