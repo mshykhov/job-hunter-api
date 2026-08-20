@@ -10,6 +10,8 @@ import com.mshykhov.jobhunter.application.preference.SearchPreferences
 import com.mshykhov.jobhunter.application.preference.TelegramPreferences
 import com.mshykhov.jobhunter.application.preference.UserPreferenceEntity
 import com.mshykhov.jobhunter.application.preference.UserPreferenceFacade
+import com.mshykhov.jobhunter.application.statistics.DecisionOutcome
+import com.mshykhov.jobhunter.application.statistics.UserJobGroupDecisionFacade
 import com.mshykhov.jobhunter.application.user.UserEntity
 import com.mshykhov.jobhunter.application.userjob.UserJobGroupEntity
 import com.mshykhov.jobhunter.application.userjob.UserJobGroupFacade
@@ -33,28 +35,25 @@ import kotlin.test.assertNotNull
 class ColdFilterRetroServiceTest {
     private val userPreferenceFacade = mockk<UserPreferenceFacade>()
     private val userJobGroupFacade = mockk<UserJobGroupFacade>()
+    private val decisionFacade = mockk<UserJobGroupDecisionFacade>(relaxed = true)
     private val entityManager = mockk<EntityManager>()
 
-    private val service = ColdFilterRetroService(userPreferenceFacade, userJobGroupFacade, entityManager)
+    private val service = ColdFilterRetroService(userPreferenceFacade, userJobGroupFacade, decisionFacade, entityManager)
 
     @Nested
     inner class Filtering {
         @Test
-        fun `should delete NEW groups that fail cold filter after preference change`() {
+        fun `should retain NEW groups and record cold rejection after preference change`() {
             val user = UserEntity(auth0Sub = "user-1")
             val leadUserGroup = userJobGroup(user, groupWithJob("Java Team Lead"))
             val devUserGroup = userJobGroup(user, groupWithJob("Senior Java Developer"))
             val preference = preference(user, excludedTitleKeywords = listOf("lead"))
-            val deletedIds = mutableListOf<List<UUID>>()
-
             stubGroups(user, preference, listOf(leadUserGroup, devUserGroup))
-            every {
-                userJobGroupFacade.deleteByIdsAndUserIdAndStatus(capture(deletedIds), user.id, UserJobStatus.NEW)
-            } returns 1
 
             service.onPreferenceChanged(PreferenceChangedEvent(user.id))
 
-            assertEquals(listOf(listOf(leadUserGroup.id)), deletedIds)
+            verify { decisionFacade.upsert(user, leadUserGroup.group, leadUserGroup.group.jobs, DecisionOutcome.COLD_REJECTED, null, null, null) }
+            verify(exactly = 0) { userJobGroupFacade.deleteByIdsAndUserIdAndStatus(any(), any(), any()) }
         }
 
         @Test

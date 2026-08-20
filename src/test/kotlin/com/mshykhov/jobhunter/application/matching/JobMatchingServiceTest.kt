@@ -19,6 +19,7 @@ import com.mshykhov.jobhunter.application.preference.TelegramPreferences
 import com.mshykhov.jobhunter.application.preference.UserPreferenceEntity
 import com.mshykhov.jobhunter.application.preference.UserPreferenceFacade
 import com.mshykhov.jobhunter.application.settings.AiProvider
+import com.mshykhov.jobhunter.application.statistics.UserJobGroupDecisionFacade
 import com.mshykhov.jobhunter.application.user.UserEntity
 import com.mshykhov.jobhunter.application.userjob.UserJobGroupEntity
 import com.mshykhov.jobhunter.application.userjob.UserJobGroupFacade
@@ -43,6 +44,7 @@ class JobMatchingServiceTest {
     private val jobFacade = mockk<JobFacade>()
     private val userPreferenceFacade = mockk<UserPreferenceFacade>()
     private val userJobGroupFacade = mockk<UserJobGroupFacade>()
+    private val decisionFacade = mockk<UserJobGroupDecisionFacade>(relaxed = true)
     private val userAiProviderService = mockk<UserAiProviderService>()
     private val jobRelevanceEvaluator = mockk<JobRelevanceEvaluator>()
     private val chatClientFactory = mockk<ChatClientFactory>()
@@ -55,6 +57,7 @@ class JobMatchingServiceTest {
             jobFacade = jobFacade,
             userPreferenceFacade = userPreferenceFacade,
             userJobGroupFacade = userJobGroupFacade,
+            decisionFacade = decisionFacade,
             userAiProviderService = userAiProviderService,
             jobRelevanceEvaluator = jobRelevanceEvaluator,
             chatClientFactory = chatClientFactory,
@@ -568,6 +571,7 @@ class JobMatchingServiceTest {
                     jobFacade = jobFacade,
                     userPreferenceFacade = userPreferenceFacade,
                     userJobGroupFacade = userJobGroupFacade,
+                    decisionFacade = decisionFacade,
                     userAiProviderService = userAiProviderService,
                     jobRelevanceEvaluator = jobRelevanceEvaluator,
                     chatClientFactory = chatClientFactory,

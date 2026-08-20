@@ -10,6 +10,8 @@ import com.mshykhov.jobhunter.application.job.JobFacade
 import com.mshykhov.jobhunter.application.job.JobGroupEntity
 import com.mshykhov.jobhunter.application.preference.UserPreferenceEntity
 import com.mshykhov.jobhunter.application.preference.UserPreferenceFacade
+import com.mshykhov.jobhunter.application.statistics.DecisionOutcome
+import com.mshykhov.jobhunter.application.statistics.UserJobGroupDecisionFacade
 import com.mshykhov.jobhunter.application.userjob.UserJobGroupEntity
 import com.mshykhov.jobhunter.application.userjob.UserJobGroupFacade
 import com.mshykhov.jobhunter.infrastructure.ai.AiProperties
@@ -35,6 +37,7 @@ class JobMatchingService(
     private val jobFacade: JobFacade,
     private val userPreferenceFacade: UserPreferenceFacade,
     private val userJobGroupFacade: UserJobGroupFacade,
+    private val decisionFacade: UserJobGroupDecisionFacade,
     private val userAiProviderService: UserAiProviderService,
     private val jobRelevanceEvaluator: JobRelevanceEvaluator,
     private val chatClientFactory: ChatClientFactory,
@@ -112,7 +115,7 @@ class JobMatchingService(
         val stats = MatchingStats()
         return try {
             val representative = selectRepresentative(groupJobs)
-            val userJobGroups = matchGroupToUsers(group, representative, preferences, userChains, stats)
+            val userJobGroups = matchGroupToUsers(group, groupJobs, representative, preferences, userChains, stats)
             if (userJobGroups.isNotEmpty()) {
                 userJobGroupFacade.saveAll(userJobGroups)
                 stats.saved += userJobGroups.size
@@ -139,6 +142,7 @@ class JobMatchingService(
 
     private fun matchGroupToUsers(
         group: JobGroupEntity,
+        groupJobs: List<JobEntity>,
         representative: JobEntity,
         preferences: List<UserPreferenceEntity>,
         userChains: Map<UUID, AiClientChain>,
@@ -154,6 +158,13 @@ class JobMatchingService(
                     "Group '${group.title}' rejected for user ${preference.user.id} " +
                         "by [${filterResult.filter}]: ${filterResult.reason}"
                 }
+                decisionFacade.upsert(
+                    preference.user,
+                    group,
+                    groupJobs,
+                    DecisionOutcome.COLD_REJECTED,
+                    coldFilter = filterResult.filter,
+                )
                 stats.coldRejected++
                 continue
             }
@@ -163,7 +174,7 @@ class JobMatchingService(
 
             when {
                 chain != null -> {
-                    val result = evaluateWithAi(group, representative, preference, chain, stats, existing)
+                    val result = evaluateWithAi(group, groupJobs, representative, preference, chain, stats, existing)
                     if (result != null) userJobGroups += result
                 }
                 preference.matching.matchWithAi -> {
@@ -175,6 +186,7 @@ class JobMatchingService(
                 }
                 else -> {
                     stats.coldOnly++
+                    decisionFacade.upsert(preference.user, group, groupJobs, DecisionOutcome.COLD_ONLY)
                     userJobGroups += existing?.apply {
                         aiRelevanceScore = 0
                         aiReasoning = COLD_ONLY_REASONING
@@ -193,6 +205,7 @@ class JobMatchingService(
 
     private fun evaluateWithAi(
         group: JobGroupEntity,
+        groupJobs: List<JobEntity>,
         representative: JobEntity,
         preference: UserPreferenceEntity,
         chain: AiClientChain,
@@ -216,9 +229,26 @@ class JobMatchingService(
                 "Group '${group.title}' post-AI rejected for user ${preference.user.id}: " +
                     "remoteOnly but inferredRemote=false"
             }
+            decisionFacade.upsert(
+                preference.user,
+                group,
+                groupJobs,
+                DecisionOutcome.AI_REJECTED_REMOTE,
+                aiScore = aiResult.score,
+                inferredRemote = aiResult.inferredRemote,
+            )
             stats.postAiRejected++
             return null
         }
+
+        decisionFacade.upsert(
+            preference.user,
+            group,
+            groupJobs,
+            DecisionOutcome.AI_SCORED,
+            aiScore = aiResult.score,
+            inferredRemote = aiResult.inferredRemote,
+        )
 
         return existing?.apply {
             aiRelevanceScore = aiResult.score

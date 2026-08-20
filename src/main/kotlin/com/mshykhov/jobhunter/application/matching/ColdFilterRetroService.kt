@@ -2,6 +2,8 @@ package com.mshykhov.jobhunter.application.matching
 
 import com.mshykhov.jobhunter.application.preference.PreferenceChangedEvent
 import com.mshykhov.jobhunter.application.preference.UserPreferenceFacade
+import com.mshykhov.jobhunter.application.statistics.DecisionOutcome
+import com.mshykhov.jobhunter.application.statistics.UserJobGroupDecisionFacade
 import com.mshykhov.jobhunter.application.userjob.UserJobGroupFacade
 import com.mshykhov.jobhunter.application.userjob.UserJobStatus
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -20,6 +22,7 @@ const val COLD_FILTER_RETRO_EXECUTOR = "coldFilterRetroExecutor"
 class ColdFilterRetroService(
     private val userPreferenceFacade: UserPreferenceFacade,
     private val userJobGroupFacade: UserJobGroupFacade,
+    private val decisionFacade: UserJobGroupDecisionFacade,
     private val entityManager: EntityManager,
 ) {
     private val coldFilterChain = ColdFilterChain()
@@ -44,14 +47,15 @@ class ColdFilterRetroService(
                                     coldFilterChain.evaluate(representative, preference) is FilterResult.Rejected
                             }
 
-                    if (rejected.isNotEmpty()) {
-                        removedCount +=
-                            userJobGroupFacade.deleteByIdsAndUserIdAndStatus(
-                                rejected.map { it.id },
-                                event.userId,
-                                UserJobStatus.NEW,
-                            )
+                    rejected.forEach { userJobGroup ->
+                        decisionFacade.upsert(
+                            userJobGroup.user,
+                            userJobGroup.group,
+                            userJobGroup.group.jobs,
+                            DecisionOutcome.COLD_REJECTED,
+                        )
                     }
+                    removedCount += rejected.size
                     userJobGroupFacade.flush()
                 } finally {
                     entityManager.clear()
