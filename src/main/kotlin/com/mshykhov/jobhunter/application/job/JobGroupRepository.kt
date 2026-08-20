@@ -26,7 +26,10 @@ interface JobGroupRepository : JpaRepository<JobGroupEntity, UUID> {
         company: String?,
     )
 
-    @Query("SELECT g.id FROM JobGroupEntity g WHERE g.id IN :groupIds AND g.jobs IS EMPTY")
+    @Query(
+        "SELECT g.id FROM JobGroupEntity g WHERE g.id IN :groupIds AND g.jobs IS EMPTY " +
+            "AND NOT EXISTS (SELECT d FROM UserJobGroupDecisionEntity d WHERE d.group.id = g.id)",
+    )
     fun findIdsWithNoJobs(groupIds: List<UUID>): List<UUID>
 
     @Modifying

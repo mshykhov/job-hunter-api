@@ -1,5 +1,6 @@
 package com.mshykhov.jobhunter.application.statistics
 
+import com.mshykhov.jobhunter.application.common.ValidationException
 import com.mshykhov.jobhunter.application.job.JobSource
 import com.mshykhov.jobhunter.application.user.UserFacade
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource
@@ -31,28 +32,46 @@ data class VacancyStatisticsResult(
 class VacancyStatisticsService(private val jdbcTemplate: NamedParameterJdbcTemplate, private val userFacade: UserFacade, private val clock: Clock) {
     fun query(userId: String, query: VacancyStatisticsQuery): VacancyStatisticsResult {
         val to = query.to ?: Instant.now(clock)
-        val from = query.from ?: to.minusSeconds(DEFAULT_RANGE_SECONDS)
-        require(!from.isAfter(to)) { "from must not be after to" }
+        val requestedFrom = query.from ?: to.minusSeconds(DEFAULT_RANGE_SECONDS)
+        if (requestedFrom.isAfter(to)) throw ValidationException("from must not be after to")
+        val from = earliestGroupCreatedAt()?.let { earliest -> maxOf(requestedFrom, earliest) } ?: requestedFrom
         val starts =
             generateSequence(query.bucket.startOf(from)) { query.bucket.next(it) }
                 .takeWhile { it.isBefore(to) }
                 .toList()
-        require(starts.size <= MAX_POINTS) { "Requested range produces more than $MAX_POINTS points" }
+        if (starts.size > MAX_POINTS) throw ValidationException("Requested range produces more than $MAX_POINTS points")
         val sourceNames = query.sources?.map { it.name }?.toTypedArray()
+        val params =
+            MapSqlParameterSource()
+                .addValue("from", from)
+                .addValue("to", to)
+                .addValue("sources", sourceNames)
+                .addValue("sourcesEmpty", sourceNames.isNullOrEmpty())
         val user =
             userFacade.findByAuth0Sub(userId)
                 ?: return VacancyStatisticsResult(
                     from,
                     to,
                     query.bucket,
-                    null,
-                    null,
+                    migrationInstalledAt(),
+                    migrationInstalledAt(),
                     starts.map { VacancyStatisticsPoint(it, 0, 0, 0, 0, 0, null) },
                 )
-        val rows = jdbcTemplate.query(
+        val allByStart = jdbcTemplate.query(
+            """
+            SELECT date_trunc('${query.bucket.postgresUnit()}', g.created_at AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' AS bucket_start,
+                   count(DISTINCT g.id) AS all_vacancies
+            FROM job_groups g
+            WHERE g.created_at >= :from AND g.created_at < :to
+              AND (:sourcesEmpty OR EXISTS (SELECT 1 FROM jobs j WHERE j.group_id = g.id AND j.source::text = ANY(CAST(:sources AS varchar[])))
+                   OR EXISTS (SELECT 1 FROM user_job_group_decisions d WHERE d.user_id = :userId AND d.group_id = g.id AND d.sources && CAST(:sources AS varchar[])))
+            GROUP BY bucket_start
+            """.trimIndent(),
+            params.addValue("userId", user.id),
+        ) { rs, _ -> rs.getTimestamp("bucket_start").toInstant() to rs.getLong("all_vacancies") }.toMap()
+        val outcomesByStart = jdbcTemplate.query(
             """
             SELECT date_trunc('${query.bucket.postgresUnit()}', vacancy_seen_at AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' AS bucket_start,
-                   count(DISTINCT group_id) AS all_vacancies,
                    count(DISTINCT group_id) FILTER (WHERE outcome = 'COLD_REJECTED') AS cold_rejected,
                    count(DISTINCT group_id) FILTER (WHERE outcome = 'AI_REJECTED_REMOTE') AS not_fully_remote,
                    count(DISTINCT group_id) FILTER (WHERE outcome = 'AI_SCORED') AS ai_scored,
@@ -63,16 +82,11 @@ class VacancyStatisticsService(private val jdbcTemplate: NamedParameterJdbcTempl
               AND (:sourcesEmpty OR sources && CAST(:sources AS varchar[]))
             GROUP BY bucket_start ORDER BY bucket_start
             """.trimIndent(),
-            MapSqlParameterSource()
-                .addValue("userId", user.id)
-                .addValue("from", from)
-                .addValue("to", to)
-                .addValue("sources", sourceNames)
-                .addValue("sourcesEmpty", sourceNames.isNullOrEmpty()),
+            params,
         ) { rs, _ ->
             VacancyStatisticsPoint(
                 rs.getTimestamp("bucket_start").toInstant(),
-                rs.getLong("all_vacancies"),
+                0,
                 rs.getLong("cold_rejected"),
                 rs.getLong("not_fully_remote"),
                 rs.getLong("ai_scored"),
@@ -83,13 +97,30 @@ class VacancyStatisticsService(private val jdbcTemplate: NamedParameterJdbcTempl
             )
         }.associateBy { it.start }
         return VacancyStatisticsResult(
-            from, to, query.bucket, null, null,
+            from,
+            to,
+            query.bucket,
+            migrationInstalledAt(),
+            migrationInstalledAt(),
             starts.map { start ->
-                rows[start]
-                    ?: VacancyStatisticsPoint(start, 0, 0, 0, 0, 0, null)
+                outcomesByStart[start]?.copy(allVacancies = allByStart[start] ?: 0)
+                    ?: VacancyStatisticsPoint(start, allByStart[start] ?: 0, 0, 0, 0, 0, null)
             },
         )
     }
+
+    private fun earliestGroupCreatedAt(): Instant? =
+        jdbcTemplate.query("SELECT min(created_at) AS created_at FROM job_groups", MapSqlParameterSource()) { rs, _ ->
+            rs.getTimestamp("created_at")?.toInstant()
+        }.firstOrNull()
+
+    private fun migrationInstalledAt(): Instant? =
+        runCatching {
+            jdbcTemplate.query(
+                "SELECT installed_on FROM flyway_schema_history WHERE version = '27'",
+                MapSqlParameterSource(),
+            ) { rs, _ -> rs.getTimestamp("installed_on").toInstant() }.firstOrNull()
+        }.getOrNull()
 
     companion object {
         private const val DEFAULT_RANGE_SECONDS = 30L * 24 * 60 * 60

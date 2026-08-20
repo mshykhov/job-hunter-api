@@ -1,5 +1,8 @@
 package com.mshykhov.jobhunter.application.job
 
+import com.mshykhov.jobhunter.application.statistics.DecisionOutcome
+import com.mshykhov.jobhunter.application.statistics.UserJobGroupDecisionEntity
+import com.mshykhov.jobhunter.application.statistics.UserJobGroupDecisionRepository
 import com.mshykhov.jobhunter.application.user.UserRepository
 import com.mshykhov.jobhunter.application.userjob.UserJobGroupRepository
 import com.mshykhov.jobhunter.application.userjob.UserJobRepository
@@ -40,6 +43,9 @@ class JobRetentionServiceIntegrationTest : AbstractIntegrationTest() {
 
     @Autowired
     lateinit var userJobRepository: UserJobRepository
+
+    @Autowired
+    lateinit var decisionRepository: UserJobGroupDecisionRepository
 
     private val now = Instant.parse("1971-01-01T00:00:00Z")
     private val staleInstant = Instant.parse("1970-10-01T00:00:00Z")
@@ -146,5 +152,36 @@ class JobRetentionServiceIntegrationTest : AbstractIntegrationTest() {
 
         assertTrue(jobRepository.existsById(coverLetterJob.id))
         assertTrue(jobGroupRepository.existsById(coverLetterGroup.id))
+    }
+
+    @Test
+    fun `should retain empty group with a decision ledger after purging its job`() {
+        val suffix = System.nanoTime()
+        val user = userRepository.save(TestFixtures.userEntity())
+        val group = jobGroupRepository.save(TestFixtures.jobGroupEntity(title = "Ledger $suffix"))
+        val job =
+            jobRepository.save(
+                TestFixtures.jobEntity(title = "Ledger $suffix", group = group, url = "https://example.com/ledger-$suffix")
+                    .apply {
+                        lastSeenAt = staleInstant
+                        matchedAt = staleInstant
+                    },
+            )
+        decisionRepository.save(
+            UserJobGroupDecisionEntity(
+                user = user,
+                group = group,
+                vacancySeenAt = requireNotNull(group.createdAt),
+                decidedAt = now,
+                outcome = DecisionOutcome.COLD_REJECTED,
+                sources = arrayOf(job.source.name),
+            ),
+        )
+
+        service().purgeExpiredJobs()
+
+        assertFalse(jobRepository.existsById(job.id))
+        assertTrue(jobGroupRepository.existsById(group.id))
+        assertTrue(decisionRepository.findByUserIdAndGroupId(user.id, group.id) != null)
     }
 }

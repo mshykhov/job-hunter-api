@@ -49,11 +49,22 @@ class ColdFilterRetroServiceTest {
             val devUserGroup = userJobGroup(user, groupWithJob("Senior Java Developer"))
             val preference = preference(user, excludedTitleKeywords = listOf("lead"))
             stubGroups(user, preference, listOf(leadUserGroup, devUserGroup))
+            every { userJobGroupFacade.deleteByIdsAndUserIdAndStatus(listOf(leadUserGroup.id), user.id, UserJobStatus.NEW) } returns 1
 
             service.onPreferenceChanged(PreferenceChangedEvent(user.id))
 
-            verify { decisionFacade.upsert(user, leadUserGroup.group, leadUserGroup.group.jobs, DecisionOutcome.COLD_REJECTED, null, null, null) }
-            verify(exactly = 0) { userJobGroupFacade.deleteByIdsAndUserIdAndStatus(any(), any(), any()) }
+            verify {
+                decisionFacade.upsert(
+                    user,
+                    leadUserGroup.group,
+                    leadUserGroup.group.jobs,
+                    DecisionOutcome.COLD_REJECTED,
+                    "excludedTitleKeyword",
+                    null,
+                    null,
+                )
+            }
+            verify { userJobGroupFacade.deleteByIdsAndUserIdAndStatus(listOf(leadUserGroup.id), user.id, UserJobStatus.NEW) }
         }
 
         @Test

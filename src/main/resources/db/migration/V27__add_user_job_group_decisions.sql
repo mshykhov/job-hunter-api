@@ -4,7 +4,7 @@ CREATE TABLE user_job_group_decisions (
     group_id UUID NOT NULL REFERENCES job_groups(id),
     vacancy_seen_at TIMESTAMPTZ NOT NULL,
     decided_at TIMESTAMPTZ NOT NULL,
-    outcome VARCHAR(32) NOT NULL,
+    outcome VARCHAR(32) NOT NULL CHECK (outcome IN ('COLD_REJECTED', 'AI_REJECTED_REMOTE', 'AI_SCORED', 'COLD_ONLY', 'LEGACY_REJECTED_UNKNOWN')),
     cold_filter VARCHAR(100),
     ai_score INTEGER CHECK (ai_score BETWEEN 0 AND 100),
     inferred_remote BOOLEAN,
@@ -52,6 +52,7 @@ SELECT
     COALESCE(src.sources, '{}'),
     COALESCE(cat.categories, '{}')
 FROM users u
+CROSS JOIN user_preferences up
 CROSS JOIN job_groups jg
 LEFT JOIN user_job_groups ujg ON ujg.user_id = u.id AND ujg.group_id = jg.id
 LEFT JOIN LATERAL (
@@ -60,5 +61,6 @@ LEFT JOIN LATERAL (
 LEFT JOIN LATERAL (
     SELECT array_agg(DISTINCT value ORDER BY value) AS categories FROM jsonb_array_elements_text(jg.categories) value
 ) cat ON TRUE
-WHERE ujg.id IS NULL
+WHERE up.user_id = u.id
+  AND ujg.id IS NULL
   AND EXISTS (SELECT 1 FROM jobs j WHERE j.group_id = jg.id AND j.matched_at IS NOT NULL);

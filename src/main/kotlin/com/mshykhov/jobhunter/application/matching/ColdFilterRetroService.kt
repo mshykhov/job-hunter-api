@@ -48,14 +48,24 @@ class ColdFilterRetroService(
                             }
 
                     rejected.forEach { userJobGroup ->
+                        val representative = requireNotNull(userJobGroup.group.jobs.maxByOrNull { it.description.length })
+                        val filterResult = coldFilterChain.evaluate(representative, preference) as FilterResult.Rejected
                         decisionFacade.upsert(
                             userJobGroup.user,
                             userJobGroup.group,
                             userJobGroup.group.jobs,
                             DecisionOutcome.COLD_REJECTED,
+                            coldFilter = filterResult.filter,
                         )
                     }
-                    removedCount += rejected.size
+                    if (rejected.isNotEmpty()) {
+                        removedCount +=
+                            userJobGroupFacade.deleteByIdsAndUserIdAndStatus(
+                                rejected.map { it.id },
+                                event.userId,
+                                UserJobStatus.NEW,
+                            )
+                    }
                     userJobGroupFacade.flush()
                 } finally {
                     entityManager.clear()
