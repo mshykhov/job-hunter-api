@@ -79,6 +79,12 @@ src/main/kotlin/com/mshykhov/jobhunter/
 | `GET` | `/automation/status` | Read the owner-only automation health projection |
 | `POST` | `/automation/runner/session` | Start a fenced runner generation |
 | `PUT` | `/automation/runner/heartbeat` | Report a fenced, idempotent runner heartbeat |
+| `POST` | `/automation/materials/profile` | Import an immutable private candidate bundle |
+| `POST` | `/automation/materials/claims` | Claim the next queued compilation request |
+| `POST` | `/jobs/{jobId}/materials` | Queue or regenerate an application package |
+| `GET` | `/jobs/{jobId}/materials/revisions` | List immutable package revisions |
+| `POST` | `/materials/revisions/{id}/improve-sol` | Explicitly request one Sol improvement |
+| `GET` | `/materials/revisions/{id}/artifacts/{kind}` | Download an encrypted revision artifact |
 | `GET` | `/actuator/health` | Health check |
 
 ## Environment Variables
@@ -95,11 +101,17 @@ src/main/kotlin/com/mshykhov/jobhunter/
 | `AUTOMATION_OWNER_ISSUER` | - | Exact interactive owner OIDC issuer |
 | `AUTOMATION_OWNER_SUBJECT` | - | Exact immutable owner OIDC subject |
 | `AUTOMATION_RUNNER_ISSUER` | - | Exact dedicated runner OIDC issuer |
+| `MATERIAL_ENCRYPTION_KEY` | - | Base64-encoded 32-byte key for private profiles and artifacts |
+| `MATERIAL_MAX_ARTIFACT_BYTES` | `5242880` | Per-artifact upload limit |
 | `AUTH0_ENABLED` | `true` | Enable/disable Auth0 |
 | `AUTH0_ISSUER` | - | Auth0 issuer URL |
 | `AUTH0_AUDIENCE` | - | Auth0 audience |
 | `AI_ENABLED` | `false` | Enable Claude AI filtering |
 | `ANTHROPIC_AUTH_TOKEN` | - | OAuth token from `claude setup-token` |
+
+Application packages are versioned and immutable. Candidate facts, vacancy bodies, owner edits, and
+generated artifacts are encrypted with AES-256-GCM before persistence. The machine scope can only
+claim, heartbeat, fail, and complete leased work; owner endpoints remain bound to the interactive user.
 
 ## Agent Configuration
 
