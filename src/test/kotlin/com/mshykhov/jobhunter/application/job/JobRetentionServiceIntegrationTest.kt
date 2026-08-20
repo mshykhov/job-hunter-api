@@ -171,7 +171,7 @@ class JobRetentionServiceIntegrationTest : AbstractIntegrationTest() {
             UserJobGroupDecisionEntity(
                 user = user,
                 group = group,
-                vacancySeenAt = requireNotNull(group.createdAt),
+                vacancySeenAt = now,
                 decidedAt = now,
                 outcome = DecisionOutcome.COLD_REJECTED,
                 sources = arrayOf(job.source.name),
