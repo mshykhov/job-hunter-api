@@ -7,7 +7,9 @@ import com.mshykhov.jobhunter.api.rest.automation.dto.AutomationMaterialCompleti
 import com.mshykhov.jobhunter.api.rest.automation.dto.AutomationMaterialFailureRequest
 import com.mshykhov.jobhunter.api.rest.automation.dto.AutomationMaterialHeartbeatRequest
 import com.mshykhov.jobhunter.api.rest.automation.dto.AutomationMaterialHeartbeatResponse
+import com.mshykhov.jobhunter.api.rest.materials.dto.CandidateProfileSummaryResponse
 import com.mshykhov.jobhunter.application.common.ValidationException
+import com.mshykhov.jobhunter.application.materials.CandidateProfileService
 import com.mshykhov.jobhunter.application.materials.MaterialArtifactUpload
 import com.mshykhov.jobhunter.application.materials.MaterialCompletion
 import com.mshykhov.jobhunter.application.materials.MaterialKind
@@ -29,7 +31,35 @@ import java.util.UUID
 
 @RestController
 @RequestMapping("/automation/materials")
-class AutomationMaterialController(private val service: MaterialLeaseService, private val identityGuard: AutomationIdentityGuard) {
+class AutomationMaterialController(
+    private val service: MaterialLeaseService,
+    private val profileService: CandidateProfileService,
+    private val identityGuard: AutomationIdentityGuard,
+) {
+    @PostMapping("/profile", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
+    fun importProfile(
+        @AuthenticationPrincipal jwt: Jwt,
+        @RequestPart manifest: MultipartFile,
+        @RequestPart candidateProfile: MultipartFile,
+        @RequestPart factCatalog: MultipartFile,
+        @RequestPart writingStyle: MultipartFile,
+        @RequestPart baseCvDocx: MultipartFile,
+        @RequestPart baseCvPdf: MultipartFile,
+    ): CandidateProfileSummaryResponse {
+        identityGuard.requireRunner(jwt)
+        return CandidateProfileSummaryResponse.from(
+            profileService.importProfile(
+                identityGuard.ownerSubject(),
+                manifest.bytes,
+                candidateProfile.bytes,
+                factCatalog.bytes,
+                writingStyle.bytes,
+                baseCvDocx.bytes,
+                baseCvPdf.bytes,
+            ),
+        )
+    }
+
     @PostMapping("/claims")
     fun claim(
         @AuthenticationPrincipal jwt: Jwt,

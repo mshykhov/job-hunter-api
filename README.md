@@ -81,7 +81,7 @@ src/main/kotlin/com/mshykhov/jobhunter/
 | `PUT` | `/automation/runner/heartbeat` | Report a fenced, idempotent runner heartbeat |
 | `POST` | `/automation/materials/profile` | Import an immutable private candidate bundle |
 | `POST` | `/automation/materials/claims` | Claim the next queued compilation request |
-| `POST` | `/jobs/{jobId}/materials` | Queue or regenerate an application package |
+| `POST` | `/jobs/{jobId}/materials` | Queue or regenerate all or selected application materials |
 | `GET` | `/jobs/{jobId}/materials/revisions` | List immutable package revisions |
 | `POST` | `/materials/revisions/{id}/improve-sol` | Explicitly request one Sol improvement |
 | `GET` | `/materials/revisions/{id}/artifacts/{kind}` | Download an encrypted revision artifact |

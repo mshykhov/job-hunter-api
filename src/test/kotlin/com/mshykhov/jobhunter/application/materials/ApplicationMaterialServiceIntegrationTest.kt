@@ -32,7 +32,7 @@ class ApplicationMaterialServiceIntegrationTest : AbstractIntegrationTest() {
     fun `queues one idempotent request for the same vacancy and profile`() {
         val subject = "auth0|materials-${UUID.randomUUID()}"
         val user = userRepository.save(TestFixtures.userEntity(subject))
-        val group = jobGroupRepository.save(TestFixtures.jobGroupEntity())
+        val group = jobGroupRepository.save(TestFixtures.jobGroupEntity(title = "Single ${UUID.randomUUID()}"))
         val job = jobRepository.save(TestFixtures.jobEntity(group = group))
         userJobGroupRepository.save(TestFixtures.userJobGroupEntity(user = user, group = group))
         SyntheticMaterialBundle.create(objectMapper).also {
@@ -46,5 +46,30 @@ class ApplicationMaterialServiceIntegrationTest : AbstractIntegrationTest() {
         assertEquals(first.requestId, second.requestId)
         assertEquals(MaterialStatus.QUEUED, first.status)
         assertEquals(first.requestId, service.findForJob(subject, job.id).single().requestId)
+    }
+
+    @Test
+    fun `queues a single material without requiring CV artifacts`() {
+        val subject = "auth0|materials-single-${UUID.randomUUID()}"
+        val user = userRepository.save(TestFixtures.userEntity(subject))
+        val group = jobGroupRepository.save(TestFixtures.jobGroupEntity())
+        val job = jobRepository.save(TestFixtures.jobEntity(group = group))
+        userJobGroupRepository.save(TestFixtures.userJobGroupEntity(user = user, group = group))
+        SyntheticMaterialBundle.create(objectMapper).also {
+            profileService.importProfile(subject, it.manifest, it.candidateProfile, it.factCatalog, it.writingStyle, it.baseDocx, it.basePdf)
+        }
+
+        val request =
+            service.ensureReady(
+                subject,
+                job.id,
+                setOf(MaterialKind.COVER_LETTER),
+                MaterialRequestMode.TERRA,
+                CoverLetterPolicy.OPTIONAL_STANDARD,
+                false,
+            )
+
+        assertEquals(setOf(MaterialKind.COVER_LETTER), request.requestedKinds)
+        assertEquals(MaterialStatus.QUEUED, request.status)
     }
 }
