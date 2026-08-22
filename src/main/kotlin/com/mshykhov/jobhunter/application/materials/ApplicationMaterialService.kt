@@ -45,6 +45,7 @@ class ApplicationMaterialService(
         val materialPackage =
             materialFacade.findPackage(user.id, jobId)
                 ?: materialFacade.savePackage(ApplicationMaterialPackageEntity(user = user, job = userJob.job))
+        val resolvedParentRevisionId = parentRevisionId ?: materialPackage.selectedRevisionId
         val input =
             listOf(
                 jobDescription.contentSha256,
@@ -77,7 +78,7 @@ class ApplicationMaterialService(
                 modelRoute = if (mode == MaterialRequestMode.SOL_IMPROVE) "SOL" else "TERRA",
                 inputSha256 = inputSha256,
                 idempotencyKey = idempotencyKey,
-                parentRevisionId = parentRevisionId,
+                parentRevisionId = resolvedParentRevisionId,
             ),
         ).view()
     }
@@ -172,8 +173,10 @@ class ApplicationMaterialService(
     }
 
     private fun validateRequestedKinds(kinds: Set<MaterialKind>, policy: CoverLetterPolicy) {
-        if (!kinds.containsAll(setOf(MaterialKind.CV_DOCX, MaterialKind.CV_PDF))) {
-            throw ValidationException("Every package must include CV DOCX and PDF")
+        if (kinds.isEmpty()) throw ValidationException("At least one material must be requested")
+        val cvKinds = setOf(MaterialKind.CV_DOCX, MaterialKind.CV_PDF)
+        if (kinds.intersect(cvKinds).isNotEmpty() && !kinds.containsAll(cvKinds)) {
+            throw ValidationException("CV DOCX and PDF must be generated together")
         }
         if (policy != CoverLetterPolicy.OPTIONAL_STANDARD && MaterialKind.COVER_LETTER !in kinds) {
             throw ValidationException("Required cover-letter policy needs a cover letter")

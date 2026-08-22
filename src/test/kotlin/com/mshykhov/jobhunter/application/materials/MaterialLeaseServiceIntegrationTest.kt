@@ -82,6 +82,75 @@ class MaterialLeaseServiceIntegrationTest : AbstractIntegrationTest() {
         assertEquals(MaterialStatus.QUEUED, improvement.status)
     }
 
+    @Test
+    fun `inherits unchanged artifacts when one material is regenerated`() {
+        val subject = "auth0|lease-partial-${UUID.randomUUID()}"
+        val user = userRepository.save(TestFixtures.userEntity(subject))
+        val group = jobGroupRepository.save(TestFixtures.jobGroupEntity(title = "Partial ${UUID.randomUUID()}"))
+        val job = jobRepository.save(TestFixtures.jobEntity(group = group))
+        userJobGroupRepository.save(TestFixtures.userJobGroupEntity(user = user, group = group))
+        SyntheticMaterialBundle.create(objectMapper).also {
+            profileService.importProfile(subject, it.manifest, it.candidateProfile, it.factCatalog, it.writingStyle, it.baseDocx, it.basePdf)
+        }
+        val initialRequest =
+            materialService.ensureReady(
+                subject,
+                job.id,
+                setOf(MaterialKind.CV_DOCX, MaterialKind.CV_PDF, MaterialKind.COVER_LETTER, MaterialKind.RECRUITER_MESSAGE),
+                MaterialRequestMode.TERRA,
+                CoverLetterPolicy.OPTIONAL_STANDARD,
+                false,
+            )
+        val initialClaim = claimRequest(initialRequest.requestId)
+        val originalPdf = "%PDF original".toByteArray()
+        leaseService.complete(
+            initialClaim.requestId,
+            initialClaim.leaseToken,
+            MaterialCompletion(
+                MaterialStatus.READY,
+                MaterialOrigin.GENERATED,
+                "gpt-5.6-terra",
+                "cv-materials/test",
+                emptyMap(),
+                mapOf(
+                    MaterialKind.CV_DOCX to upload("original docx".toByteArray(), "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
+                    MaterialKind.CV_PDF to upload(originalPdf, "application/pdf"),
+                    MaterialKind.COVER_LETTER to upload("Original cover letter".toByteArray(), "text/plain"),
+                    MaterialKind.RECRUITER_MESSAGE to upload("Original recruiter message".toByteArray(), "text/plain"),
+                ),
+            ),
+        )
+
+        val partialRequest =
+            materialService.ensureReady(
+                subject,
+                job.id,
+                setOf(MaterialKind.COVER_LETTER),
+                MaterialRequestMode.TERRA,
+                CoverLetterPolicy.OPTIONAL_STANDARD,
+                true,
+            )
+        val partialClaim = claimRequest(partialRequest.requestId)
+        val newCoverLetter = "A shorter human cover letter".toByteArray()
+        val revision =
+            leaseService.complete(
+                partialClaim.requestId,
+                partialClaim.leaseToken,
+                MaterialCompletion(
+                    MaterialStatus.READY,
+                    MaterialOrigin.GENERATED,
+                    "gpt-5.6-terra",
+                    "cv-materials/test",
+                    emptyMap(),
+                    mapOf(MaterialKind.COVER_LETTER to upload(newCoverLetter, "text/plain")),
+                ),
+            )
+
+        assertContentEquals(originalPdf, materialService.downloadArtifact(subject, revision.id, MaterialKind.CV_PDF).content)
+        assertContentEquals(newCoverLetter, materialService.downloadArtifact(subject, revision.id, MaterialKind.COVER_LETTER).content)
+        assertEquals(4, materialService.findRevisions(subject, job.id).first { it.id == revision.id }.artifacts.size)
+    }
+
     private fun upload(content: ByteArray, mediaType: String) =
         MaterialArtifactUpload(content, mediaType, EncryptedMaterialStore.sha256(content))
 

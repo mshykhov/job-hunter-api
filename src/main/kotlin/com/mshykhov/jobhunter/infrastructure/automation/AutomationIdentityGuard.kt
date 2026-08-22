@@ -24,6 +24,8 @@ class AutomationIdentityGuard(private val properties: AutomationProperties) {
         requireAuthority(jwt, REPORT_AUTHORITY)
     }
 
+    fun ownerSubject(): String = properties.ownerSubject.takeIf(String::isNotBlank) ?: deny()
+
     private fun requireEnabled() {
         if (!properties.enabled) deny()
     }

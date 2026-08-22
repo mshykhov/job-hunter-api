@@ -111,7 +111,7 @@ class MaterialLeaseService(
         facade.saveRevisionArtifacts(
             stored.map { (kind, artifact) ->
                 ApplicationMaterialRevisionArtifactEntity(revision, profileFacade.artifactReference(artifact.id), kind)
-            },
+            } + inheritedArtifacts(request, revision, stored.keys),
         )
         request.status = completion.status
         clearLease(request)
@@ -133,9 +133,8 @@ class MaterialLeaseService(
 
     private fun validateCompletion(request: ApplicationMaterialRequestEntity, completion: MaterialCompletion) {
         if (completion.status !in TERMINAL_COMPLETION_STATUSES) throw ValidationException("Unsupported completion status")
-        val required = setOf(MaterialKind.CV_DOCX, MaterialKind.CV_PDF)
-        if (completion.status in ELIGIBLE_STATUSES && !completion.artifacts.keys.containsAll(required)) {
-            throw ValidationException("Eligible package must contain CV DOCX and PDF")
+        if (completion.status in ELIGIBLE_STATUSES && !completion.artifacts.keys.containsAll(request.requestedKinds)) {
+            throw ValidationException("Eligible completion must contain every requested material")
         }
         if (request.coverLetterPolicy != CoverLetterPolicy.OPTIONAL_STANDARD &&
             completion.status in ELIGIBLE_STATUSES &&
@@ -147,6 +146,17 @@ class MaterialLeaseService(
             throw ValidationException("Completion contains an unrequested artifact")
         }
     }
+
+    private fun inheritedArtifacts(
+        request: ApplicationMaterialRequestEntity,
+        revision: ApplicationMaterialRevisionEntity,
+        generatedKinds: Set<MaterialKind>,
+    ): List<ApplicationMaterialRevisionArtifactEntity> =
+        request.parentRevisionId
+            ?.let(facade::findRevisionArtifacts)
+            .orEmpty()
+            .filter { it.kind !in generatedKinds }
+            .map { ApplicationMaterialRevisionArtifactEntity(revision, it.artifact, it.kind) }
 
     private fun advanceForCompletion(request: ApplicationMaterialRequestEntity, target: MaterialStatus) {
         if (request.status == MaterialStatus.CLAIMED) {
