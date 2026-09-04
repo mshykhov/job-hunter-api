@@ -5,8 +5,10 @@ import com.mshykhov.jobhunter.api.rest.automation.dto.AutomationHeartbeatRequest
 import com.mshykhov.jobhunter.api.rest.automation.dto.AutomationHeartbeatResponse
 import com.mshykhov.jobhunter.api.rest.automation.dto.AutomationSessionResponse
 import com.mshykhov.jobhunter.api.rest.automation.dto.AutomationStatusResponse
+import com.mshykhov.jobhunter.application.automation.workflow.AutomationWorkflowService
 import com.mshykhov.jobhunter.application.common.ConflictException
 import com.mshykhov.jobhunter.application.common.NotFoundException
+import com.mshykhov.jobhunter.application.common.StaleAutomationGenerationException
 import com.mshykhov.jobhunter.application.common.ValidationException
 import com.mshykhov.jobhunter.application.user.UserFacade
 import com.mshykhov.jobhunter.infrastructure.automation.AutomationProperties
@@ -27,6 +29,7 @@ class AutomationService(
     private val properties: AutomationProperties,
     private val clock: Clock,
     private val metrics: AutomationMetrics,
+    private val workflowService: AutomationWorkflowService,
 ) {
     @Transactional
     fun enableDelegation(): AutomationDelegationResponse {
@@ -87,6 +90,7 @@ class AutomationService(
         runner.sequence = 0
         runner.lastIdempotencyKey = null
         facade.saveRunner(runner)
+        workflowService.onRunnerGenerationStarted(delegation.id, runner.generation)
         return AutomationSessionResponse(RUNNER_KEY, runner.generation, 60, 300, 21600)
     }
 
@@ -94,7 +98,7 @@ class AutomationService(
     fun recordHeartbeat(request: AutomationHeartbeatRequest): AutomationHeartbeatResponse {
         val delegation = activeDelegation()
         val runner = facade.findRunnerForUpdate(delegation.id) ?: throw NotFoundException("Runner session not found")
-        if (request.generation != runner.generation) throw ConflictException("Stale runner generation")
+        if (request.generation != runner.generation) throw StaleAutomationGenerationException()
         if (request.idempotencyKey == runner.lastIdempotencyKey) return heartbeatResponse(runner)
         if (request.sequence != runner.sequence + 1) throw ConflictException("Unexpected heartbeat sequence")
         val now = Instant.now(clock)

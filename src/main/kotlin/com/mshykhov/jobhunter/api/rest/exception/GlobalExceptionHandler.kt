@@ -1,9 +1,11 @@
 package com.mshykhov.jobhunter.api.rest.exception
 
 import com.mshykhov.jobhunter.application.common.AiNotConfiguredException
+import com.mshykhov.jobhunter.application.common.AutomationLeaseLostException
 import com.mshykhov.jobhunter.application.common.ConflictException
 import com.mshykhov.jobhunter.application.common.NotFoundException
 import com.mshykhov.jobhunter.application.common.ServiceUnavailableException
+import com.mshykhov.jobhunter.application.common.StaleAutomationGenerationException
 import com.mshykhov.jobhunter.application.common.ValidationException
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.dao.DataIntegrityViolationException
@@ -95,6 +97,18 @@ class GlobalExceptionHandler : ResponseEntityExceptionHandler() {
     fun handleConflict(ex: ConflictException): ResponseEntity<ErrorResponse> {
         log.warn { "Conflict: ${ex.message}" }
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ErrorResponse(ex.message ?: "Conflict", "CONFLICT"))
+    }
+
+    @ExceptionHandler(StaleAutomationGenerationException::class)
+    fun handleStaleAutomationGeneration(ex: StaleAutomationGenerationException): ResponseEntity<ErrorResponse> {
+        log.warn { ex.message }
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ErrorResponse(ex.message.orEmpty(), "STALE_AUTOMATION_GENERATION"))
+    }
+
+    @ExceptionHandler(AutomationLeaseLostException::class)
+    fun handleAutomationLeaseLost(ex: AutomationLeaseLostException): ResponseEntity<ErrorResponse> {
+        log.warn { ex.message }
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ErrorResponse(ex.message.orEmpty(), "AUTOMATION_LEASE_LOST"))
     }
 
     @ExceptionHandler(AuthorizationDeniedException::class)

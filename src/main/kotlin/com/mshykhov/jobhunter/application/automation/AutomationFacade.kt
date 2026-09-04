@@ -17,6 +17,11 @@ class AutomationFacade(
     ): AutomationDelegationEntity? =
         delegationRepository.findByOwnerIssuerAndOwnerSubjectAndRevokedAtIsNull(ownerIssuer, ownerSubject)
 
+    fun findActiveDelegationForUpdate(
+        ownerIssuer: String,
+        ownerSubject: String,
+    ): AutomationDelegationEntity? = delegationRepository.findActiveForUpdate(ownerIssuer, ownerSubject)
+
     fun findDelegation(
         ownerIssuer: String,
         ownerSubject: String,
