@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
+import java.time.temporal.ChronoUnit
 import java.util.UUID
 
 @Service
@@ -33,7 +34,7 @@ class AutomationWorkflowService(
         runRepository.findByDelegationIdAndIdempotencyKey(delegation.id, idempotencyKey)?.let {
             return toView(it)
         }
-        val now = Instant.now(clock)
+        val now = now()
         val run =
             runRepository.save(
                 AutomationWorkflowRunEntity(
@@ -82,7 +83,7 @@ class AutomationWorkflowService(
         val delegation = activeDelegation()
         val runner = automationFacade.findRunner(delegation.id) ?: throw NotFoundException("Runner session not found")
         if (generation != runner.generation) throw StaleAutomationGenerationException()
-        val now = Instant.now(clock)
+        val now = now()
         recoverExpired(now)
         val item = workItemRepository.claimNext() ?: return null
         val run = item.run
@@ -127,7 +128,7 @@ class AutomationWorkflowService(
         workItemId: UUID,
         command: LeaseCommand,
     ): WorkProgress {
-        val now = Instant.now(clock)
+        val now = now()
         val lease = requireLease(workItemId, command, now)
         lease.item.leaseExpiresAt = now.plus(LEASE_DURATION)
         lease.attempt.lastHeartbeatAt = now
@@ -148,7 +149,7 @@ class AutomationWorkflowService(
             }
             return progress(existing.workItem)
         }
-        val now = Instant.now(clock)
+        val now = now()
         val lease = requireLease(workItemId, command.toLeaseCommand(), now)
         val expectedStep = SyntheticWorkflowStep.entries.getOrNull(lease.item.nextStepIndex)
             ?: throw ConflictException("Every workflow step is already checkpointed")
@@ -188,7 +189,7 @@ class AutomationWorkflowService(
     ): WorkProgress {
         val item = workItemRepository.findForUpdate(workItemId) ?: throw NotFoundException("Automation work item not found")
         if (item.status == AutomationWorkItemStatus.SUCCEEDED) return progress(item)
-        val now = Instant.now(clock)
+        val now = now()
         val lease = requireLease(item, command, now)
         if (item.nextStepIndex != SyntheticWorkflowStep.entries.size) throw ConflictException("Workflow has incomplete steps")
         item.status = AutomationWorkItemStatus.SUCCEEDED
@@ -211,7 +212,7 @@ class AutomationWorkflowService(
         command: FailureCommand,
     ): WorkProgress {
         validateFailure(command)
-        val now = Instant.now(clock)
+        val now = now()
         val lease = requireLease(workItemId, command.toLeaseCommand(), now)
         lease.attempt.outcome = AutomationAttemptOutcome.FAILED
         lease.attempt.failureCode = command.code
@@ -245,7 +246,7 @@ class AutomationWorkflowService(
         item.status = AutomationWorkItemStatus.QUEUED
         runRepository.save(run)
         workItemRepository.save(item)
-        appendEvent(run, item, "RUN_RESUMED", Instant.now(clock))
+        appendEvent(run, item, "RUN_RESUMED", now())
         return toView(run, item)
     }
 
@@ -257,7 +258,7 @@ class AutomationWorkflowService(
         delegationId: UUID,
         generation: Long,
     ) {
-        val now = Instant.now(clock)
+        val now = now()
         workItemRepository.findStaleGenerationForUpdate(delegationId, generation).forEach { item ->
             closeAttempt(item, AutomationAttemptOutcome.STALE_GENERATION, now)
             clearLease(item)
@@ -277,7 +278,7 @@ class AutomationWorkflowService(
         val run = ownedRunForUpdate(runId)
         if (run.status in TERMINAL_STATUSES) throw ConflictException("Terminal workflow cannot be changed")
         if (target == AutomationWorkflowStatus.PAUSED && run.status == AutomationWorkflowStatus.PAUSED) return toView(run)
-        val now = Instant.now(clock)
+        val now = now()
         val item = requireNotNull(workItemRepository.findForUpdateByRunId(run.id))
         if (item.status == AutomationWorkItemStatus.LEASED) closeAttempt(item, outcome, now)
         clearLease(item)
@@ -406,6 +407,8 @@ class AutomationWorkflowService(
             completedSteps = item.nextStepIndex,
             leaseExpiresAt = item.leaseExpiresAt,
         )
+
+    private fun now(): Instant = Instant.now(clock).truncatedTo(ChronoUnit.MICROS)
 
     private fun toView(run: AutomationWorkflowRunEntity): WorkflowRunView =
         toView(run, workItemRepository.findByRunId(run.id) ?: throw NotFoundException("Automation work item not found"))
