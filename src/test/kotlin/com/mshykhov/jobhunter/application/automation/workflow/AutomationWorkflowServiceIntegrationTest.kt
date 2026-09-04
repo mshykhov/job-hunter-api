@@ -1,7 +1,9 @@
 package com.mshykhov.jobhunter.application.automation.workflow
 
 import com.mshykhov.jobhunter.application.automation.AutomationService
+import com.mshykhov.jobhunter.application.common.AutomationLeaseLostException
 import com.mshykhov.jobhunter.application.common.ConflictException
+import com.mshykhov.jobhunter.application.common.StaleAutomationGenerationException
 import com.mshykhov.jobhunter.support.AbstractIntegrationTest
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -95,7 +97,7 @@ class AutomationWorkflowServiceIntegrationTest : AbstractIntegrationTest() {
 
         val nextGeneration = automationService.startSession().generation
 
-        assertFailsWith<ConflictException> {
+        assertFailsWith<StaleAutomationGenerationException> {
             workflowService.heartbeat(
                 firstClaim.workItemId,
                 LeaseCommand(firstClaim.attemptId, firstClaim.leaseToken, generation),
@@ -117,7 +119,7 @@ class AutomationWorkflowServiceIntegrationTest : AbstractIntegrationTest() {
         val claim = assertNotNull(workflowService.claim("worker", generation))
 
         assertEquals(AutomationWorkflowStatus.PAUSED, workflowService.pause(run.id).status)
-        assertFailsWith<ConflictException> {
+        assertFailsWith<AutomationLeaseLostException> {
             workflowService.heartbeat(
                 claim.workItemId,
                 LeaseCommand(claim.attemptId, claim.leaseToken, generation),

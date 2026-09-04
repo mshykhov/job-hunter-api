@@ -8,6 +8,7 @@ import com.mshykhov.jobhunter.api.rest.automation.dto.AutomationStatusResponse
 import com.mshykhov.jobhunter.application.automation.workflow.AutomationWorkflowService
 import com.mshykhov.jobhunter.application.common.ConflictException
 import com.mshykhov.jobhunter.application.common.NotFoundException
+import com.mshykhov.jobhunter.application.common.StaleAutomationGenerationException
 import com.mshykhov.jobhunter.application.common.ValidationException
 import com.mshykhov.jobhunter.application.user.UserFacade
 import com.mshykhov.jobhunter.infrastructure.automation.AutomationProperties
@@ -97,7 +98,7 @@ class AutomationService(
     fun recordHeartbeat(request: AutomationHeartbeatRequest): AutomationHeartbeatResponse {
         val delegation = activeDelegation()
         val runner = facade.findRunnerForUpdate(delegation.id) ?: throw NotFoundException("Runner session not found")
-        if (request.generation != runner.generation) throw ConflictException("Stale runner generation")
+        if (request.generation != runner.generation) throw StaleAutomationGenerationException()
         if (request.idempotencyKey == runner.lastIdempotencyKey) return heartbeatResponse(runner)
         if (request.sequence != runner.sequence + 1) throw ConflictException("Unexpected heartbeat sequence")
         val now = Instant.now(clock)

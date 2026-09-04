@@ -2,8 +2,10 @@ package com.mshykhov.jobhunter.application.automation.workflow
 
 import com.mshykhov.jobhunter.application.automation.AutomationDelegationEntity
 import com.mshykhov.jobhunter.application.automation.AutomationFacade
+import com.mshykhov.jobhunter.application.common.AutomationLeaseLostException
 import com.mshykhov.jobhunter.application.common.ConflictException
 import com.mshykhov.jobhunter.application.common.NotFoundException
+import com.mshykhov.jobhunter.application.common.StaleAutomationGenerationException
 import com.mshykhov.jobhunter.application.common.ValidationException
 import com.mshykhov.jobhunter.infrastructure.automation.AutomationProperties
 import org.springframework.data.domain.PageRequest
@@ -79,7 +81,7 @@ class AutomationWorkflowService(
         if (workerId.isBlank() || workerId.length > 128) throw ValidationException("Worker ID must contain 1 to 128 characters")
         val delegation = activeDelegation()
         val runner = automationFacade.findRunner(delegation.id) ?: throw NotFoundException("Runner session not found")
-        if (generation != runner.generation) throw ConflictException("Stale runner generation")
+        if (generation != runner.generation) throw StaleAutomationGenerationException()
         val now = Instant.now(clock)
         recoverExpired(now)
         val item = workItemRepository.claimNext() ?: return null
@@ -326,16 +328,17 @@ class AutomationWorkflowService(
         val delegation = activeDelegation()
         if (item.run.delegation.id != delegation.id) throw ConflictException("Automation delegation is not active")
         val runner = automationFacade.findRunner(delegation.id) ?: throw NotFoundException("Runner session not found")
-        if (command.generation != runner.generation || item.leaseGeneration != command.generation) {
-            throw ConflictException("Stale runner generation")
+        if (command.generation != runner.generation) {
+            throw StaleAutomationGenerationException()
         }
         if (item.status != AutomationWorkItemStatus.LEASED || item.leaseToken != command.leaseToken || item.leaseExpiresAt?.isAfter(now) != true) {
-            throw ConflictException("Automation work lease is stale or invalid")
+            throw AutomationLeaseLostException()
         }
+        if (item.leaseGeneration != command.generation) throw StaleAutomationGenerationException()
         val attempt = attemptRepository.findByWorkItemIdAndOutcome(item.id, AutomationAttemptOutcome.ACTIVE)
-            ?: throw ConflictException("Automation work attempt is not active")
+            ?: throw AutomationLeaseLostException()
         if (attempt.id != command.attemptId || attempt.leaseToken != command.leaseToken) {
-            throw ConflictException("Automation work attempt does not own the lease")
+            throw AutomationLeaseLostException()
         }
         return ActiveLease(item, attempt)
     }
