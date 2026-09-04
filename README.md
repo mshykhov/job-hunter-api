@@ -79,6 +79,11 @@ src/main/kotlin/com/mshykhov/jobhunter/
 | `GET` | `/automation/status` | Read the owner-only automation health projection |
 | `POST` | `/automation/runner/session` | Start a fenced runner generation |
 | `PUT` | `/automation/runner/heartbeat` | Report a fenced, idempotent runner heartbeat |
+| `POST` / `GET` | `/automation/workflows/runs` | Create or list owner-only synthetic recovery runs |
+| `GET` | `/automation/workflows/runs/{id}` | Inspect durable progress, attempts, checkpoints, and events |
+| `POST` | `/automation/workflows/runs/{id}/{pause,resume,stop}` | Control an owner workflow |
+| `POST` | `/automation/runner/work-items/claims` | Claim the next API-owned workflow lease |
+| `POST` | `/automation/runner/work-items/{id}/{heartbeat,checkpoints,complete,fail}` | Advance fenced runner work |
 | `POST` | `/automation/materials/profile` | Import an immutable private candidate bundle |
 | `POST` | `/automation/materials/claims` | Claim the next queued compilation request |
 | `POST` | `/jobs/{jobId}/materials` | Queue or regenerate all or selected application materials |
@@ -112,6 +117,25 @@ src/main/kotlin/com/mshykhov/jobhunter/
 Application packages are versioned and immutable. Candidate facts, vacancy bodies, owner edits, and
 generated artifacts are encrypted with AES-256-GCM before persistence. The machine scope can only
 claim, heartbeat, fail, and complete leased work; owner endpoints remain bound to the interactive user.
+
+### Durable automation workflows
+
+PostgreSQL is the only durable workflow store. A synthetic recovery run contains
+one work item with the ordered `PREPARE`, `EXECUTE`, and `VERIFY` checkpoints.
+Claims have a 60-second lease, are fenced by the current runner generation, and
+are retried at most three times. Starting a new runner session immediately closes
+older active attempts and requeues their unfinished work. Checkpoint UUIDs make a
+response replay idempotent, while a unique step index prevents completing the same
+step twice.
+
+The owner may pause, resume, or stop a run. Pause and stop revoke the current lease
+inside the same transaction; stop is terminal. Every accepted transition appends
+a bounded event in the same PostgreSQL transaction. This slice has no external
+side effect, so it does not add a delivery outbox yet. An outbox is required before
+a later slice introduces an external write.
+
+The workflow endpoints do not navigate to job sites, fill forms, solve challenges,
+or submit applications. Those capabilities remain outside this recovery skeleton.
 
 ## Agent Configuration
 

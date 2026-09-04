@@ -5,6 +5,7 @@ import com.mshykhov.jobhunter.api.rest.automation.dto.AutomationHeartbeatRequest
 import com.mshykhov.jobhunter.api.rest.automation.dto.AutomationHeartbeatResponse
 import com.mshykhov.jobhunter.api.rest.automation.dto.AutomationSessionResponse
 import com.mshykhov.jobhunter.api.rest.automation.dto.AutomationStatusResponse
+import com.mshykhov.jobhunter.application.automation.workflow.AutomationWorkflowService
 import com.mshykhov.jobhunter.application.common.ConflictException
 import com.mshykhov.jobhunter.application.common.NotFoundException
 import com.mshykhov.jobhunter.application.common.ValidationException
@@ -27,6 +28,7 @@ class AutomationService(
     private val properties: AutomationProperties,
     private val clock: Clock,
     private val metrics: AutomationMetrics,
+    private val workflowService: AutomationWorkflowService,
 ) {
     @Transactional
     fun enableDelegation(): AutomationDelegationResponse {
@@ -87,6 +89,7 @@ class AutomationService(
         runner.sequence = 0
         runner.lastIdempotencyKey = null
         facade.saveRunner(runner)
+        workflowService.onRunnerGenerationStarted(delegation.id, runner.generation)
         return AutomationSessionResponse(RUNNER_KEY, runner.generation, 60, 300, 21600)
     }
 
